@@ -1,0 +1,32 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MarkerlessAR_Engine", "MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj", "{D3C71855-8D19-4C3D-A807-528BBC3ED19A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug_Camera|Win32 = Debug_Camera|Win32
+		Debug|Win32 = Debug|Win32
+		Release_Camera_2.2|Win32 = Release_Camera_2.2|Win32
+		Release_Camera|Win32 = Release_Camera|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Debug_Camera|Win32.ActiveCfg = Debug_Camera|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Debug_Camera|Win32.Build.0 = Debug_Camera|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Debug|Win32.Build.0 = Debug|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release_Camera_2.2|Win32.ActiveCfg = Release_Camera_2.2|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release_Camera_2.2|Win32.Build.0 = Release_Camera_2.2|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release_Camera|Win32.ActiveCfg = Release_Camera|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release_Camera|Win32.Build.0 = Release_Camera|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release|Win32.ActiveCfg = Release|Win32
+		{D3C71855-8D19-4C3D-A807-528BBC3ED19A}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		VisualSVNWorkingCopyRoot = .
+	EndGlobalSection
+EndGlobal
