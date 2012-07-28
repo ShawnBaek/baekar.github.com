@@ -1,0 +1,72 @@
+﻿빌드 시작: 2012-04-01 오후 3:45:44
+     1>2 노드의 "C:\_PROJECTS\BaekAR_new\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" 프로젝트(build 대상)입니다.
+     1>InitializeBuildStatus:
+         "Debug\BaekAREngine.unsuccessfulbuild"에 연결(touching)하고 있습니다.
+       ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\EngineMain.cpp
+         EngineMain.cpp
+     1>c:\opencv\build\include\opencv2\flann\dist.h : warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+     1>c:\opencv\build\include\opencv2\flann\dist.h : warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+     1>c:\opencv\build\include\opencv2\flann\logger.h(66): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(234) : 'fopen' 선언을 참조하십시오.
+     1>c:\opencv\build\include\opencv2\flann\dist.h : warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+     1>c:\opencv\build\include\opencv2\flann\dist.h : warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다. 데이터가 손실되지 않게 하려면 해당 파일을 유니코드 형식으로 저장하십시오.
+     1>c:\opencv\build\include\opencv2\flann\flann.hpp(233): warning C4996: 'cv::flann::Index_<T>': deprecated로 선언되었습니다.
+                 c:\opencv\build\include\opencv2\flann\flann.hpp(278) : 컴파일 중인 클래스 템플릿 인스턴스화 'cv::flann::Index_<T>'에 대한 참조를 확인하십시오.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(443): warning C4101: 'img_output' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(657): warning C4996: 'freopen': This function or variable may be unsafe. Consider using freopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(249) : 'freopen' 선언을 참조하십시오.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1071): warning C4101: 'dst_corners' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1148): warning C4101: 'dy' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1148): warning C4101: 'dx' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1461): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : 'sprintf' 선언을 참조하십시오.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1548): warning C4101: 'dy' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1551): warning C4101: 'p2' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1551): warning C4101: 'p1' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(1548): warning C4101: 'dx' :참조되지 않은 지역 변수입니다.
+     1>c:\_projects\baekar_new\trunk\markerlessar\enginemain.cpp(606): warning C4715: 'getModelViewMatrix' : 모든 제어 경로에서 값을 반환하지는 않습니다.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\_PROJECTS\BaekAR_new\trunk\Debug\BaekAREngine.exe" /NOLOGO opencv_flann231d.lib opencv_core231d.lib opencv_imgproc231d.lib opencv_highgui231d.lib opencv_ml231d.lib opencv_video231d.lib opencv_objdetect231d.lib opencv_features2d231d.lib opencv_calib3d231d.lib opencv_legacy231d.lib opencv_contrib231d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\BaekAREngine.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\_PROJECTS\BaekAR_new\trunk\Debug\BaekAREngine.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\_PROJECTS\BaekAR_new\trunk\Debug\BaekAREngine.lib" /MACHINE:X86 Debug\agast5_8.obj
+         Debug\agast5_8_nms.obj
+         Debug\agast7_12d.obj
+         Debug\agast7_12d_nms.obj
+         Debug\agast7_12s.obj
+         Debug\agast7_12s_nms.obj
+         Debug\AstDetector.obj
+         Debug\nonMaximumSuppression.obj
+         Debug\oast9_16.obj
+         Debug\oast9_16_nms.obj
+         Debug\brisk.obj
+         Debug\Camera.obj
+         Debug\cvFindExtrinsicCameraParams3.obj
+         Debug\cam.obj
+         Debug\d3d.obj
+         Debug\EngineMain.obj
+         Debug\Capture.obj
+         Debug\ColorDistribution.obj
+         Debug\ColorHistogram.obj
+         Debug\FingerTip.obj
+         Debug\FingertipPoseEstimation.obj
+         Debug\FingertipTracker.obj
+         Debug\HandRegion.obj
+         Debug\MixGaussian.obj
+         Debug\PoseEstimation.obj
+         Debug\KatoPoseEstimator.obj
+         Debug\KatoPoseEstimatorUtils.obj
+         Debug\PoseEstimator.obj
+         Debug\stdafx.obj
+         Debug\SungwookFeature.obj
+         Debug\SungwookUtility.obj
+         Debug\wonjo.obj
+         MarkerlessAR_Engine.vcxproj -> C:\_PROJECTS\BaekAR_new\trunk\Debug\BaekAREngine.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"C:\_PROJECTS\BaekAR_new\trunk\Debug\BaekAREngine.exe;#1" /manifest Debug\BaekAREngine.exe.intermediate.manifest
+       FinalizeBuildStatus:
+         "Debug\BaekAREngine.unsuccessfulbuild" 파일을 삭제하고 있습니다.
+         "Debug\BaekAREngine.lastbuildstate"에 연결(touching)하고 있습니다.
+     1>"C:\_PROJECTS\BaekAR_new\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" 프로젝트를 빌드했습니다(build 대상).
+
+빌드했습니다.
+
+경과 시간: 00:00:03.15

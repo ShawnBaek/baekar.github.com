@@ -1,0 +1,218 @@
+/** 
+\file Camera.h
+\brief 카메라의 입력 설정 헤더 파일
+*/
+
+#pragma once
+#include "../wonjo.h"
+#include <opencv2/opencv.hpp>
+#include "../dll_header.h"
+#include "../global.h"
+#include "../Results.h"
+#define	defaultFileName	"/camera.txt"
+
+
+#define FEATURE_WIDTH 46
+#define FEATURE_HEIGHT 62
+/**
+* \class CCamera 
+* \brief 카메라 설정 클래스
+* \remark  카메라의 올바른 입력을 위해 셋팅
+* \param size 카메라 크기
+* \param projectionMatrix 카메라의 projectionMatrix
+* \param distortionFactor 카메라의 distortionFactor
+* \param parameterFile 파라미터가 저장된 파일의 이름이 저장될 변수
+* \param img_input 카메라 영상 핸들링 변수
+*/
+class CCamera
+{
+public:
+	CCamera(void); /**<생성자*/
+	CCamera(bool	turnOn); /**<생성자*/
+
+
+	Results featuresResult;
+
+	~CCamera(void); /**<소멸자*/
+
+	// Intrinsic Parameters
+	CvSize	size;
+	double	projectionMatrix[3][4];
+	double	distortionFactor[4];
+
+	char	parameterFile[100];
+
+
+	 // Intrinsic Parameters
+    bool  _fIntrinsic;
+	float camera_intrinsic[3][3];
+	float camera_distortion[4];
+	float camera_rotation[3];
+	float camera_translation[3];
+	CvMat intrinsic;
+	CvMat distortion;
+    CvMat rotation;
+    CvMat translation;
+    float camera_rotation3by3[3][3];
+    CvMat rotation3by3;
+
+    float projection_matrix[3][4];
+    CvMat P;
+
+
+	 //
+    // Pose Estimation by Features
+    //
+    bool    _fPoseEstimatedByFeatures;
+    bool    _fValidPose;
+	float   _FeaturesRotation[3];
+    float   _FeaturesRotation3by3[3][3];
+	float   _FeaturesTranslation[3];
+    float   _FeaturesQuaternion[4];
+
+	
+	CvMat   _FeaturesRotationMat;
+    CvMat   _FeaturesRotation3by3Mat;
+	CvMat   _FeaturesTranslationMat;
+    CvMat   _FeaturesQuaternionMat;
+
+	
+	//
+    // Camera Transform
+    //
+    float   _CameraCenterT[3];
+    float   _CameraCenterR[3][3];
+	float   _CameraCenterRTransPose[3][3];
+	float   _CameraHomography[3][3];
+
+
+
+    CvMat   _CameraCenterTMat;
+    CvMat   _CameraCenterRMat;
+	CvMat	_CameraCenterRTransPoseMat;
+	CvMat	_CameraHomographyMat;
+
+	 //
+    // OpenGL View Frustrum
+    //
+    GLuint  _nCameraTexID;
+
+    //
+    // OpenGL ModelView Matrix
+    //
+    float   _ModelView[16];
+	
+
+
+	bool	loaded;
+
+
+	CvMat QueryRotationMat();
+    CvMat QueryTranslationMat();
+    float * QueryModelViewMat();
+    float QueryR( int i, int j ) { return _FeaturesRotation3by3[i][j]; }
+    float QueryT( int i ) { return _FeaturesTranslation[i]; }
+    float QueryCR( int i, int j ) { return _CameraCenterR[i][j]; }
+    float QueryCT( int i ) { return _CameraCenterT[i]; }
+
+    
+    void RenderCaptureImage();
+
+    float QueryFx();
+    float QueryFy();
+
+
+	void featurePoseEstimation();
+
+	//3D 모델을 그리기 위해서 오로지 이 두개의 함수만 호출한다.
+	D3DXMATRIXA16* D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut);
+	D3DXMATRIXA16* D3DXMakeViewMatrix(D3DXMATRIXA16* pOut);
+	
+
+	
+	// Loading Functions
+	/** 
+	* \fn bool load	(const char* fileName)
+	* \brief 카메라 파라미터를 셋팅하는 함수.
+	* \remark 정의된 fileName인 “Camera.dat”의 파일을 오픈하여 Distortion Factor, 화면 크기를 읽어 카메라 사이즈를 세팅하고 Projection Matrix를 읽는다.\n
+	* 카메라 사이즈 설정을 사용자가 바꿀 수 있는데 이는 Camera.dat파일의 내부를 수정해 주어야 한다. \n
+	* 이 파일은 calibration 데이터와의 mapping을 위하여 camera parameter 파일에서 설정하도록 설계되어 있다. \n
+	* 따라서 카메라의 사이즈를 변경하고자 할 때에는 #size 부분에 x크기 (공백) y크기 의 형식으로 입력하면 된다.
+	* \param fileName 오픈할 파일명
+	*/
+	bool load	(const char* fileName);
+
+	/** 
+	* \fn bool load()
+	* \brief 카메라 파라미터를 셋팅하는 함수.
+	* \remark 정의된 fileName인 “Camera.dat”의 파일을 오픈하여 Distortion Factor, 화면 크기를 읽어 카메라 사이즈를 세팅하고 Projection Matrix를 읽는다.\n
+	* 카메라 사이즈 설정을 사용자가 바꿀 수 있는데 이는 Camera.dat파일의 내부를 수정해 주어야 한다. \n
+	* 이 파일은 calibration 데이터와의 mapping을 위하여 camera parameter 파일에서 설정하도록 설계되어 있다. \n
+	* 따라서 카메라의 사이즈를 변경하고자 할 때에는 #size 부분에 x크기 (공백) y크기 의 형식으로 입력하면 된다.
+	*/
+	bool	load()	{	return load(defaultFileName);		}
+
+	// 보정 
+
+	/** 
+	* \fn void observ2Ideal(CvPoint	observed, CvPoint2D *ideal)
+	* \brief 카메라로 입력 받은 영상의 좌표를 Ideal한 좌표로 변환하는 함수.
+	* \param observed 카메라로 입력 받은 영상의 좌표
+	* \param ideal ideal하게 변환된 영상의 좌표
+	*/
+	void observ2Ideal(CvPoint	observed, CvPoint2D *ideal);
+
+	/** 
+	* \fn void ideal2Observ(CvPoint2D ideal, CvPoint *observed)
+	* \brief 카메라로 입력 받은 영상의 좌표를 observed한 좌표로 변환하는 함수.
+	* \param ideal 입력받은 영상의 좌표
+	* \param observed observed하게 변환된 영상의 좌표
+	*/
+	void ideal2Observ(CvPoint2D ideal, CvPoint *observed);
+
+
+	/** 
+	* \fn void ideal2Observ(CvPoint2D ideal, CvPoint2D *observed)
+	* \brief 카메라로 입력 받은 영상의 좌표를 observed한 좌표로 변환하는 함수.
+	* \param ideal 입력받은 영상의 좌표
+	* \param observed observed하게 변환된 영상의 좌표
+	*/
+	void ideal2Observ(CvPoint2D ideal, CvPoint2D *observed);
+
+	/** 
+	* \fn void observ2Ideal(int ox, int oy, ARTKFloat *ix, ARTKFloat *iy)
+	* \brief 카메라로 입력 받은 영상의 좌표를 Ideal한 좌표로 변환하는 함수.
+	* \param ox 카메라로 입력 받은 영상의 x좌표
+	* \param oy 카메라로 입력 받은 영상의 y좌표
+	* \param ix ideal하게 변환된 영상의 x좌표
+	* \param iy ideal하게 변환된 영상의 y좌표
+	*/
+	void observ2Ideal(int ox, int oy, ARTKFloat *ix, ARTKFloat *iy);
+
+	
+
+	CvMat*					m_ExtrinsicParam; //카메라의 외부 파라미터로 이 값을 통해 3차원 좌표정합이 이루어진다.
+	CvMat*					m_MatHomography; //호모그래피
+	
+	//호모그래피를 분해하기 위한 벡터
+	CvMat*					m_vecRotX;
+	CvMat*					m_vecRotY;
+	CvMat*					m_vecRotZ;
+	CvMat*					m_vecTrans;
+	CvMat*					m_Rotation3x3;
+	CvMat*					m_Rotation3x1;
+	CvMat*					m_RotationTranspose3x3;
+
+
+
+	CvMat*					m_IntrinsicParam; //카메라의 내부 파라미터로 고정된 값을 사용한다.
+	CvMat*					m_IntrinsicParamInv; //카메라 내부 파라미터의 역행렬
+
+	CvMat* calcHomography(CvMat* src, CvMat* dst);
+	void ZhangCalibration(CvMat* m_RealCornerPosition, CvMat* imgCornerPosition);
+
+
+
+};	// end of class
+
+//};};		// end of namespace

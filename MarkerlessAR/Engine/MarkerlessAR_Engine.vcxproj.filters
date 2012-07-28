@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source">
+      <UniqueIdentifier>{648f7254-df90-420f-9358-e792bc34fc57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header">
+      <UniqueIdentifier>{92d1f997-e064-42f1-baef-121c90d1de2f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AGAST">
+      <UniqueIdentifier>{4231fff1-d64f-4d04-b254-ba2ea6d9e6f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BRISK">
+      <UniqueIdentifier>{0f1998b5-1ec3-4021-8ed8-172b8ab8124e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="wonjo">
+      <UniqueIdentifier>{3898424e-61a5-4081-852e-eb71917b10d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HandyAR">
+      <UniqueIdentifier>{eabf6c80-cf6e-4430-8d3f-b892d4563487}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3DObject">
+      <UniqueIdentifier>{ddfb427b-f26d-44b7-a49d-8df62902f7dd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\agast\agast5_8.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\agast\agast7_12d.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\agast\agast7_12s.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\agast\AstDetector.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\agast\cvWrapper.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\agast\oast9_16.h">
+      <Filter>AGAST</Filter>
+    </ClInclude>
+    <ClInclude Include="..\brisk\brisk.h">
+      <Filter>BRISK</Filter>
+    </ClInclude>
+    <ClInclude Include="..\calibration\Camera.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\dll_header.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\KatoPoseEstimation\KatoPoseEstimator.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\KatoPoseEstimation\poseestimator.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SungwookAR.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SungwookFeature.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SungwookUtility.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Results.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\targetver.h" />
+    <ClInclude Include="..\wonjo.h">
+      <Filter>wonjo</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\ColorDistribution.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\ColorHistogram.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\FingerTip.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\FingertipPoseEstimation.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\FingertipTracker.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\HandRegion.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\MixGaussian.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\PoseEstimation.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\quaternion.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\calibration\cvFindExtrinsicCameraParams3.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\Capture.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HandyAR\HandyAR.h">
+      <Filter>HandyAR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3dobjects\bunny\inc\bunny.h">
+      <Filter>3DObject</Filter>
+    </ClInclude>
+    <ClInclude Include="..\global.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\global_include.h">
+      <Filter>wonjo</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\agast\agast5_8.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\agast5_8_nms.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\agast7_12d.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\agast7_12d_nms.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\agast7_12s.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\agast7_12s_nms.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\AstDetector.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\nonMaximumSuppression.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\oast9_16.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\agast\oast9_16_nms.cc">
+      <Filter>AGAST</Filter>
+    </ClCompile>
+    <ClCompile Include="..\brisk\brisk.cpp">
+      <Filter>BRISK</Filter>
+    </ClCompile>
+    <ClCompile Include="..\stdafx.cpp" />
+    <ClCompile Include="..\calibration\Camera.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KatoPoseEstimation\KatoPoseEstimator.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KatoPoseEstimation\KatoPoseEstimatorUtils.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KatoPoseEstimation\PoseEstimator.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\EngineMain.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SungwookFeature.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SungwookUtility.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wonjo.cpp">
+      <Filter>wonjo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d3d.cpp">
+      <Filter>wonjo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cam.cpp">
+      <Filter>wonjo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\ColorDistribution.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\ColorHistogram.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\FingerTip.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\FingertipPoseEstimation.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\FingertipTracker.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\HandRegion.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\MixGaussian.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\PoseEstimation.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\calibration\cvFindExtrinsicCameraParams3.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HandyAR\Capture.cpp">
+      <Filter>HandyAR</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
