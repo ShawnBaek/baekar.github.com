@@ -12,15 +12,10 @@
 #define	defaultFileName	"/camera.txt"
 
 
-<<<<<<< .mine
-// #define FEATURE_WIDTH 30
-// #define FEATURE_HEIGHT 50
-#define FEATURE_WIDTH 89
-#define FEATURE_HEIGHT 110
-=======
+
 #define FEATURE_WIDTH 46
 #define FEATURE_HEIGHT 62
->>>>>>> .r87
+
 /**
 * \class CCamera 
 * \brief 카메라 설정 클래스
