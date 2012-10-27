@@ -27,14 +27,14 @@
 #ifndef _BRISK_H_
 #define _BRISK_H_
 
-#pragma comment(lib, "opencv_calib3d242d.lib")
-#pragma comment(lib, "opencv_core242d.lib")
-#pragma comment(lib, "opencv_features2d242d.lib")
-#pragma comment(lib, "opencv_flann242d.lib")
-#pragma comment(lib, "opencv_gpu242d.lib")
-#pragma comment(lib, "opencv_highgui242d.lib")
-#pragma comment(lib, "opencv_imgproc242d.lib")
-#pragma comment(lib, "opencv_ml242d.lib")
+#pragma comment(lib, "opencv_calib3d231d.lib")
+#pragma comment(lib, "opencv_core231d.lib")
+#pragma comment(lib, "opencv_features2d231d.lib")
+#pragma comment(lib, "opencv_flann231d.lib")
+#pragma comment(lib, "opencv_gpu231d.lib")
+#pragma comment(lib, "opencv_highgui231d.lib")
+#pragma comment(lib, "opencv_imgproc231d.lib")
+#pragma comment(lib, "opencv_ml231d.lib")
 
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/core/core.hpp>

@@ -173,7 +173,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opencv_flann242d.lib;opencv_core242d.lib;opencv_imgproc242d.lib;opencv_highgui242d.lib;opencv_ml242d.lib;opencv_video242d.lib;opencv_objdetect242d.lib;opencv_features2d242d.lib;opencv_calib3d242d.lib;opencv_legacy242d.lib;opencv_contrib242d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_flann231.lib;opencv_core231.lib;opencv_imgproc2312.lib;opencv_highgui231.lib;opencv_ml231.lib;opencv_video231.lib;opencv_objdetect231.lib;opencv_features2d231.lib;opencv_calib3d231.lib;opencv_legacy231.lib;opencv_contrib231.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent />
   </ItemDefinitionGroup>
@@ -185,7 +185,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opencv_flann242d.lib;opencv_core242d.lib;opencv_imgproc242d.lib;opencv_highgui242d.lib;opencv_ml242d.lib;opencv_video242d.lib;opencv_objdetect242d.lib;opencv_features2d242d.lib;opencv_calib3d242d.lib;opencv_legacy242d.lib;opencv_contrib242d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_flann231.lib;opencv_core231.lib;opencv_imgproc2312.lib;opencv_highgui231.lib;opencv_ml231.lib;opencv_video231.lib;opencv_objdetect231.lib;opencv_features2d231.lib;opencv_calib3d231.lib;opencv_legacy231.lib;opencv_contrib231.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent />
   </ItemDefinitionGroup>
@@ -200,7 +200,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opencv_flann242.lib;opencv_core242.lib;opencv_imgproc242.lib;opencv_highgui242.lib;opencv_ml242.lib;opencv_video242.lib;opencv_objdetect242.lib;opencv_features2d242.lib;opencv_calib3d242.lib;opencv_legacy242.lib;opencv_contrib242.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_flann231.lib;opencv_core231.lib;opencv_imgproc2312.lib;opencv_highgui231.lib;opencv_ml231.lib;opencv_video231.lib;opencv_objdetect231.lib;opencv_features2d231.lib;opencv_calib3d231.lib;opencv_legacy231.lib;opencv_contrib231.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent />
   </ItemDefinitionGroup>
@@ -216,7 +216,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opencv_flann242.lib;opencv_core242.lib;opencv_imgproc242.lib;opencv_highgui242.lib;opencv_ml242.lib;opencv_video242.lib;opencv_objdetect242.lib;opencv_features2d242.lib;opencv_calib3d242.lib;opencv_legacy242.lib;opencv_contrib242.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_flann231.lib;opencv_core231.lib;opencv_imgproc231.lib;opencv_highgui231.lib;opencv_ml231.lib;opencv_video231.lib;opencv_objdetect231.lib;opencv_features2d231.lib;opencv_calib3d231.lib;opencv_legacy231.lib;opencv_contrib231.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent />
   </ItemDefinitionGroup>
@@ -232,7 +232,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opencv_flann242.lib;opencv_core242.lib;opencv_imgproc242.lib;opencv_highgui242.lib;opencv_ml242.lib;opencv_video242.lib;opencv_objdetect242.lib;opencv_features2d242.lib;opencv_calib3d242.lib;opencv_legacy242.lib;opencv_contrib242.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_flann231.lib;opencv_core231.lib;opencv_imgproc231.lib;opencv_highgui231.lib;opencv_ml231.lib;opencv_video231.lib;opencv_objdetect231.lib;opencv_features2d231.lib;opencv_calib3d231.lib;opencv_legacy231.lib;opencv_contrib231.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent />
   </ItemDefinitionGroup>

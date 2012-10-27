@@ -949,8 +949,16 @@ int InitializeEngineMain()
 	
 	//BFMatcher matcher(NORM_L2);
 	if(hamming){
-		descriptorMatcher1 = new BFMatcher(NORM_L2);
-		descriptorMatcher2 = new BFMatcher(NORM_L2);
+		//descriptorMatcher1 = new BFMatcher(NORM_L1);
+		//descriptorMatcher2 = new BFMatcher(NORM_L1);
+		
+		
+		//descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
+
+		
+		descriptorMatcher1 = new BruteForceMatcher<HammingSse>(); 
+		descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
+		
 	}
 	else{
 		//descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
@@ -1131,6 +1139,8 @@ unsigned __stdcall ThreadDraw(void *param)
 
 unsigned __stdcall ThreadBRISKMatching(void *param)
 {
+	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
+
 	int idxcount=*((int*)param);
 	Mat outimg;
 	
@@ -1200,9 +1210,12 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		std::vector<std::vector<DMatch> > matches;
 		
 		//Matching /
-
+		vector<DMatch> matches_popcount; 
+		//double pop_time = match(kpts_1, kpts_2, matcher_popcount, desc_1, desc_2, matches_popcount);
+		
 		if(idxcount==1){
  			if(hamming){
+
 				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
 				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
 			}
@@ -1233,14 +1246,15 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		
 		//Draw Matching Results between Camera and Database Image
 		
-		/*
+		
 		drawMatches(matching_thread_rgbcamera, kp_camera_matching_thread, img_database, kp_database, matches,outimg,
 			Scalar(0,255,0), Scalar(0,0,255),
 			std::vector<std::vector<char> >(), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-		*/
-
+		
+		imshow("BaekAR", outimg);
+		cvWaitKey(1);
 		 // need at least 5 matched pairs of points (more are better)
-		 if (computeHomography && (mpts_1.size() > 15))
+		 if (computeHomography && (mpts_1.size() > 5))
          {
                 			
 			    if(bInitTracking==true){

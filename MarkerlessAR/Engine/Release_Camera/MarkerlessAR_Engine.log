@@ -1,12 +1,221 @@
-﻿Build started 2012-10-28 오전 12:49:02.
+﻿Build started 2012-10-28 오전 3:01:37.
      1>Project "E:\Research\baekar.github.com.git\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
-         Creating "Release_Camera\BaekAREngine.unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "Release_Camera\BaekAREngine.unsuccessfulbuild".
        ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D _MBCS /D _MBCS /D CAMERA /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release_Camera\\" /Fd"Release_Camera\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\EngineMain.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D _MBCS /D _MBCS /D CAMERA /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release_Camera\\" /Fd"Release_Camera\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\EngineMain.cpp ..\SungwookFeature.cpp ..\brisk\brisk.cpp
          EngineMain.cpp
+         SungwookFeature.cpp
+     1>e:\research\baekar.github.com.git\trunk\markerlessar\SungwookAR.hpp(130): warning C4305: 'initializing' : truncation from 'double' to 'const float'
+     1>..\SungwookFeature.cpp(289): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(289): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(290): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(290): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(344): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(344): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(352): warning C4018: '<' : signed/unsigned mismatch
+     1>..\SungwookFeature.cpp(355): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(358): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(392): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(392): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(400): warning C4018: '<' : signed/unsigned mismatch
+     1>..\SungwookFeature.cpp(403): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(406): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(434): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(434): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(443): warning C4018: '<' : signed/unsigned mismatch
+     1>..\SungwookFeature.cpp(449): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(452): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(495): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(495): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(504): warning C4018: '<' : signed/unsigned mismatch
+     1>..\SungwookFeature.cpp(510): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(513): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\SungwookFeature.cpp(566): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(566): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(567): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>..\SungwookFeature.cpp(567): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+         brisk.cpp
+     1>..\brisk\brisk.cpp : warning C4819: The file contains a character that cannot be represented in the current code page (949). Save the file in Unicode format to prevent data loss
+     1>..\brisk\brisk.cpp(64): warning C4244: '=' : conversion from 'const double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(65): warning C4244: '=' : conversion from 'const double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(66): warning C4244: '=' : conversion from 'const double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(67): warning C4244: '=' : conversion from 'const double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(68): warning C4244: '=' : conversion from 'const double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(78): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(78): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(110): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(116): warning C4305: 'initializing' : truncation from 'double' to 'const float'
+     1>..\brisk\brisk.cpp(121): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(136): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(137): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(140): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(143): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(146): warning C4244: 'initializing' : conversion from 'float' to 'const unsigned int', possible loss of data
+     1>..\brisk\brisk.cpp(222): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(228): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(229): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(247): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(248): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(265): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(266): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(267): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(268): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(271): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(272): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(273): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(274): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(275): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(276): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(277): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(278): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(381): warning C4305: 'initializing' : truncation from 'double' to 'const float'
+     1>..\brisk\brisk.cpp(386): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(413): warning C4244: 'argument' : conversion from 'const int' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(413): warning C4244: 'argument' : conversion from 'const int' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(413): warning C4244: 'argument' : conversion from 'const int' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(413): warning C4244: 'argument' : conversion from 'const int' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(426): warning C4244: '=' : conversion from 'unsigned int' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(457): warning C4244: 'initializing' : conversion from 'float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(490): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(620): warning C4244: '=' : conversion from 'const float' to 'uint8_t', possible loss of data
+     1>..\brisk\brisk.cpp(785): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(787): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(790): warning C4305: '=' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(791): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(792): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(793): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(797): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(799): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(803): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(804): warning C4244: '=' : conversion from 'double' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(805): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(820): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(821): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(822): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(823): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(826): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(827): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(828): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(829): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(830): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(831): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(832): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(833): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1046): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1047): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1056): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1057): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1063): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1064): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1103): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1104): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1112): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1113): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1147): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1148): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1149): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1150): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1162): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1163): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1167): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1183): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1191): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1216): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1256): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1257): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1288): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1289): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1290): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1291): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1294): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1295): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1296): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1297): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1305): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1306): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1310): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1326): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1334): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1383): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>..\brisk\brisk.cpp(1419): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1420): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1423): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1424): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1499): warning C4305: 'return' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1503): warning C4305: 'return' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1511): warning C4305: '=' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1512): warning C4305: '=' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1538): warning C4305: 'return' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1550): warning C4305: '=' : truncation from 'double' to 'float'
+     1>..\brisk\brisk.cpp(1582): warning C4244: 'return' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1605): warning C4244: 'return' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1645): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1649): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1666): warning C4244: 'return' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1686): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1691): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1692): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>..\brisk\brisk.cpp(1747): warning C4244: 'return' : conversion from 'const float' to 'uint8_t', possible loss of data
+     1>..\brisk\brisk.cpp(1767): warning C4244: 'initializing' : conversion from 'float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1768): warning C4244: 'initializing' : conversion from 'float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1774): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1779): warning C4244: 'initializing' : conversion from 'float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1780): warning C4244: 'initializing' : conversion from 'float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1798): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1799): warning C4244: 'initializing' : conversion from 'double' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1813): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1814): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1815): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1816): warning C4244: 'initializing' : conversion from 'double' to 'const float', possible loss of data
+     1>..\brisk\brisk.cpp(1819): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1820): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1821): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1822): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1823): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1824): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1825): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(1826): warning C4244: 'initializing' : conversion from 'const float' to 'const int', possible loss of data
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2005): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2006): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2007): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
+     1>..\brisk\brisk.cpp(2008): warning C4309: 'argument' : truncation of constant value
        Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.exe" /NOLOGO opencv_flann242.lib opencv_core242.lib opencv_imgproc242.lib opencv_highgui242.lib opencv_ml242.lib opencv_video242.lib opencv_objdetect242.lib opencv_features2d242.lib opencv_calib3d242.lib opencv_legacy242.lib opencv_contrib242.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release_Camera\BaekAREngine.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.pdb" /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.lib" /MACHINE:X86 Release_Camera\agast5_8.obj
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.exe" /NOLOGO opencv_flann231.lib opencv_core231.lib opencv_imgproc231.lib opencv_highgui231.lib opencv_ml231.lib opencv_video231.lib opencv_objdetect231.lib opencv_features2d231.lib opencv_calib3d231.lib opencv_legacy231.lib opencv_contrib231.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release_Camera\BaekAREngine.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.pdb" /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.lib" /MACHINE:X86 Release_Camera\agast5_8.obj
          Release_Camera\agast5_8_nms.obj
          Release_Camera\agast7_12d.obj
          Release_Camera\agast7_12d_nms.obj
@@ -50,4 +259,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:16.80
+Time Elapsed 00:00:20.24
