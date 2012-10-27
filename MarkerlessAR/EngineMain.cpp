@@ -157,7 +157,7 @@ strFilename Filename[20] =
 {
 	//파일명을 iu2에서 yejin으로 수정함
     "../image/yejin.jpg",
-	"../image/iu1.jpg",
+	"../image/yejin.jpg",
 };
 
 //////////////////////////////HandyAR Display()////////////////////////////////////////////
@@ -947,20 +947,21 @@ int InitializeEngineMain()
 	detector = new BriskFeatureDetector(60,2);
 	descriptorExtractor = new BriskDescriptorExtractor();
 	
-
+	//BFMatcher matcher(NORM_L2);
 	if(hamming){
-		descriptorMatcher1 = new BruteForceMatcher<HammingSse>(); 
-		descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
+		descriptorMatcher1 = new BFMatcher(NORM_L2);
+		descriptorMatcher2 = new BFMatcher(NORM_L2);
 	}
 	else{
-		descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
-		descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
+		//descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
+		//descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
 	}
 
 	//Create BRISK Database
 
 	//Read from Filename Structure 
 	//temporaly filename override
+	/*
 	FILE* overridefile;
 	overridefile=fopen("markerfile.txt","rt");
 	if(overridefile)
@@ -975,6 +976,8 @@ int InitializeEngineMain()
 	{
 		img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
 	}
+	*/
+	img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
 	//2번은 오버라이드하지않는다.
 	img_rgbdatabase2=imread(Filename[1]._strFilename.c_str(), 1);
 		

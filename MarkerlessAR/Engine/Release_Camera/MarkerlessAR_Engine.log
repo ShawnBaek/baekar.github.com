@@ -1,26 +1,53 @@
-﻿Build started 2012-10-27 오후 7:15:46.
+﻿Build started 2012-10-28 오전 12:49:02.
      1>Project "E:\Research\baekar.github.com.git\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
-         Touching "Release_Camera\BaekAREngine.unsuccessfulbuild".
+         Creating "Release_Camera\BaekAREngine.unsuccessfulbuild" because "AlwaysCreate" was specified.
        ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D _MBCS /D _MBCS /D CAMERA /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release_Camera\\" /Fd"Release_Camera\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\calibration\Camera.cpp ..\cam.cpp ..\d3d.cpp ..\EngineMain.cpp ..\HandyAR\FingerTip.cpp ..\HandyAR\FingertipPoseEstimation.cpp ..\HandyAR\FingertipTracker.cpp ..\KatoPoseEstimation\KatoPoseEstimator.cpp ..\KatoPoseEstimation\PoseEstimator.cpp ..\wonjo.cpp
-         Camera.cpp
-         cam.cpp
-         d3d.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D _MBCS /D _MBCS /D CAMERA /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release_Camera\\" /Fd"Release_Camera\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\EngineMain.cpp
          EngineMain.cpp
-     1>..\EngineMain.cpp(952): error C2061: syntax error : identifier 'BruteForceMatcher'
-     1>..\EngineMain.cpp(953): error C2061: syntax error : identifier 'BruteForceMatcher'
-     1>..\EngineMain.cpp(956): error C2061: syntax error : identifier 'BruteForceMatcher'
-     1>..\EngineMain.cpp(957): error C2061: syntax error : identifier 'BruteForceMatcher'
-         FingerTip.cpp
-     1>..\HandyAR\FingerTip.cpp(664): warning C4553: '==' : operator has no effect; did you intend '='?
-         FingertipPoseEstimation.cpp
-         FingertipTracker.cpp
-         KatoPoseEstimator.cpp
-         PoseEstimator.cpp
-         wonjo.cpp
-     1>Done Building Project "E:\Research\baekar.github.com.git\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" (build target(s)) -- FAILED.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.exe" /NOLOGO opencv_flann242.lib opencv_core242.lib opencv_imgproc242.lib opencv_highgui242.lib opencv_ml242.lib opencv_video242.lib opencv_objdetect242.lib opencv_features2d242.lib opencv_calib3d242.lib opencv_legacy242.lib opencv_contrib242.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release_Camera\BaekAREngine.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.pdb" /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.lib" /MACHINE:X86 Release_Camera\agast5_8.obj
+         Release_Camera\agast5_8_nms.obj
+         Release_Camera\agast7_12d.obj
+         Release_Camera\agast7_12d_nms.obj
+         Release_Camera\agast7_12s.obj
+         Release_Camera\agast7_12s_nms.obj
+         Release_Camera\AstDetector.obj
+         Release_Camera\nonMaximumSuppression.obj
+         Release_Camera\oast9_16.obj
+         Release_Camera\oast9_16_nms.obj
+         Release_Camera\brisk.obj
+         Release_Camera\Camera.obj
+         Release_Camera\cvFindExtrinsicCameraParams3.obj
+         Release_Camera\cam.obj
+         Release_Camera\d3d.obj
+         Release_Camera\EngineMain.obj
+         Release_Camera\Capture.obj
+         Release_Camera\ColorDistribution.obj
+         Release_Camera\ColorHistogram.obj
+         Release_Camera\FingerTip.obj
+         Release_Camera\FingertipPoseEstimation.obj
+         Release_Camera\FingertipTracker.obj
+         Release_Camera\HandRegion.obj
+         Release_Camera\MixGaussian.obj
+         Release_Camera\PoseEstimation.obj
+         Release_Camera\KatoPoseEstimator.obj
+         Release_Camera\KatoPoseEstimatorUtils.obj
+         Release_Camera\PoseEstimator.obj
+         Release_Camera\stdafx.obj
+         Release_Camera\SungwookFeature.obj
+         Release_Camera\SungwookUtility.obj
+         Release_Camera\wonjo.obj
+         Generating code
+         Finished generating code
+         MarkerlessAR_Engine.vcxproj -> E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"E:\Research\baekar.github.com.git\trunk\Release_Camera\BaekAREngine.exe;#1" /manifest Release_Camera\BaekAREngine.exe.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "Release_Camera\BaekAREngine.unsuccessfulbuild".
+         Touching "Release_Camera\BaekAREngine.lastbuildstate".
+     1>Done Building Project "E:\Research\baekar.github.com.git\trunk\MarkerlessAR\Engine\MarkerlessAR_Engine.vcxproj" (build target(s)).
 
-Build FAILED.
+Build succeeded.
 
-Time Elapsed 00:00:19.89
+Time Elapsed 00:00:16.80
