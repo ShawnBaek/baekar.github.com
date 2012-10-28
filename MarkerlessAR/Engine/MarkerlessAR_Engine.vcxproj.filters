@@ -119,6 +119,15 @@
     <ClInclude Include="..\global_include.h">
       <Filter>wonjo</Filter>
     </ClInclude>
+    <ClInclude Include="..\Detector.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\BaekAR.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Contents.hpp">
+      <Filter>Header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\agast\agast5_8.cc">
@@ -214,6 +223,15 @@
     </ClCompile>
     <ClCompile Include="..\HandyAR\Capture.cpp">
       <Filter>HandyAR</Filter>
+    </ClCompile>
+    <ClCompile Include="..\BaekAR.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Contents.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Detector.cpp">
+      <Filter>Source</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

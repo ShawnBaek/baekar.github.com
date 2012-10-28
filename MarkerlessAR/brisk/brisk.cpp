@@ -24,6 +24,12 @@ You should have received a copy of the GNU General Public License
 along with BRISK.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*
+Revised by In-Pyo Lee, Korea Polytechnic University
+
+Convert cpp to opencv
+
+*/
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>

@@ -1139,7 +1139,7 @@ unsigned __stdcall ThreadDraw(void *param)
 
 unsigned __stdcall ThreadBRISKMatching(void *param)
 {
-	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
+	//namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 
 	int idxcount=*((int*)param);
 	Mat outimg;
@@ -1250,9 +1250,10 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		drawMatches(matching_thread_rgbcamera, kp_camera_matching_thread, img_database, kp_database, matches,outimg,
 			Scalar(0,255,0), Scalar(0,0,255),
 			std::vector<std::vector<char> >(), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-		
+		/*
 		imshow("BaekAR", outimg);
 		cvWaitKey(1);
+		*/
 		 // need at least 5 matched pairs of points (more are better)
 		 if (computeHomography && (mpts_1.size() > 5))
          {
