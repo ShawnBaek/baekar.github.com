@@ -55,6 +55,14 @@
 #include "KatoPoseEstimation/KatoPoseEstimator.h"
 #include "wonjo.h"
 //#include <boost/lexical_cast.hpp>
+
+// GLFW for macOS windowing
+#ifndef _WIN32
+#include <GLFW/glfw3.h>
+static GLFWwindow* g_window = nullptr;
+static bool g_mouseDown = false;
+#endif
+
 using namespace cv;
 
 
@@ -475,6 +483,7 @@ IplImage		*img_input;
 
 static void mainLoop(void)
 {
+#ifdef _WIN32
 	if( GetKeyState(VK_LBUTTON) & 0x8000 )
 	{
 		POINT pt;
@@ -482,6 +491,16 @@ static void mainLoop(void)
 		ScreenToClient(NULL, &pt);
 		wonjo_dx::Picking(pt);
 	}
+#else
+	if (g_mouseDown && g_window) {
+		double mx, my;
+		glfwGetCursorPos(g_window, &mx, &my);
+		POINT pt;
+		pt.x = (LONG)mx;
+		pt.y = (LONG)my;
+		wonjo_dx::Picking(pt);
+	}
+#endif
 	
 	IplImage		img_output;
 	//경민 여기서 img_input에 값이 들어오나 확인좀
@@ -1923,19 +1942,65 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	return 0;
 }
 #else
-// macOS entry point — replaces WinMain + DirectX init with simple main loop
-// (GLFW windowing and OpenGL rendering to be added in Sprint 3/4)
+// macOS entry point — GLFW windowing + OpenGL context
+
+static void glfwKeyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+static void glfwMouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT)
+		g_mouseDown = (action == GLFW_PRESS);
+}
+
 int main(int argc, char* argv[])
 {
+	// Initialize GLFW
+	if (!glfwInit()) {
+		fprintf(stderr, "Failed to initialize GLFW\n");
+		return -1;
+	}
+
+	// Create window with OpenGL context (legacy profile for fixed-function pipeline)
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	g_window = glfwCreateWindow(640, 480, "BackAR - Markerless AR Engine", nullptr, nullptr);
+	if (!g_window) {
+		fprintf(stderr, "Failed to create GLFW window\n");
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(g_window);
+	glfwSwapInterval(1); // vsync
+
+	// Set up input callbacks
+	glfwSetKeyCallback(g_window, glfwKeyCallback);
+	glfwSetMouseButtonCallback(g_window, glfwMouseButtonCallback);
+
+	// Initialize GLUT (needed for glutSolidCone etc. used in init())
+	glutInit(&argc, argv);
+
+	// Initialize OpenGL state
+	init();
+
+	// Initialize the AR engine
 	InitializeEngineMain();
 
-	// Simple main loop (will be replaced with GLFW event loop in Sprint 3)
-	bool running = true;
-	while(running) {
+	printf("BackAR engine initialized. Press ESC to quit.\n");
+
+	// Main loop
+	while (!glfwWindowShouldClose(g_window)) {
 		mainLoop();
+		glfwSwapBuffers(g_window);
+		glfwPollEvents();
 	}
 
 	ReleaseEngineMain();
+	glfwDestroyWindow(g_window);
+	glfwTerminate();
 	return 0;
 }
 #endif

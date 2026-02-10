@@ -164,7 +164,9 @@ The binary is produced at `build/BackAR`.
 
 ## History
 
-This project was originally developed as **Sungwook Baek's Master's thesis** (circa 2012) — a markerless augmented reality engine combining state-of-the-art feature detection (BRISK/AGAST), pose estimation (Kato-Billinghurst), and a novel hand tracking system (HandyAR) for 6DoF fingertip-based camera pose estimation.
+This project was originally developed as **Sungwook Baek's Master's thesis** at **Yonsei University, Department of Computer Science** (circa 2012) — a markerless augmented reality engine combining state-of-the-art feature detection (BRISK/AGAST), pose estimation (Kato-Billinghurst), and a novel hand tracking system (HandyAR) for 6DoF fingertip-based camera pose estimation.
+
+The original thesis is included in this repository: [`Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf`](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
 
 The original system was built for **Windows with Visual Studio 2010**, using DirectX 9 for rendering, OpenCV 2.3.1 for computer vision, and Win32 API for windowing and threading. It supported real-time AR at 640x480 with multi-threaded feature matching and tracking.
 

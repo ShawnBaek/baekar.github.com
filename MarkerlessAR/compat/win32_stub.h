@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <thread>
+#include <mutex>
 
 // Basic Windows types
 typedef int BOOL;
@@ -60,22 +62,33 @@ union LARGE_INTEGER {
     long long QuadPart;
 };
 
-// Critical Section (stub — will be replaced by std::mutex in Sprint 3)
+// Critical Section — wraps std::mutex for real thread synchronization
 struct CRITICAL_SECTION {
-    int dummy;
+    std::mutex mtx;
 };
 
-inline void InitializeCriticalSection(CRITICAL_SECTION*) {}
-inline void EnterCriticalSection(CRITICAL_SECTION*) {}
-inline void LeaveCriticalSection(CRITICAL_SECTION*) {}
+inline void InitializeCriticalSection(CRITICAL_SECTION*) {} // std::mutex is default-constructed
+inline void EnterCriticalSection(CRITICAL_SECTION* cs) { cs->mtx.lock(); }
+inline void LeaveCriticalSection(CRITICAL_SECTION* cs) { cs->mtx.unlock(); }
 inline void DeleteCriticalSection(CRITICAL_SECTION*) {}
 
-// Thread stubs (will be replaced by std::thread in Sprint 3)
+// Thread handling — wraps std::thread for real thread creation
 inline HANDLE CreateMutex(void*, BOOL, const char*) { return nullptr; }
-inline void CloseHandle(HANDLE) {}
-typedef unsigned (__attribute__((cdecl)) *_beginthreadex_proc)(void*);
-inline uintptr_t _beginthreadex(void*, unsigned, _beginthreadex_proc, void*, unsigned, unsigned*) { return 0; }
-inline void _endthreadex(unsigned) {}
+inline void CloseHandle(HANDLE h) {
+    // If h is a thread handle (std::thread*), detach and delete it
+    // Threads in BackAR run infinite loops, so we detach rather than join
+    auto* t = static_cast<std::thread*>(h);
+    if (t) {
+        if (t->joinable()) t->detach();
+        delete t;
+    }
+}
+typedef unsigned (*_beginthreadex_proc)(void*);
+inline uintptr_t _beginthreadex(void*, unsigned, _beginthreadex_proc proc, void* arg, unsigned, unsigned*) {
+    auto* t = new std::thread([proc, arg]() { proc(arg); });
+    return reinterpret_cast<uintptr_t>(t);
+}
+inline void _endthreadex(unsigned) {} // no-op — thread exits when function returns
 
 // Window stubs (will be replaced by GLFW in Sprint 3)
 #define CALLBACK
