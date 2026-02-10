@@ -295,7 +295,7 @@ void showManyImages(char* title, int nArgs, ...) {
 		if(DispImage == 0)
 			DispImage = cvCreateImage( cvSize(100 + size*w, 60 + size*h), cvIplDepth(mImg->flags), mImg->channels() );
 
-		cvInitImageHeader(&img, mImg->size(), cvIplDepth(mImg->flags), mImg->channels());
+		cvInitImageHeader(&img, cvSize(mImg->size().width, mImg->size().height), cvIplDepth(mImg->flags), mImg->channels());
 		cvSetData(&img, mImg->data, (int)(mImg->step[0]));
 
 

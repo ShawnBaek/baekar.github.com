@@ -1,7 +1,8 @@
 #ifndef _COLOR_HISTOGRAM_H_
 #define _COLOR_HISTOGRAM_H_
 
-#include "cv.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
 
 #define NUM_HISTOGRAM_BINS      16
 #define NUM_HISTOGRAM_HISTORY   5

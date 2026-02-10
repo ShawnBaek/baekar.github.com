@@ -1,24 +1,19 @@
 /** 
 \file Camera.cpp
-\brief Ä«¸Ş¶óÀÇ ÀÔ·Â ¼³Á¤
+\brief ì¹´ë©”ë¼ì˜ ì…ë ¥ ì„¤ì •
 */
 
 #include "Camera.h"
 #include <stdio.h>
 
-#ifdef	_WIN32
-//#include <cv.h>
-//#include <cxcore.h>
-//#include <highgui.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
 using namespace cv;
-#else
-#include <OpenCV/OpenCV.h>
-#endif
 
 CCamera::CCamera(void)
 {
-	size = cvSize(640, 480);	// ¿ì¼± »çÀÌÁî ÃÊ±âÈ­ ³ªÁß¿¡ ¹Ù²ãµµ µÊ
+	size = cvSize(640, 480);	// ìš°ì„  ì‚¬ì´ì¦ˆ ì´ˆê¸°í™” ë‚˜ì¤‘ì— ë°”ê¿”ë„ ë¨
 
 	intrinsic   = cvMat( 3, 3, CV_32FC1, camera_intrinsic   );
     distortion  = cvMat( 4, 1, CV_32FC1, camera_distortion  );
@@ -63,7 +58,7 @@ CCamera::CCamera(void)
 
 
 
-	//»ï¼º Ä«¸Ş¶ó
+	//ì‚¼ì„± ì¹´ë©”ë¼
 	m_IntrinsicParam = cvCreateMat(3, 3, CV_64FC1);
 	cvZero(m_IntrinsicParam);
 	cvmSet(m_IntrinsicParam, 0, 0, 664.0);
@@ -76,8 +71,8 @@ CCamera::CCamera(void)
 	cvZero(m_IntrinsicParamInv);
 	cvInvert(m_IntrinsicParam, m_IntrinsicParamInv);
 
-	//¸¶Ä¿ÀÇ ¿ùµå ÁÂÇ¥¸¦ ÀÔ·ÂÇÑ´Ù. ÀÌ °ªÀº »ó¼ö¿©¾ß ÇÏ¸ç ¹°¸®ÀûÀ¸·Î ÃøÁ¤µÈ °ªÀÌ¾î¾ß ÇÑ´Ù(mm´ÜÀ§).
-	//¶ÇÇÑ ÁÂÇ¥ÀÇ ÀÔ·Â ¼ø¼­´Â ¸¶Ä¿ÀÇ 4°³ Á¡ ±âÁØÀ¸·Î ½Ã°è¹æÇâÀ¸·Î ÀÔ·ÂÇÑ´Ù.
+	//ë§ˆì»¤ì˜ ì›”ë“œ ì¢Œí‘œë¥¼ ì…ë ¥í•œë‹¤. ì´ ê°’ì€ ìƒìˆ˜ì—¬ì•¼ í•˜ë©° ë¬¼ë¦¬ì ìœ¼ë¡œ ì¸¡ì •ëœ ê°’ì´ì–´ì•¼ í•œë‹¤(mmë‹¨ìœ„).
+	//ë˜í•œ ì¢Œí‘œì˜ ì…ë ¥ ìˆœì„œëŠ” ë§ˆì»¤ì˜ 4ê°œ ì  ê¸°ì¤€ìœ¼ë¡œ ì‹œê³„ë°©í–¥ìœ¼ë¡œ ì…ë ¥í•œë‹¤.
 	/*
 	m_RealCornerPosition = cvCreateMat(4, 2, CV_64FC1);
 	cvmSet(m_RealCornerPosition, 0, 0, -40); cvmSet(m_RealCornerPosition, 0, 1, -40);
@@ -113,7 +108,7 @@ CCamera::CCamera(void)
 }
 
 CCamera::CCamera(bool	turnOn) {
-	size = cvSize(640, 480);	// ¿ì¼± »çÀÌÁî ÃÊ±âÈ­ ³ªÁß¿¡ ¹Ù²ãµµ µÊ
+	size = cvSize(640, 480);	// ìš°ì„  ì‚¬ì´ì¦ˆ ì´ˆê¸°í™” ë‚˜ì¤‘ì— ë°”ê¿”ë„ ë¨
 
 	intrinsic   = cvMat( 3, 3, CV_32FC1, camera_intrinsic   );
     distortion  = cvMat( 4, 1, CV_32FC1, camera_distortion  );
@@ -150,7 +145,7 @@ CCamera::CCamera(bool	turnOn) {
 	_CameraHomographyMat = cvMat( 3, 3, CV_32FC1, _CameraHomography );
 
 	
-	//»ï¼º Ä«¸Ş¶ó
+	//ì‚¼ì„± ì¹´ë©”ë¼
 	m_IntrinsicParam = cvCreateMat(3, 3, CV_64FC1);
 	cvZero(m_IntrinsicParam);
 	cvmSet(m_IntrinsicParam, 0, 0, 664.0);
@@ -163,8 +158,8 @@ CCamera::CCamera(bool	turnOn) {
 	cvZero(m_IntrinsicParamInv);
 	cvInvert(m_IntrinsicParam, m_IntrinsicParamInv);
 
-	//¸¶Ä¿ÀÇ ¿ùµå ÁÂÇ¥¸¦ ÀÔ·ÂÇÑ´Ù. ÀÌ °ªÀº »ó¼ö¿©¾ß ÇÏ¸ç ¹°¸®ÀûÀ¸·Î ÃøÁ¤µÈ °ªÀÌ¾î¾ß ÇÑ´Ù(mm´ÜÀ§).
-	//¶ÇÇÑ ÁÂÇ¥ÀÇ ÀÔ·Â ¼ø¼­´Â ¸¶Ä¿ÀÇ 4°³ Á¡ ±âÁØÀ¸·Î ½Ã°è¹æÇâÀ¸·Î ÀÔ·ÂÇÑ´Ù.
+	//ë§ˆì»¤ì˜ ì›”ë“œ ì¢Œí‘œë¥¼ ì…ë ¥í•œë‹¤. ì´ ê°’ì€ ìƒìˆ˜ì—¬ì•¼ í•˜ë©° ë¬¼ë¦¬ì ìœ¼ë¡œ ì¸¡ì •ëœ ê°’ì´ì–´ì•¼ í•œë‹¤(mmë‹¨ìœ„).
+	//ë˜í•œ ì¢Œí‘œì˜ ì…ë ¥ ìˆœì„œëŠ” ë§ˆì»¤ì˜ 4ê°œ ì  ê¸°ì¤€ìœ¼ë¡œ ì‹œê³„ë°©í–¥ìœ¼ë¡œ ì…ë ¥í•œë‹¤.
 	/*
 	m_RealCornerPosition = cvCreateMat(4, 2, CV_64FC1);
 	cvmSet(m_RealCornerPosition, 0, 0, -40); cvmSet(m_RealCornerPosition, 0, 1, -40);
@@ -401,7 +396,7 @@ D3DXMATRIXA16* CCamera::D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut)
 	float top = float(camera_opengl_dTop);
 	float bottom = float(camera_opengl_dBottom);
 	
-	//3d math¿¡ ÀÇÇØÁ¦ÀÛ
+	//3d mathì— ì˜í•´ì œì‘
 	matProj[0] = (2*fnear)/(right-left);
 	matProj[1] = 0;
 	matProj[2] = (right+left)/(right-left);
@@ -459,7 +454,7 @@ D3DXMATRIXA16* CCamera::D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut)
 // 	matProj[15] = 0.0;
 
 
-	//ÆÄÀÏ¿¡ ·Î±× Âï¾î!
+	//íŒŒì¼ì— ë¡œê·¸ ì°ì–´!
 	{
 		FILE* fp;
 		fp = fopen("projectionlog.txt","a+t");
@@ -490,7 +485,7 @@ D3DXMATRIXA16* CCamera::D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut)
 
 
 
-//ModelView¸¦ ´ëÃ¼ÇÏ´Â ÇÔ¼ö
+//ModelViewë¥¼ ëŒ€ì²´í•˜ëŠ” í•¨ìˆ˜
 D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 {
 	D3DXMATRIXA16& matView = *pOut;
@@ -533,10 +528,10 @@ D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 // 
 */
 
-	//¿øÁ¶¾ß ÀÌ°Ç R3x3¿¡ ´ëÇÑ transpose m_RotationTranspose3x3->data.db·Î °®´Ù ½á
+	//ì›ì¡°ì•¼ ì´ê±´ R3x3ì— ëŒ€í•œ transpose m_RotationTranspose3x3->data.dbë¡œ ê°–ë‹¤ ì¨
 
 
-	//¼ø¼ö ÁÂÇ¥°è
+	//ìˆœìˆ˜ ì¢Œí‘œê³„
 	D3DXVECTOR3 eye( 
 		m_vecTrans->data.db[0]
 		,m_vecTrans->data.db[1]
@@ -575,7 +570,7 @@ D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 // 	D3DXVec3Cross(&up,&right,&view);
 // 	D3DXVec3Cross(&up,&view,&right);
 // 
-// 	//DirectX ÁÂÇ¥°è·Î ÀÌµ¿.
+// 	//DirectX ì¢Œí‘œê³„ë¡œ ì´ë™.
  	D3DXVECTOR3 dxeye(-eye.x, eye.y, -eye.z);
  	D3DXVECTOR3 dxview(view.x, view.y, -view.z);
 // 	//D3DXVECTOR3 dxview(0,0,1);
@@ -676,7 +671,7 @@ D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 // 	wonjo_dx::Matrix_LH_RH_Swap(pOut,pOut);
 	//D3DXMatrixMultiply(pOut,pOut,wonjo_dx::MakeScaleMatrix(-1,-1,1));
 
-	//ÆÄÀÏ¿¡ ·Î±× Âï¾î!!
+	//íŒŒì¼ì— ë¡œê·¸ ì°ì–´!!
 	{
 		FILE* fp;
 		fp = fopen("viewlog.txt","a+t");
@@ -704,13 +699,13 @@ D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 
 
 
-//BaekARÀÇ Pose EstimationÀ» ±¸ÇÏ´Â ºÎºĞ
+//BaekARì˜ Pose Estimationì„ êµ¬í•˜ëŠ” ë¶€ë¶„
 void CCamera::featurePoseEstimation()
 {
 
 	CvPoint3D	ppos3d[4];
    
-	//ÀÇ½É È£¸ğÁö´Ï¾î½º ÁÂÇ¥°è
+	//ì˜ì‹¬ í˜¸ëª¨ì§€ë‹ˆì–´ìŠ¤ ì¢Œí‘œê³„
 	float iFeaturesPoints[4][2];
 	float oFeaturesPoints[4][3];
 
@@ -761,7 +756,7 @@ void CCamera::featurePoseEstimation()
 	
 
 
-	/* DLT ¹æ½Ä 
+	/* DLT ë°©ì‹ 
 	cvFindExtrinsicCameraParams2(
             &objectMat,
             &imageMat,
@@ -775,7 +770,7 @@ void CCamera::featurePoseEstimation()
 
 	*/
 
-	//´Ù¸¥ ¹æ¹ı Àå ¹æ¹ıÀ¸·Î ½Ãµµ
+	//ë‹¤ë¥¸ ë°©ë²• ì¥ ë°©ë²•ìœ¼ë¡œ ì‹œë„
 	
 	ZhangCalibration(&objectMat, &imageMat);
 
@@ -798,7 +793,7 @@ void CCamera::ZhangCalibration(CvMat* m_RealCornerPosition, CvMat* imgCornerPosi
 {
 	calcHomography(m_RealCornerPosition, imgCornerPosition);
 
-	//È£¸ğ±×·¡ÇÇ·ÎºÎÅÍ Ä«¸Ş¶ó ¿ÜºÎ ÆÄ¶ó¹ÌÅÍ¸¦ º¹±¸ÇÑ´Ù.
+	//í˜¸ëª¨ê·¸ë˜í”¼ë¡œë¶€í„° ì¹´ë©”ë¼ ì™¸ë¶€ íŒŒë¼ë¯¸í„°ë¥¼ ë³µêµ¬í•œë‹¤.
 	m_vecRotX->data.db[0] = m_MatHomography->data.db[0];
 	m_vecRotX->data.db[1] = m_MatHomography->data.db[3];
 	m_vecRotX->data.db[2] = m_MatHomography->data.db[6];
@@ -837,11 +832,11 @@ void CCamera::ZhangCalibration(CvMat* m_RealCornerPosition, CvMat* imgCornerPosi
 	cvRodrigues2(m_Rotation3x3, m_Rotation3x1);
 
 
-	//Transpose Matrix ¿¬»ê Ãß°¡ by ¼º¿í
+	//Transpose Matrix ì—°ì‚° ì¶”ê°€ by ì„±ìš±
 
 	cvTranspose(m_Rotation3x3, m_RotationTranspose3x3);
 
-	//Ä«¸Ş¶ó ¿ÜºÎ ÆÄ¶ó¹ÌÅÍ ¼ÂÆÃ
+	//ì¹´ë©”ë¼ ì™¸ë¶€ íŒŒë¼ë¯¸í„° ì…‹íŒ…
 	m_ExtrinsicParam->data.db[0] = m_vecRotX->data.db[0]; m_ExtrinsicParam->data.db[1] = m_vecRotY->data.db[0]; m_ExtrinsicParam->data.db[2] = m_vecRotZ->data.db[0]; m_ExtrinsicParam->data.db[3] = m_vecTrans->data.db[0];
 	m_ExtrinsicParam->data.db[4] = m_vecRotX->data.db[1]; m_ExtrinsicParam->data.db[5] = m_vecRotY->data.db[1]; m_ExtrinsicParam->data.db[6] = m_vecRotZ->data.db[1]; m_ExtrinsicParam->data.db[7] = m_vecTrans->data.db[1];
 	m_ExtrinsicParam->data.db[8] = m_vecRotX->data.db[2]; m_ExtrinsicParam->data.db[9] = m_vecRotY->data.db[2]; m_ExtrinsicParam->data.db[10] = m_vecRotZ->data.db[2]; m_ExtrinsicParam->data.db[11] = m_vecTrans->data.db[2];

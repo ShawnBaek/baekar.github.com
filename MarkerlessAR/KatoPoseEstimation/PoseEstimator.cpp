@@ -1,5 +1,5 @@
 /** \file PoseEstimator.cpp
-\brief IdealÇÑ ÁÂÇ¥¸¦ ¾ò´Â ÀÚ¼¼ÃßÁ¤ ÆÄÀÏ
+\brief Idealí•œ ì¢Œí‘œë¥¼ ì–»ëŠ” ìì„¸ì¶”ì • íŒŒì¼
 */
 
 #include "PoseEstimator.h"

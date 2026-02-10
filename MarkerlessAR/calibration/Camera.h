@@ -1,6 +1,6 @@
 /** 
 \file Camera.h
-\brief Ä«¸Ş¶óÀÇ ÀÔ·Â ¼³Á¤ Çì´õ ÆÄÀÏ
+\brief ì¹´ë©”ë¼ì˜ ì…ë ¥ ì„¤ì • í—¤ë” íŒŒì¼
 */
 
 #pragma once
@@ -18,24 +18,24 @@
 
 /**
 * \class CCamera 
-* \brief Ä«¸Ş¶ó ¼³Á¤ Å¬·¡½º
-* \remark  Ä«¸Ş¶óÀÇ ¿Ã¹Ù¸¥ ÀÔ·ÂÀ» À§ÇØ ¼ÂÆÃ
-* \param size Ä«¸Ş¶ó Å©±â
-* \param projectionMatrix Ä«¸Ş¶óÀÇ projectionMatrix
-* \param distortionFactor Ä«¸Ş¶óÀÇ distortionFactor
-* \param parameterFile ÆÄ¶ó¹ÌÅÍ°¡ ÀúÀåµÈ ÆÄÀÏÀÇ ÀÌ¸§ÀÌ ÀúÀåµÉ º¯¼ö
-* \param img_input Ä«¸Ş¶ó ¿µ»ó ÇÚµé¸µ º¯¼ö
+* \brief ì¹´ë©”ë¼ ì„¤ì • í´ë˜ìŠ¤
+* \remark  ì¹´ë©”ë¼ì˜ ì˜¬ë°”ë¥¸ ì…ë ¥ì„ ìœ„í•´ ì…‹íŒ…
+* \param size ì¹´ë©”ë¼ í¬ê¸°
+* \param projectionMatrix ì¹´ë©”ë¼ì˜ projectionMatrix
+* \param distortionFactor ì¹´ë©”ë¼ì˜ distortionFactor
+* \param parameterFile íŒŒë¼ë¯¸í„°ê°€ ì €ì¥ëœ íŒŒì¼ì˜ ì´ë¦„ì´ ì €ì¥ë  ë³€ìˆ˜
+* \param img_input ì¹´ë©”ë¼ ì˜ìƒ í•¸ë“¤ë§ ë³€ìˆ˜
 */
 class CCamera
 {
 public:
-	CCamera(void); /**<»ı¼ºÀÚ*/
-	CCamera(bool	turnOn); /**<»ı¼ºÀÚ*/
+	CCamera(void); /**<ìƒì„±ì*/
+	CCamera(bool	turnOn); /**<ìƒì„±ì*/
 
 
 	Results featuresResult;
 
-	~CCamera(void); /**<¼Ò¸êÀÚ*/
+	~CCamera(void); /**<ì†Œë©¸ì*/
 
 	// Intrinsic Parameters
 	CvSize	size;
@@ -126,7 +126,7 @@ public:
 
 	void featurePoseEstimation();
 
-	//3D ¸ğµ¨À» ±×¸®±â À§ÇØ¼­ ¿À·ÎÁö ÀÌ µÎ°³ÀÇ ÇÔ¼ö¸¸ È£ÃâÇÑ´Ù.
+	//3D ëª¨ë¸ì„ ê·¸ë¦¬ê¸° ìœ„í•´ì„œ ì˜¤ë¡œì§€ ì´ ë‘ê°œì˜ í•¨ìˆ˜ë§Œ í˜¸ì¶œí•œë‹¤.
 	D3DXMATRIXA16* D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut);
 	D3DXMATRIXA16* D3DXMakeViewMatrix(D3DXMATRIXA16* pOut);
 	
@@ -135,68 +135,68 @@ public:
 	// Loading Functions
 	/** 
 	* \fn bool load	(const char* fileName)
-	* \brief Ä«¸Ş¶ó ÆÄ¶ó¹ÌÅÍ¸¦ ¼ÂÆÃÇÏ´Â ÇÔ¼ö.
-	* \remark Á¤ÀÇµÈ fileNameÀÎ ¡°Camera.dat¡±ÀÇ ÆÄÀÏÀ» ¿ÀÇÂÇÏ¿© Distortion Factor, È­¸é Å©±â¸¦ ÀĞ¾î Ä«¸Ş¶ó »çÀÌÁî¸¦ ¼¼ÆÃÇÏ°í Projection Matrix¸¦ ÀĞ´Â´Ù.\n
-	* Ä«¸Ş¶ó »çÀÌÁî ¼³Á¤À» »ç¿ëÀÚ°¡ ¹Ù²Ü ¼ö ÀÖ´Âµ¥ ÀÌ´Â Camera.datÆÄÀÏÀÇ ³»ºÎ¸¦ ¼öÁ¤ÇØ ÁÖ¾î¾ß ÇÑ´Ù. \n
-	* ÀÌ ÆÄÀÏÀº calibration µ¥ÀÌÅÍ¿ÍÀÇ mappingÀ» À§ÇÏ¿© camera parameter ÆÄÀÏ¿¡¼­ ¼³Á¤ÇÏµµ·Ï ¼³°èµÇ¾î ÀÖ´Ù. \n
-	* µû¶ó¼­ Ä«¸Ş¶óÀÇ »çÀÌÁî¸¦ º¯°æÇÏ°íÀÚ ÇÒ ¶§¿¡´Â #size ºÎºĞ¿¡ xÅ©±â (°ø¹é) yÅ©±â ÀÇ Çü½ÄÀ¸·Î ÀÔ·ÂÇÏ¸é µÈ´Ù.
-	* \param fileName ¿ÀÇÂÇÒ ÆÄÀÏ¸í
+	* \brief ì¹´ë©”ë¼ íŒŒë¼ë¯¸í„°ë¥¼ ì…‹íŒ…í•˜ëŠ” í•¨ìˆ˜.
+	* \remark ì •ì˜ëœ fileNameì¸ â€œCamera.datâ€ì˜ íŒŒì¼ì„ ì˜¤í”ˆí•˜ì—¬ Distortion Factor, í™”ë©´ í¬ê¸°ë¥¼ ì½ì–´ ì¹´ë©”ë¼ ì‚¬ì´ì¦ˆë¥¼ ì„¸íŒ…í•˜ê³  Projection Matrixë¥¼ ì½ëŠ”ë‹¤.\n
+	* ì¹´ë©”ë¼ ì‚¬ì´ì¦ˆ ì„¤ì •ì„ ì‚¬ìš©ìê°€ ë°”ê¿€ ìˆ˜ ìˆëŠ”ë° ì´ëŠ” Camera.datíŒŒì¼ì˜ ë‚´ë¶€ë¥¼ ìˆ˜ì •í•´ ì£¼ì–´ì•¼ í•œë‹¤. \n
+	* ì´ íŒŒì¼ì€ calibration ë°ì´í„°ì™€ì˜ mappingì„ ìœ„í•˜ì—¬ camera parameter íŒŒì¼ì—ì„œ ì„¤ì •í•˜ë„ë¡ ì„¤ê³„ë˜ì–´ ìˆë‹¤. \n
+	* ë”°ë¼ì„œ ì¹´ë©”ë¼ì˜ ì‚¬ì´ì¦ˆë¥¼ ë³€ê²½í•˜ê³ ì í•  ë•Œì—ëŠ” #size ë¶€ë¶„ì— xí¬ê¸° (ê³µë°±) yí¬ê¸° ì˜ í˜•ì‹ìœ¼ë¡œ ì…ë ¥í•˜ë©´ ëœë‹¤.
+	* \param fileName ì˜¤í”ˆí•  íŒŒì¼ëª…
 	*/
 	bool load	(const char* fileName);
 
 	/** 
 	* \fn bool load()
-	* \brief Ä«¸Ş¶ó ÆÄ¶ó¹ÌÅÍ¸¦ ¼ÂÆÃÇÏ´Â ÇÔ¼ö.
-	* \remark Á¤ÀÇµÈ fileNameÀÎ ¡°Camera.dat¡±ÀÇ ÆÄÀÏÀ» ¿ÀÇÂÇÏ¿© Distortion Factor, È­¸é Å©±â¸¦ ÀĞ¾î Ä«¸Ş¶ó »çÀÌÁî¸¦ ¼¼ÆÃÇÏ°í Projection Matrix¸¦ ÀĞ´Â´Ù.\n
-	* Ä«¸Ş¶ó »çÀÌÁî ¼³Á¤À» »ç¿ëÀÚ°¡ ¹Ù²Ü ¼ö ÀÖ´Âµ¥ ÀÌ´Â Camera.datÆÄÀÏÀÇ ³»ºÎ¸¦ ¼öÁ¤ÇØ ÁÖ¾î¾ß ÇÑ´Ù. \n
-	* ÀÌ ÆÄÀÏÀº calibration µ¥ÀÌÅÍ¿ÍÀÇ mappingÀ» À§ÇÏ¿© camera parameter ÆÄÀÏ¿¡¼­ ¼³Á¤ÇÏµµ·Ï ¼³°èµÇ¾î ÀÖ´Ù. \n
-	* µû¶ó¼­ Ä«¸Ş¶óÀÇ »çÀÌÁî¸¦ º¯°æÇÏ°íÀÚ ÇÒ ¶§¿¡´Â #size ºÎºĞ¿¡ xÅ©±â (°ø¹é) yÅ©±â ÀÇ Çü½ÄÀ¸·Î ÀÔ·ÂÇÏ¸é µÈ´Ù.
+	* \brief ì¹´ë©”ë¼ íŒŒë¼ë¯¸í„°ë¥¼ ì…‹íŒ…í•˜ëŠ” í•¨ìˆ˜.
+	* \remark ì •ì˜ëœ fileNameì¸ â€œCamera.datâ€ì˜ íŒŒì¼ì„ ì˜¤í”ˆí•˜ì—¬ Distortion Factor, í™”ë©´ í¬ê¸°ë¥¼ ì½ì–´ ì¹´ë©”ë¼ ì‚¬ì´ì¦ˆë¥¼ ì„¸íŒ…í•˜ê³  Projection Matrixë¥¼ ì½ëŠ”ë‹¤.\n
+	* ì¹´ë©”ë¼ ì‚¬ì´ì¦ˆ ì„¤ì •ì„ ì‚¬ìš©ìê°€ ë°”ê¿€ ìˆ˜ ìˆëŠ”ë° ì´ëŠ” Camera.datíŒŒì¼ì˜ ë‚´ë¶€ë¥¼ ìˆ˜ì •í•´ ì£¼ì–´ì•¼ í•œë‹¤. \n
+	* ì´ íŒŒì¼ì€ calibration ë°ì´í„°ì™€ì˜ mappingì„ ìœ„í•˜ì—¬ camera parameter íŒŒì¼ì—ì„œ ì„¤ì •í•˜ë„ë¡ ì„¤ê³„ë˜ì–´ ìˆë‹¤. \n
+	* ë”°ë¼ì„œ ì¹´ë©”ë¼ì˜ ì‚¬ì´ì¦ˆë¥¼ ë³€ê²½í•˜ê³ ì í•  ë•Œì—ëŠ” #size ë¶€ë¶„ì— xí¬ê¸° (ê³µë°±) yí¬ê¸° ì˜ í˜•ì‹ìœ¼ë¡œ ì…ë ¥í•˜ë©´ ëœë‹¤.
 	*/
 	bool	load()	{	return load(defaultFileName);		}
 
-	// º¸Á¤ 
+	// ë³´ì • 
 
 	/** 
 	* \fn void observ2Ideal(CvPoint	observed, CvPoint2D *ideal)
-	* \brief Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥¸¦ IdealÇÑ ÁÂÇ¥·Î º¯È¯ÇÏ´Â ÇÔ¼ö.
-	* \param observed Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥
-	* \param ideal idealÇÏ°Ô º¯È¯µÈ ¿µ»óÀÇ ÁÂÇ¥
+	* \brief ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œë¥¼ Idealí•œ ì¢Œí‘œë¡œ ë³€í™˜í•˜ëŠ” í•¨ìˆ˜.
+	* \param observed ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œ
+	* \param ideal idealí•˜ê²Œ ë³€í™˜ëœ ì˜ìƒì˜ ì¢Œí‘œ
 	*/
 	void observ2Ideal(CvPoint	observed, CvPoint2D *ideal);
 
 	/** 
 	* \fn void ideal2Observ(CvPoint2D ideal, CvPoint *observed)
-	* \brief Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥¸¦ observedÇÑ ÁÂÇ¥·Î º¯È¯ÇÏ´Â ÇÔ¼ö.
-	* \param ideal ÀÔ·Â¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥
-	* \param observed observedÇÏ°Ô º¯È¯µÈ ¿µ»óÀÇ ÁÂÇ¥
+	* \brief ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œë¥¼ observedí•œ ì¢Œí‘œë¡œ ë³€í™˜í•˜ëŠ” í•¨ìˆ˜.
+	* \param ideal ì…ë ¥ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œ
+	* \param observed observedí•˜ê²Œ ë³€í™˜ëœ ì˜ìƒì˜ ì¢Œí‘œ
 	*/
 	void ideal2Observ(CvPoint2D ideal, CvPoint *observed);
 
 
 	/** 
 	* \fn void ideal2Observ(CvPoint2D ideal, CvPoint2D *observed)
-	* \brief Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥¸¦ observedÇÑ ÁÂÇ¥·Î º¯È¯ÇÏ´Â ÇÔ¼ö.
-	* \param ideal ÀÔ·Â¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥
-	* \param observed observedÇÏ°Ô º¯È¯µÈ ¿µ»óÀÇ ÁÂÇ¥
+	* \brief ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œë¥¼ observedí•œ ì¢Œí‘œë¡œ ë³€í™˜í•˜ëŠ” í•¨ìˆ˜.
+	* \param ideal ì…ë ¥ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œ
+	* \param observed observedí•˜ê²Œ ë³€í™˜ëœ ì˜ìƒì˜ ì¢Œí‘œ
 	*/
 	void ideal2Observ(CvPoint2D ideal, CvPoint2D *observed);
 
 	/** 
 	* \fn void observ2Ideal(int ox, int oy, ARTKFloat *ix, ARTKFloat *iy)
-	* \brief Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ ÁÂÇ¥¸¦ IdealÇÑ ÁÂÇ¥·Î º¯È¯ÇÏ´Â ÇÔ¼ö.
-	* \param ox Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ xÁÂÇ¥
-	* \param oy Ä«¸Ş¶ó·Î ÀÔ·Â ¹ŞÀº ¿µ»óÀÇ yÁÂÇ¥
-	* \param ix idealÇÏ°Ô º¯È¯µÈ ¿µ»óÀÇ xÁÂÇ¥
-	* \param iy idealÇÏ°Ô º¯È¯µÈ ¿µ»óÀÇ yÁÂÇ¥
+	* \brief ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ ì¢Œí‘œë¥¼ Idealí•œ ì¢Œí‘œë¡œ ë³€í™˜í•˜ëŠ” í•¨ìˆ˜.
+	* \param ox ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ xì¢Œí‘œ
+	* \param oy ì¹´ë©”ë¼ë¡œ ì…ë ¥ ë°›ì€ ì˜ìƒì˜ yì¢Œí‘œ
+	* \param ix idealí•˜ê²Œ ë³€í™˜ëœ ì˜ìƒì˜ xì¢Œí‘œ
+	* \param iy idealí•˜ê²Œ ë³€í™˜ëœ ì˜ìƒì˜ yì¢Œí‘œ
 	*/
 	void observ2Ideal(int ox, int oy, ARTKFloat *ix, ARTKFloat *iy);
 
 	
 
-	CvMat*					m_ExtrinsicParam; //Ä«¸Ş¶óÀÇ ¿ÜºÎ ÆÄ¶ó¹ÌÅÍ·Î ÀÌ °ªÀ» ÅëÇØ 3Â÷¿ø ÁÂÇ¥Á¤ÇÕÀÌ ÀÌ·ç¾îÁø´Ù.
-	CvMat*					m_MatHomography; //È£¸ğ±×·¡ÇÇ
+	CvMat*					m_ExtrinsicParam; //ì¹´ë©”ë¼ì˜ ì™¸ë¶€ íŒŒë¼ë¯¸í„°ë¡œ ì´ ê°’ì„ í†µí•´ 3ì°¨ì› ì¢Œí‘œì •í•©ì´ ì´ë£¨ì–´ì§„ë‹¤.
+	CvMat*					m_MatHomography; //í˜¸ëª¨ê·¸ë˜í”¼
 	
-	//È£¸ğ±×·¡ÇÇ¸¦ ºĞÇØÇÏ±â À§ÇÑ º¤ÅÍ
+	//í˜¸ëª¨ê·¸ë˜í”¼ë¥¼ ë¶„í•´í•˜ê¸° ìœ„í•œ ë²¡í„°
 	CvMat*					m_vecRotX;
 	CvMat*					m_vecRotY;
 	CvMat*					m_vecRotZ;
@@ -207,8 +207,8 @@ public:
 
 
 
-	CvMat*					m_IntrinsicParam; //Ä«¸Ş¶óÀÇ ³»ºÎ ÆÄ¶ó¹ÌÅÍ·Î °íÁ¤µÈ °ªÀ» »ç¿ëÇÑ´Ù.
-	CvMat*					m_IntrinsicParamInv; //Ä«¸Ş¶ó ³»ºÎ ÆÄ¶ó¹ÌÅÍÀÇ ¿ªÇà·Ä
+	CvMat*					m_IntrinsicParam; //ì¹´ë©”ë¼ì˜ ë‚´ë¶€ íŒŒë¼ë¯¸í„°ë¡œ ê³ ì •ëœ ê°’ì„ ì‚¬ìš©í•œë‹¤.
+	CvMat*					m_IntrinsicParamInv; //ì¹´ë©”ë¼ ë‚´ë¶€ íŒŒë¼ë¯¸í„°ì˜ ì—­í–‰ë ¬
 
 	CvMat* calcHomography(CvMat* src, CvMat* dst);
 	void ZhangCalibration(CvMat* m_RealCornerPosition, CvMat* imgCornerPosition);

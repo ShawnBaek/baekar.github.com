@@ -1,24 +1,24 @@
-// stdafx.h : ÀÚÁÖ »ç¿ëÇÏÁö¸¸ ÀÚÁÖ º¯°æµÇÁö´Â ¾Ê´Â
-// Ç¥ÁØ ½Ã½ºÅÛ Æ÷ÇÔ ÆÄÀÏ ¹× ÇÁ·ÎÁ§Æ® °ü·Ã Æ÷ÇÔ ÆÄÀÏÀÌ
-// µé¾î ÀÖ´Â Æ÷ÇÔ ÆÄÀÏÀÔ´Ï´Ù.
-//
+// stdafx.h : ìì£¼ ì‚¬ìš©í•˜ì§€ë§Œ ìì£¼ ë³€ê²½ë˜ì§€ëŠ” ì•ŠëŠ”
+// í‘œì¤€ ì‹œìŠ¤í…œ í¬í•¨ íŒŒì¼ ë° í”„ë¡œì íŠ¸ ê´€ë ¨ í¬í•¨ íŒŒì¼ì´
+// ë“¤ì–´ ìˆëŠ” í¬í•¨ íŒŒì¼ì…ë‹ˆë‹¤.
+// (EN: Precompiled header â€” standard system includes and project includes
+//  that are used frequently but rarely changed.)
 
 #pragma once
 
-#include "targetver.h"
+// targetver.h removed â€” Windows SDK version targeting not needed on macOS
+// <tchar.h> removed â€” Windows Unicode/ANSI abstraction not needed on macOS
 
 #include <stdio.h>
-#include <tchar.h>
 
-
-
-// TODO: ÇÁ·Î±×·¥¿¡ ÇÊ¿äÇÑ Ãß°¡ Çì´õ´Â ¿©±â¿¡¼­ ÂüÁ¶ÇÕ´Ï´Ù.
+// TODO: í”„ë¡œê·¸ë¨ì— í•„ìš”í•œ ì¶”ê°€ í—¤ë”ëŠ” ì—¬ê¸°ì—ì„œ ì°¸ì¡°í•©ë‹ˆë‹¤.
+// (EN: Reference additional headers needed by the program here.)
 
 #include <iostream>
 #include <string>
 #include <time.h>
 #include <vector>
-#include <atlstr.h>
+// <atlstr.h> removed â€” MSVC ATL string library not available on macOS; use std::string
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>

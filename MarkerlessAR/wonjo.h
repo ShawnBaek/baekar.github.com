@@ -1,5 +1,13 @@
-#include "global_include.h"
 #pragma once
+#include "global_include.h"
+
+// DirectX 9 types — use stubs on macOS (will be replaced by OpenGL in Sprint 4)
+#ifdef _WIN32
+#include <d3d9.h>
+#include <d3dx9.h>
+#else
+#include "compat/d3d_stub.h"
+#endif
 
 
 namespace wonjo_dx

@@ -1,0 +1,35 @@
+# Build output
+build/
+bin/
+obj/
+out/
+*.o
+*.a
+*.so
+*.dylib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+xcuserdata/
+
+# macOS
+.DS_Store
+._*
+
+# Logs
+*.log
+
+# Environment
+.env*

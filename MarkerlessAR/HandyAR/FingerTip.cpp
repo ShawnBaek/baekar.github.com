@@ -741,7 +741,7 @@ int FingerTip::FindFingerTipCandidatesByCurvature( IplImage * handRegion, bool f
         pScreenshot_curvature->origin = handRegion->origin;
         pScreenshot_ellipse = cvCreateImage( cvSize(640, 480), 8, 3 );
         pScreenshot_ellipse->origin = handRegion->origin;
-		//¾Æ·¡ÀÇ ÁÖ¼®Ã³¸®´Â ³»°¡ ÀÓÀÇ·Î ¼öÁ¤ÇÔ.... 2012.03.21
+		//ì•„ë˜ì˜ ì£¼ì„ì²˜ë¦¬ëŠ” ë‚´ê°€ ì„ì˜ë¡œ ìˆ˜ì •í•¨.... 2012.03.21
 		cvSetZero( pScreenshot_curvature );
         cvSetZero( pScreenshot_ellipse );
     }
@@ -769,7 +769,7 @@ int FingerTip::FindFingerTipCandidatesByCurvature( IplImage * handRegion, bool f
     //
     CvMemStorage *  pStorage = cvCreateMemStorage(0);
 
-	//¿Ü°û¼±ÀÇ Á¤º¸¸¦ ÀúÀåÇÏ´Â º¯¼ö´Ù.
+	//ì™¸ê³½ì„ ì˜ ì •ë³´ë¥¼ ì €ì¥í•˜ëŠ” ë³€ìˆ˜ë‹¤.
     CvSeq *         pContours;   
     int nContours = cvFindContours(
                         handRegion, pStorage, &pContours, sizeof(CvContour),
@@ -785,7 +785,7 @@ int FingerTip::FindFingerTipCandidatesByCurvature( IplImage * handRegion, bool f
         if ( cvGetReal2D( _pHandImage, _maxDistPoint.y, _maxDistPoint.x ) == 255 )
         {
             cvSetZero( _pHandImage );
-			//¾Æ·¡ÀÇ ÄÚµå´Â »ìÂ¦ ¼öÁ¤ÇÔ... Thickness °ªÀ» -1¿¡¼­ 2·Î ¼öÁ¤
+			//ì•„ë˜ì˜ ì½”ë“œëŠ” ì‚´ì§ ìˆ˜ì •í•¨... Thickness ê°’ì„ -1ì—ì„œ 2ë¡œ ìˆ˜ì •
             cvDrawContours( _pHandImage, pContours, cvScalar(255), cvScalar(0), 0, -1, 8 );
 			cvDistTransform( _pHandImage, _pDistImage, CV_DIST_L2, CV_DIST_MASK_3, NULL, NULL );
             _maxDistValue = 0;
@@ -825,7 +825,7 @@ int FingerTip::FindFingerTipCandidatesByCurvature( IplImage * handRegion, bool f
         return 0;
     }
 
-	//¿©±â¼­ ´Ù½Ã ±×·ÁÁÖ´Â Contour Á¤º¸µéÀº Ellipse ¿¬»êÀ» ¼öÇàÇß±â ¶§¹®¿¡ À§¿¡¼­ °è»êµÈ °ªº¸´Ù Å©°Ô ³ª¿Â´Ù.
+	//ì—¬ê¸°ì„œ ë‹¤ì‹œ ê·¸ë ¤ì£¼ëŠ” Contour ì •ë³´ë“¤ì€ Ellipse ì—°ì‚°ì„ ìˆ˜í–‰í–ˆê¸° ë•Œë¬¸ì— ìœ„ì—ì„œ ê³„ì‚°ëœ ê°’ë³´ë‹¤ í¬ê²Œ ë‚˜ì˜¨ë‹¤.
     CvPoint2D32f * contour = (CvPoint2D32f *)malloc( pContours->total * sizeof(CvPoint2D32f) );
     for ( int i = 0 ; i < pContours->total ; i ++ )
     {
@@ -834,7 +834,7 @@ int FingerTip::FindFingerTipCandidatesByCurvature( IplImage * handRegion, bool f
 
         if ( fScreenshot && i > 0 )
         {
-			//°¢ ¶óÀÎÀÇ ÁÂÇ¥¿¡ x2¸¦ ÇØÁÖ°í ÀÖ´Ù. ÀÌ ÀÇ¹Ì´Â 320*240 »çÀÌÁî¿¡¼­ ellipseÀÏ °æ¿ì °öÇØÁá´Ù´Â ÀÇ¹Ì..
+			//ê° ë¼ì¸ì˜ ì¢Œí‘œì— x2ë¥¼ í•´ì£¼ê³  ìˆë‹¤. ì´ ì˜ë¯¸ëŠ” 320*240 ì‚¬ì´ì¦ˆì—ì„œ ellipseì¼ ê²½ìš° ê³±í•´ì¤¬ë‹¤ëŠ” ì˜ë¯¸..
             cvLine( pScreenshot_ellipse, cvPoint(contour[i-1].x * 2, contour[i-1].y * 2),
                 cvPoint(contour[i].x * 2, contour[i].y * 2), CV_RGB(255,255,255), 1, 8, 0 );
         }

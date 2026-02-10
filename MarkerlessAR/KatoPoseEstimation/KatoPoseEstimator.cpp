@@ -102,11 +102,11 @@ int CKatoPoseEstimator::check_dir( double dir[3], CvPoint2D	*st, CvPoint2D	*ed)
     double    h;
     int       i, j;
 
-	// mat_a Çà·Ä ÃÊ±âÈ­ 3x3 ½Ç¼öÇü
+	// mat_a í–‰ë ¬ ì´ˆê¸°í™” 3x3 ì‹¤ìˆ˜í˜•
 	mat_a = cvCreateMat(3, 3, CV_64FC1);		//mat_a = arMatrixAlloc( 3, 3 );			
 		
 	
-	// Ä«¸Ş¶ó ÆÄ¶ó¸ŞÅÍ ´ëÀÔ
+	// ì¹´ë©”ë¼ íŒŒë¼ë©”í„° ëŒ€ì…
     for(j=0;j<3;j++) 
 		for(i=0;i<3;i++) 
 			mat_a->data.db[j*3+i] = this->camera->projectionMatrix[j][i];
@@ -125,7 +125,7 @@ int CKatoPoseEstimator::check_dir( double dir[3], CvPoint2D	*st, CvPoint2D	*ed)
                 + mat_a->data.db[7]*st->y*10.0
                 + mat_a->data.db[8]*10.0;
 
-	// matrix ÇØÁ¦
+	// matrix í•´ì œ
 	cvReleaseMat(&mat_a);	//arMatrixFree( mat_a );
     
     world[1][0] = world[0][0] + dir[0];
@@ -516,7 +516,7 @@ ARTKFloat CKatoPoseEstimator::arGetTransMatSub( double rot[3][3], CvPoint2D *ppo
 			//mat_f = arMatrixAlloc( 3, 1 );
 
 
-	// ±âÁØÁ¡À» Ideal->observed·Î º¯È¯ÇÏ¿© pos2d¿¡ ÀúÀå
+	// ê¸°ì¤€ì ì„ Ideal->observedë¡œ ë³€í™˜í•˜ì—¬ pos2dì— ì €ì¥
 	//CvPoint	temp;
 	for( i = 0; i < num; i++ ) {
 		//camera->ideal2Observ((*ppos2d[i]), &temp);
@@ -649,7 +649,7 @@ ARTKFloat CKatoPoseEstimator::arGetTransMat3(	double rot[3][3],
         //if( ppos3d[i][0] < pmin[0] ) pmin[0] = ppos3d[i][0];
         //if( ppos3d[i][1] > pmax[1] ) pmax[1] = ppos3d[i][1];
         //if( ppos3d[i][1] < pmin[1] ) pmin[1] = ppos3d[i][1];
-/* ARTK¿¡¼­ ¸·Àº°Íµé
+/* ARTKì—ì„œ ë§‰ì€ê²ƒë“¤
         if( ppos3d[i].z > pmax.z ) pmax.z = ppos3d[i].z;
         if( ppos3d[i].z < pmin.z ) pmin.z = ppos3d[i].z;
         if( ppos3d[i][2] > pmax[2] ) pmax[2] = ppos3d[i][2];
@@ -686,7 +686,7 @@ ARTKFloat CKatoPoseEstimator::arGetTransMat3(	double rot[3][3],
     return ret;
 }
 
-//ÀÌ°Í¸¸ È£ÃâÇÑ´Ù.
+//ì´ê²ƒë§Œ í˜¸ì¶œí•œë‹¤.
 ARTKFloat CKatoPoseEstimator::calculateTransformationMatrix(CCamera *camera, Results* aResult)
 {
 	this->camera = camera;
@@ -745,8 +745,8 @@ ARTKFloat CKatoPoseEstimator::calculateTransformationMatrix(CCamera *camera, Res
 ARTKFloat CKatoPoseEstimator::calculateTranformationMatrixMulti(CCamera* camera, 
 															Results* results, int marker_num, 
 															MultiConfigure* aConfig)
-															// aConfig --> num_of_markers 1°³,
-															//				id, markerWidth, coordOrigin, markerTrasnform** n°³
+															// aConfig --> num_of_markers 1ê°œ,
+															//				id, markerWidth, coordOrigin, markerTrasnform** nê°œ
 {
 
 	this->camera = camera;
@@ -757,7 +757,7 @@ ARTKFloat CKatoPoseEstimator::calculateTranformationMatrixMulti(CCamera* camera,
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////						marker_id_freq¶ó´Â ¸Ê¿¡ ÀĞ¾î¿Â ¸¶Ä¿(results)ÀÇ <id, °³¼ö> »ğÀÔ <-- ¸¶Ä¿ÀÎ½Äid, °³¼öÀÌ¹Ç·Î ÇÊ¿ä¾øÀ» µí
+	/////						marker_id_freqë¼ëŠ” ë§µì— ì½ì–´ì˜¨ ë§ˆì»¤(results)ì˜ <id, ê°œìˆ˜> ì‚½ì… <-- ë§ˆì»¤ì¸ì‹id, ê°œìˆ˜ì´ë¯€ë¡œ í•„ìš”ì—†ì„ ë“¯
 	std::map<int, int> marker_id_freq;
 	for(int i=0; i<marker_num; i++)
 	{
@@ -765,42 +765,42 @@ ARTKFloat CKatoPoseEstimator::calculateTranformationMatrixMulti(CCamera* camera,
 		if(m_patt_id >= 0)
 		{
 			std::map<int, int>::iterator iter = marker_id_freq.find(m_patt_id);
-			if(iter == marker_id_freq.end()) marker_id_freq.insert(std::make_pair<int,int>(m_patt_id,1));
+			if(iter == marker_id_freq.end()) marker_id_freq.insert(std::make_pair(m_patt_id,1));
 			else ((*iter).second)++;
 		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////				config_patt_id¶ó´Â µ¥Å¥¿¡ aConfig ±¸¼º ¸¶Ä¿µéÀÇ  <index, id> »ğÀÔ
+	/////				config_patt_idë¼ëŠ” ë°íì— aConfig êµ¬ì„± ë§ˆì»¤ë“¤ì˜  <index, id> ì‚½ì…
 	std::deque<std::pair<int,int> > config_patt_id;
 	for(int j=0; j<aConfig->num_of_markers; j++)
-		config_patt_id.push_back(std::make_pair<int,int>(j, aConfig->markers[j].id));
+		config_patt_id.push_back(std::make_pair(j, aConfig->markers[j].id));
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////						m2c_idx  (¸¶Ä¿ to Ä«¸Ş¶ó)  ¶ó´Â ¸Ê¿¡ id »ğÀÔ
+	/////						m2c_idx  (ë§ˆì»¤ to ì¹´ë©”ë¼)  ë¼ëŠ” ë§µì— id ì‚½ì…
 	std::map<int, int> m2c_idx;
-	for(int m=0; m<marker_num; m++)						// m: ¿µ»ó¿¡¼­ Ã£Àº m¹øÂ° ¸¶Ä¿ 
+	for(int m=0; m<marker_num; m++)						// m: ì˜ìƒì—ì„œ ì°¾ì€ më²ˆì§¸ ë§ˆì»¤ 
 	{
-		const int m_patt_id = results[m].ID;			// ¿µ»ó¿¡¼­ Ã£Àº m¹øÂ° ¸¶Ä¿ÀÇ id
-		bool ignore_marker = (m_patt_id < 0);			// Ã£Àº id°¡ À½¼ö¸é true, ¾ç¼ö¸é false ==> valid:false / invalid:true
-		std::map<int, int>::iterator m_iter = marker_id_freq.find(m_patt_id);		// m_iter: marker_id_freq ¸Ê¿¡¼­ ÇöÀç ¸¶Ä¿ id Ã£À½
-		if(m_iter != marker_id_freq.end())				// Ã£¾ÆÁö¸é, ignore_marker: frequency°¡ 1 ÀÌ»óÀÎÁö È®ÀÎ
-			ignore_marker |= ((*m_iter).second > 1);	// 2°³ ÀÌ»óÀÇ ¸¶Ä¿ÀÌ¸é true	// 1°³ ÀÌÇÏÀÌ¸é Çö»óÀ¯Áö
+		const int m_patt_id = results[m].ID;			// ì˜ìƒì—ì„œ ì°¾ì€ më²ˆì§¸ ë§ˆì»¤ì˜ id
+		bool ignore_marker = (m_patt_id < 0);			// ì°¾ì€ idê°€ ìŒìˆ˜ë©´ true, ì–‘ìˆ˜ë©´ false ==> valid:false / invalid:true
+		std::map<int, int>::iterator m_iter = marker_id_freq.find(m_patt_id);		// m_iter: marker_id_freq ë§µì—ì„œ í˜„ì¬ ë§ˆì»¤ id ì°¾ìŒ
+		if(m_iter != marker_id_freq.end())				// ì°¾ì•„ì§€ë©´, ignore_marker: frequencyê°€ 1 ì´ìƒì¸ì§€ í™•ì¸
+			ignore_marker |= ((*m_iter).second > 1);	// 2ê°œ ì´ìƒì˜ ë§ˆì»¤ì´ë©´ true	// 1ê°œ ì´í•˜ì´ë©´ í˜„ìƒìœ ì§€
 
-		if(!ignore_marker)		// Ã£Àº id°¡ ¾ç¼öÀÌ°Å³ª, 2°³ ÀÌ»óÀÌ¸é
+		if(!ignore_marker)		// ì°¾ì€ idê°€ ì–‘ìˆ˜ì´ê±°ë‚˜, 2ê°œ ì´ìƒì´ë©´
 		{
-			std::deque<std::pair<int,int> >::iterator c_iter = config_patt_id.begin();		// c_iter:	config_patt_id µ¥Å¥ Å½»öÀÚ
+			std::deque<std::pair<int,int> >::iterator c_iter = config_patt_id.begin();		// c_iter:	config_patt_id ë°í íƒìƒ‰ì
 			if(c_iter != config_patt_id.end()) do													// nested loop: outer- results
 																									//				inner- config
 			{
-				const int patt_id = (*c_iter).second;										// patt_id:	config¿¡¼­ °¢ id
-				if(results[m].ID == patt_id)												// Ã£Àº id¿Í °°Àº configÀÇ ¸¶Ä¿¸¦ Ã£À½
+				const int patt_id = (*c_iter).second;										// patt_id:	configì—ì„œ ê° id
+				if(results[m].ID == patt_id)												// ì°¾ì€ idì™€ ê°™ì€ configì˜ ë§ˆì»¤ë¥¼ ì°¾ìŒ
 				{
-					m2c_idx.insert(std::make_pair<int,int>(m,(*c_iter).first));				////// m2c_idx¿¡ <Ã£Àº resultÀÇ index, config¿¡¼­ÀÇ index>  »ğÀÔ
-					config_patt_id.erase(c_iter);											// ÀÌ°Ç Ã£¾ÒÀ¸´Ï config_patt_id ÀÚ·áÇü¿¡¼­ »èÁ¦
-					c_iter = config_patt_id.end();											// ÇÏ°í, ´õÀÌ»ó Å½»ö ÁßÁö
+					m2c_idx.insert(std::make_pair(m,(*c_iter).first));				////// m2c_idxì— <ì°¾ì€ resultì˜ index, configì—ì„œì˜ index>  ì‚½ì…
+					config_patt_id.erase(c_iter);											// ì´ê±´ ì°¾ì•˜ìœ¼ë‹ˆ config_patt_id ìë£Œí˜•ì—ì„œ ì‚­ì œ
+					c_iter = config_patt_id.end();											// í•˜ê³ , ë”ì´ìƒ íƒìƒ‰ ì¤‘ì§€
 
 					continue;
 				}
@@ -812,60 +812,60 @@ ARTKFloat CKatoPoseEstimator::calculateTranformationMatrixMulti(CCamera* camera,
 			while(c_iter != config_patt_id.end());
 		}
 	}
-	//	¿©±â±îÁö ¿ÔÀ¸¸é,	marker_id_freq: <Ã£Àº ¸¶Ä¿ id, Ã£Àº °³¼ö> À¯Áö
-	//						config_patt_id: config¿¡´Â ÀÖÀ¸³ª Ã£¾ÆÁöÁö ¾ÊÀº ¸¶Ä¿ id¸¸ À¯Áö
-	//						m2c_idx: <Ã£Àº resultÀÇ index, config¿¡¼­ÀÇ index> À¯Áö
+	//	ì—¬ê¸°ê¹Œì§€ ì™”ìœ¼ë©´,	marker_id_freq: <ì°¾ì€ ë§ˆì»¤ id, ì°¾ì€ ê°œìˆ˜> ìœ ì§€
+	//						config_patt_id: configì—ëŠ” ìˆìœ¼ë‚˜ ì°¾ì•„ì§€ì§€ ì•Šì€ ë§ˆì»¤ idë§Œ ìœ ì§€
+	//						m2c_idx: <ì°¾ì€ resultì˜ index, configì—ì„œì˜ index> ìœ ì§€
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// ----------------------------------------------------------------------
-	const unsigned int n_markers = (unsigned int) m2c_idx.size();			// ÀÌ config¿¡¼­ Ã£¾ÆÁø ¸¶Ä¿ÀÇ ¼ö
-	const unsigned int n_pts = 4*n_markers;									//	ÀÇ 4¹è <== Æ÷ÀÎÆ® ¼ö
+	const unsigned int n_markers = (unsigned int) m2c_idx.size();			// ì´ configì—ì„œ ì°¾ì•„ì§„ ë§ˆì»¤ì˜ ìˆ˜
+	const unsigned int n_pts = 4*n_markers;									//	ì˜ 4ë°° <== í¬ì¸íŠ¸ ìˆ˜
 
 	if(n_markers == 0) {
 		aConfig->prevF = 0;
-		return(-1);	// ¿©±â¼­ Á×À¸¸é ÀÌ¹ø config´Â ÇÏ³ªµµ ¸ø Ã£¾Ò´Ù´Â ¶æ
+		return(-1);	// ì—¬ê¸°ì„œ ì£½ìœ¼ë©´ ì´ë²ˆ configëŠ” í•˜ë‚˜ë„ ëª» ì°¾ì•˜ë‹¤ëŠ” ëœ»
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////					Pose Estimation~!!!   ¿©±â°¡ Áß¿äÇÏÁö....!!
-	CvPoint2D	**ppos2d = new CvPoint2D*[n_pts];  //<--n_pts´Â ±×³É 4·Î ³õÀ¸¸é µÉµí
+	/////					Pose Estimation~!!!   ì—¬ê¸°ê°€ ì¤‘ìš”í•˜ì§€....!!
+	CvPoint2D	**ppos2d = new CvPoint2D*[n_pts];  //<--n_ptsëŠ” ê·¸ëƒ¥ 4ë¡œ ë†“ìœ¼ë©´ ë ë“¯
 	CvPoint3D	*ppos3d = new CvPoint3D[n_pts];
 
 	ARTKFloat	err=0.0;
 
 	//rpp_vec *ppos2d = NULL, *ppos3d = NULL;
-	//ppos2d = (rpp_vec*)malloc(sizeof(rpp_vec) * (n_pts));			// Ã£¾ÆÁø ¸¶Ä¿ ¼ö * 4(n_ptr) * 3(rpp_vec)
-	//ppos3d = (rpp_vec*)malloc(sizeof(rpp_vec) * (n_pts));			// Ã£¾ÆÁø ¸¶Ä¿ ¼ö * 4(n_ptr) * 3(rpp_vec)
-	//memset(ppos2d,0,sizeof(rpp_vec)*n_pts);		// 0À¸·Î ÃÊ±âÈ­
-	//memset(ppos3d,0,sizeof(rpp_vec)*n_pts);		// 0À¸·Î ÃÊ±âÈ­
+	//ppos2d = (rpp_vec*)malloc(sizeof(rpp_vec) * (n_pts));			// ì°¾ì•„ì§„ ë§ˆì»¤ ìˆ˜ * 4(n_ptr) * 3(rpp_vec)
+	//ppos3d = (rpp_vec*)malloc(sizeof(rpp_vec) * (n_pts));			// ì°¾ì•„ì§„ ë§ˆì»¤ ìˆ˜ * 4(n_ptr) * 3(rpp_vec)
+	//memset(ppos2d,0,sizeof(rpp_vec)*n_pts);		// 0ìœ¼ë¡œ ì´ˆê¸°í™”
+	//memset(ppos3d,0,sizeof(rpp_vec)*n_pts);		// 0ìœ¼ë¡œ ì´ˆê¸°í™”
 
 	//const rpp_float iprts_z =  1;
 
 	int p=0;
 	int	max_area = -999, max_area_result_idx=0, max_area_config_idx = 0;
 	for(std::map<int, int>::iterator iter = m2c_idx.begin();
-		iter != m2c_idx.end(); iter++)								// m2c_idex¸¦ Å½»ö ==> iter(Å½»öÀÚ)
+		iter != m2c_idx.end(); iter++)								// m2c_idexë¥¼ íƒìƒ‰ ==> iter(íƒìƒ‰ì)
 	{
-		const int m = (*iter).first;								// m: ÇöÀç Ã£¾ÆÁø ¸¶Ä¿ÀÇ ÀÎµ¦½º
-		const int c = (*iter).second;								// c: °ü·ÃµÈ configÀÇ ÀÎµ¦½º
+		const int m = (*iter).first;								// m: í˜„ì¬ ì°¾ì•„ì§„ ë§ˆì»¤ì˜ ì¸ë±ìŠ¤
+		const int c = (*iter).second;								// c: ê´€ë ¨ëœ configì˜ ì¸ë±ìŠ¤
 
-		const int dir = results[m].dir;								// dir: ÇöÀç Ã£¾ÆÁø ¸¶Ä¿ÀÇ ¹æÇâ
-		const int v_idx[4] = {(4-dir)%4, (5-dir)%4, (6-dir)%4, (7-dir)%4};		// v_idx[4]: 4 ¹æÇâ ÀÎµ¦½º
+		const int dir = results[m].dir;								// dir: í˜„ì¬ ì°¾ì•„ì§„ ë§ˆì»¤ì˜ ë°©í–¥
+		const int v_idx[4] = {(4-dir)%4, (5-dir)%4, (6-dir)%4, (7-dir)%4};		// v_idx[4]: 4 ë°©í–¥ ì¸ë±ìŠ¤
 
 		for(int i=0; i<4; i++){
-			// 2Â÷¿ø ÁÂÇ¥ÀÇ homogeneous ÁÂÇ¥
+			// 2ì°¨ì› ì¢Œí‘œì˜ homogeneous ì¢Œí‘œ
 			ppos2d[p+i] = &(results[m].vertex[v_idx[i]]);
 			//ppos2d[p+i][0] = (rpp_float) (results[m].vertex[v_idx[i]].x);
 			//ppos2d[p+i][1] = (rpp_float) (results[m].vertex[v_idx[i]].y);
 			//ppos2d[p+i][2] = (rpp_float) (iprts_z );		
 
-			ppos3d[p+i].x = aConfig->markers[c].pos3d[i][0];		// Configure ÁÂÇ¥°è¿¡¼­ °¢ Á¡ÀÇ À§Ä¡
-			ppos3d[p+i].y = aConfig->markers[c].pos3d[i][1];		// Configure ÁÂÇ¥°è¿¡¼­ °¢ Á¡ÀÇ À§Ä¡
-			ppos3d[p+i].z = aConfig->markers[c].pos3d[i][2];		// Configure ÁÂÇ¥°è¿¡¼­ °¢ Á¡ÀÇ À§Ä¡
+			ppos3d[p+i].x = aConfig->markers[c].pos3d[i][0];		// Configure ì¢Œí‘œê³„ì—ì„œ ê° ì ì˜ ìœ„ì¹˜
+			ppos3d[p+i].y = aConfig->markers[c].pos3d[i][1];		// Configure ì¢Œí‘œê³„ì—ì„œ ê° ì ì˜ ìœ„ì¹˜
+			ppos3d[p+i].z = aConfig->markers[c].pos3d[i][2];		// Configure ì¢Œí‘œê³„ì—ì„œ ê° ì ì˜ ìœ„ì¹˜
 
 
-			// Max Area °á°ú Ã£±â
+			// Max Area ê²°ê³¼ ì°¾ê¸°
 			if(results[m].area > max_area) {
 				max_area = results[m].area;
 				max_area_result_idx = m;
@@ -880,28 +880,28 @@ ARTKFloat CKatoPoseEstimator::calculateTranformationMatrixMulti(CCamera* camera,
 
 
 
-	// initRÀÇ ÃÊ±âÈ­
+	// initRì˜ ì´ˆê¸°í™”
 	//double	initR[3][3] = {	-0.732607191386725,	-0.0252060382357456,	0.680184571413967,
 	//						-0.533312878340816, 0.642181269457273,		-0.550618207206169,
 	//						-0.422922887951736,	-0.766138285686534,		-0.483909320981329};
 	double	initR[3][3] = {0};
 
 	if(aConfig->prevF) {
-		// ÀÌÀü ÇÁ·¹ÀÓ¿¡ Ã£¾Ò¾úÀ¸¸é ±×°É ÃÊ±â Çà·Ä·Î
+		// ì´ì „ í”„ë ˆì„ì— ì°¾ì•˜ì—ˆìœ¼ë©´ ê·¸ê±¸ ì´ˆê¸° í–‰ë ¬ë¡œ
 		for(int i=0; i<3; ++i) {
 			for(int j=0; j<3; ++j) {
 				initR[i][j] = aConfig->trans[i][j];
 			}
 		}
 	} else {
-		// ¸ø Ã£¾Ò¾úÀ¸¸é Á¦ÀÏ Å« ¸¶Ä¿ÀÇ TcmÀ» ÀÌ¿ë
+		// ëª» ì°¾ì•˜ì—ˆìœ¼ë©´ ì œì¼ í° ë§ˆì»¤ì˜ Tcmì„ ì´ìš©
 
-		// Max AreaÀÇ Transpose Matrix °è»ê
+		// Max Areaì˜ Transpose Matrix ê³„ì‚°
 		//
 		calculateTransformationMatrix(this->camera, &(results[max_area_result_idx]));
 
 
-		// matrix °ö¼À: results[max_area_result_idx].Tcm x itrans ==> rot
+		// matrix ê³±ì…ˆ: results[max_area_result_idx].Tcm x itrans ==> rot
 		//	max_area_config_idx
 		arUtilMatMul(results[max_area_result_idx].Tcm, aConfig->markers[max_area_config_idx].itrans, initR);
 	}

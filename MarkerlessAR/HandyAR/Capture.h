@@ -4,8 +4,10 @@
 // IN ORDER TO USE POINTGREY CAMERAS, UNCOMMENT THE BELOW LINE.
 //#define POINTGREY_CAPTURE
 
-#include "cv.h"
-#include "highgui.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/highgui/highgui_c.h>
+#include <opencv2/videoio/videoio_c.h>
 
 #ifdef POINTGREY_CAPTURE
 #include "FlyCap.h"

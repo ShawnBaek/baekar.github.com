@@ -21,7 +21,8 @@
 #ifndef _CV_FIND_EXTRINSIC_CAMERA_PARAMS3_H_
 #define _CV_FIND_EXTRINSIC_CAMERA_PARAMS3_H_
 
-#include "cv.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/calib3d/calib3d_c.h>
 
 bool
 cvFindExtrinsicCameraParams3( const CvMat* obj_points,

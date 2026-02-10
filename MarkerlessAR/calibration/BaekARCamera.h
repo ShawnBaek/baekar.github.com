@@ -9,13 +9,22 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "cv.h"
-#include "cxcore.h" 
+// OpenCV headers updated for OpenCV 4.x
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
+#include <opencv2/calib3d/calib3d_c.h>
 
-#include <windows.h> 
-#include <math.h> 
-//#include <gl/glut.h> 
-#include <glut.h>
+// <windows.h> removed — not available on macOS
+#include <math.h>
+// OpenGL/GLUT headers — macOS paths
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
 #include <vector>
 #include <iostream>
 

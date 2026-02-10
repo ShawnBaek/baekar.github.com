@@ -26,7 +26,7 @@ namespace wonjo_dx
 			for(int i = 0 ; i < 16 ; ++i) matView[i] = view[i];
 		}
 
-		//double* view°¡ opengl ÀÇ matrix·Î ³Ñ¾î¿À±â ¶§¹®¿¡ directx ÁÂÇ¥°è¿¡¼­´Â ÁÂ¿ì¸¦ flipÇØ¾ßÇÑ´Ù.
+		//double* viewê°€ opengl ì˜ matrixë¡œ ë„˜ì–´ì˜¤ê¸° ë•Œë¬¸ì— directx ì¢Œí‘œê³„ì—ì„œëŠ” ì¢Œìš°ë¥¼ flipí•´ì•¼í•œë‹¤.
 		D3DXMATRIXA16 matFlip;
 		D3DXMatrixScaling(&matFlip,-1,1,1);
 		matView *= matFlip;
@@ -45,7 +45,7 @@ namespace wonjo_dx
 	{
 		matView = *view;
 
-		//double* view°¡ opengl ÀÇ matrix·Î ³Ñ¾î¿À±â ¶§¹®¿¡ directx ÁÂÇ¥°è¿¡¼­´Â ÁÂ¿ì¸¦ flipÇØ¾ßÇÑ´Ù.
+		//double* viewê°€ opengl ì˜ matrixë¡œ ë„˜ì–´ì˜¤ê¸° ë•Œë¬¸ì— directx ì¢Œí‘œê³„ì—ì„œëŠ” ì¢Œìš°ë¥¼ flipí•´ì•¼í•œë‹¤.
 // 		D3DXMATRIXA16 matFlip;
 // 		D3DXMatrixScaling(&matFlip,-1,1,1);
 // 		matView *= matFlip;

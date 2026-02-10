@@ -28,13 +28,13 @@ public:
     ~FingertipTracker(void);
 
 	//Fingertip 2,3 variables
-	int FingertipTracker::NOTHING_COUNTER;
-	int FingertipTracker::SCALE_COUNTER;
-	int FingertipTracker::MOVE_COUNTER;
-	CvPoint2D32f FingertipTracker::MOVE_ACTION_START_POINT;
-	CvPoint2D32f FingertipTracker::MOVE_ACTION_POINT;
-	float FingertipTracker::SCALE_ACTION_START_DISTANCE;
-	float FingertipTracker::SCALE_ACTION_DISTANCE;
+	int NOTHING_COUNTER;
+	int SCALE_COUNTER;
+	int MOVE_COUNTER;
+	CvPoint2D32f MOVE_ACTION_START_POINT;
+	CvPoint2D32f MOVE_ACTION_POINT;
+	float SCALE_ACTION_START_DISTANCE;
+	float SCALE_ACTION_DISTANCE;
 
     bool LoadFingertipCoordinates( char * filename );
     bool SaveFingertipCoordinates( char * filename );

@@ -1,11 +1,6 @@
-#ifdef	_WIN32
-	//#include <cv.h>
-	//#include <cxcore.h>
-	//#include <highgui.h>
 #include <opencv2/opencv.hpp>
-#else
-	#include <OpenCV/OpenCV.h>
-#endif
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
 
 #define	PRECISION_64
 

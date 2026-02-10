@@ -24,6 +24,9 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 #pragma once
 #include <opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core_c.h>
+#include <opencv2/calib3d.hpp>
+#include "utils.hpp"
 #include <vector>
 using std::vector;
 
@@ -45,7 +48,7 @@ T* readMat(const std::string& name, T* &mat, int m, int n)
 template<typename T>
 void writeMat(const std::string& name, T* mat, int m, int n, std::string fmt="", bool append=false)
 {
-	if (fmt.empty()) fmt = numToStr_trait< T >::getFormat();
+	if (fmt.empty()) fmt = ::utils::numToStr_trait< T >::getFormat();
 
 	std::ofstream ofs(name.c_str(), (append ? std::ios::app : std::ios::out));
 	if (!ofs.good()) {
@@ -73,29 +76,23 @@ static void findHomography(const vector< KeypointT >& left, const vector< Keypoi
 	if(mat == NULL)
 		mat = new double[9];
 
-	CvMat* matLeft = cvCreateMat(left.size(), 2, CV_32FC1);
-	CvMat* matRight = cvCreateMat(left.size(), 2, CV_32FC1);
-	CvMat* matHomo = cvCreateMat(3, 3, CV_32FC1);
-
-	for(int i=0; i<left.size(); i++){
-		cvmSet(matLeft, i, 0, left[i].x);	cvmSet(matLeft, i, 1, left[i].y);
-		cvmSet(matRight, i, 0, right[i].x);	cvmSet(matRight, i, 1, right[i].y);
+	std::vector<cv::Point2f> ptsLeft(left.size()), ptsRight(left.size());
+	for(size_t i=0; i<left.size(); i++){
+		ptsLeft[i] = cv::Point2f((float)left[i].x, (float)left[i].y);
+		ptsRight[i] = cv::Point2f((float)right[i].x, (float)right[i].y);
 	}
 
 	//get homography with least square method
-	cvFindHomography(matLeft, matRight, matHomo);
+	cv::Mat homo = cv::findHomography(ptsLeft, ptsRight);
 
 	//copy and print
 	for(int y=0; y<3; y++){
 		for(int x=0; x<3; x++){
-			mat[y*3+x] = cvmGet(matHomo, y, x);
+			mat[y*3+x] = homo.at<double>(y, x);
 			printf("%f ", mat[y*3+x] );
 		}
 		printf("\n");
 	}
-
-	cvReleaseMat(&matLeft);
-	cvReleaseMat(&matRight);
 }
 
 template< typename KeypointT >

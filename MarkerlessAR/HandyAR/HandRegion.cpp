@@ -151,7 +151,7 @@ IplImage * HandRegion::GetHandRegion( IplImage * srcImage, IplImage * srcGrayIma
     // Segmentation by Color Distribution
     //
     int nHandRegion = 0;
-	//ÇÑ ÇÈ¼¿¾¿ °Ë»ç¸¦ ¼öÇàÇØ ³½´Ù.
+	//í•œ í”½ì…€ì”© ê²€ì‚¬ë¥¼ ìˆ˜í–‰í•´ ë‚¸ë‹¤.
     for ( int i = 0 ; i < srcImage->height ; i ++ )
     {
         for ( int j = 0 ; j < srcImage->width ; j ++ )

@@ -24,7 +24,7 @@
 //              memory=4
 
 
-#include "../stdint.h"																	
+#include <cstdint>																	
 #include <stdlib.h>
 #include "cvWrapper.h"
 #include "oast9_16.h"

@@ -1,20 +1,37 @@
 ﻿#define _STDINT
+
+// Platform headers
+#ifdef _WIN32
 #include <windows.h>
 #include <process.h>
+#else
+#include "compat/win32_stub.h"
+#endif
+
 #include <fstream>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
+// <opencv2/gpu/gpu.hpp> removed — OpenCV CUDA module not available on macOS
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio/videoio_c.h>
+#include <opencv2/videoio/legacy/constants_c.h>
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
 
 #include <iostream>
 #include <list>
 
-#include "stdint.h"
+// stdint.h — system-provided on macOS; MSVC polyfill only needed for old VS
+#ifdef _MSC_VER
+#include "msc_stdint.h"
+#else
+#include <cstdint>
+#endif
 #include "brisk/brisk.h"
 //#include "projection.h"
 #include "brisk/Matcher.h"
@@ -24,7 +41,13 @@
 
 #include "HandyAR/HandyAR.h"
 
-#include <gl/glut.h>
+// OpenGL/GLUT headers — macOS paths
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
+
 #include "SungwookUtility.hpp"
 #include "SungwookFeature.hpp"
 #include "SungwookAR.hpp"
@@ -375,12 +398,13 @@ void init()
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, 0 );
-    IplImage * tempImage = cvLoadImage( EARTH_TEXTURE_FILENAME, 1 );
-    // convert image R and B channel
-    cvConvertImage( tempImage, tempImage, CV_CVTIMG_SWAP_RB );
+    cv::Mat tempMat = cv::imread( EARTH_TEXTURE_FILENAME, cv::IMREAD_COLOR );
+    cv::cvtColor( tempMat, tempMat, cv::COLOR_BGR2RGB );
+    IplImage tempImageHdr = cvIplImage(tempMat);
+    IplImage * tempImage = &tempImageHdr;
     cvFlip( tempImage );
     glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, tempImage->width, tempImage->height, GL_RGB, GL_UNSIGNED_BYTE, tempImage->imageData );
-    cvReleaseImage( &tempImage );
+    // tempImage is stack-allocated wrapper, no release needed
 
     // Init bunny
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -542,17 +566,17 @@ static void mainLoop(void)
 	cvFlip(image);
 	if(bThreadTracking1==true)
 	{		
-		cvLine(image, dst_tracking_corners1[0], dst_tracking_corners1[1], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[1], dst_tracking_corners1[2], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[2], dst_tracking_corners1[3], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[3], dst_tracking_corners1[0], Scalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_tracking_corners1[0].x,(int)dst_tracking_corners1[0].y), cvPoint((int)dst_tracking_corners1[1].x,(int)dst_tracking_corners1[1].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_tracking_corners1[1].x,(int)dst_tracking_corners1[1].y), cvPoint((int)dst_tracking_corners1[2].x,(int)dst_tracking_corners1[2].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_tracking_corners1[2].x,(int)dst_tracking_corners1[2].y), cvPoint((int)dst_tracking_corners1[3].x,(int)dst_tracking_corners1[3].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_tracking_corners1[3].x,(int)dst_tracking_corners1[3].y), cvPoint((int)dst_tracking_corners1[0].x,(int)dst_tracking_corners1[0].y), cvScalar( 0, 255, 255), 4);
 	}
 	else if(bThreadDetection1==true)
 	{
-		cvLine(image, dst_matching_corners1[0], dst_matching_corners1[1], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[1], dst_matching_corners1[2], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[2], dst_matching_corners1[3], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[3], dst_matching_corners1[0], Scalar( 255, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvScalar( 255, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvScalar( 255, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvScalar( 255, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvScalar( 255, 255, 255), 4);
 	}
 	
 	
@@ -832,7 +856,9 @@ void doTrack(void	*imgPtr){
 	
 }
 
+#ifdef _WIN32
 LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam);
+#endif
 LPCSTR lpszClass = "BaekAR Application : State of Art Argumented Reality Browser";
 //int main(int argc, char* argv[]) 
 //INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd )
@@ -956,8 +982,8 @@ int InitializeEngineMain()
 		//descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
 
 		
-		descriptorMatcher1 = new BruteForceMatcher<HammingSse>(); 
-		descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
+		descriptorMatcher1 = new BFMatcher(NORM_HAMMING);
+		descriptorMatcher2 = new BFMatcher(NORM_HAMMING);
 		
 	}
 	else{
@@ -1084,7 +1110,7 @@ int ReleaseEngineMain()
 	return 0;
 }
 
-unsigned __stdcall ThreadDraw(void *param)
+unsigned int ThreadDraw(void *param)
 {
 	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 	while(true){
@@ -1098,18 +1124,18 @@ unsigned __stdcall ThreadDraw(void *param)
 		if(bThreadTracking1==true)
 		{
 			
-			line( mInput, dst_tracking_corners1[0], dst_tracking_corners1[1], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[1], dst_tracking_corners1[2], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[2], dst_tracking_corners1[3], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[3], dst_tracking_corners1[0], Scalar( 0, 255, 255), 4 );	
+			line( mInput, dst_tracking_corners1[0], dst_tracking_corners1[1], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[1], dst_tracking_corners1[2], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[2], dst_tracking_corners1[3], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[3], dst_tracking_corners1[0], cvScalar( 0, 255, 255), 4 );	
 
 		}else
 		{
 
-			line( mInput, dst_matching_corners1[0], dst_matching_corners1[1], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[1], dst_matching_corners1[2], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[2], dst_matching_corners1[3], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[3], dst_matching_corners1[0], Scalar( 255, 255, 255), 4 );	
+			line( mInput, dst_matching_corners1[0], dst_matching_corners1[1], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[1], dst_matching_corners1[2], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[2], dst_matching_corners1[3], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[3], dst_matching_corners1[0], cvScalar( 255, 255, 255), 4 );	
 
 		}
 
@@ -1137,7 +1163,7 @@ unsigned __stdcall ThreadDraw(void *param)
 
 
 
-unsigned __stdcall ThreadBRISKMatching(void *param)
+unsigned int ThreadBRISKMatching(void *param)
 {
 	//namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 
@@ -1394,7 +1420,7 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 
 
 
-unsigned __stdcall ThreadTracking(void *param)
+unsigned int ThreadTracking(void *param)
 {
 		
 	int idxcount=*((int*)param);
@@ -1684,9 +1710,9 @@ unsigned __stdcall ThreadTracking(void *param)
 				
 				/*
 				line( tracking_thread_rgbcamera, dst_tracking_corners[0], dst_tracking_corners[1], Scalar(0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[1], dst_tracking_corners[2], Scalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[2], dst_tracking_corners[3], Scalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[3], dst_tracking_corners[0], Scalar( 0, 255, 255), 4 );	
+				line( tracking_thread_rgbcamera, dst_tracking_corners[1], dst_tracking_corners[2], cvScalar( 0, 255, 255), 4 );
+				line( tracking_thread_rgbcamera, dst_tracking_corners[2], dst_tracking_corners[3], cvScalar( 0, 255, 255), 4 );
+				line( tracking_thread_rgbcamera, dst_tracking_corners[3], dst_tracking_corners[0], cvScalar( 0, 255, 255), 4 );	
 				*/
 				
 				dst_tracking_corners1=dst_tracking_corners;
@@ -1832,11 +1858,12 @@ unsigned __stdcall ThreadTracking(void *param)
 
 
 
+#ifdef _WIN32
 INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd )
 {
 	//console
 	AllocConsole();
-	freopen("CONOUT$","wt",stdout);	
+	freopen("CONOUT$","wt",stdout);
 
 	//////////////////////////////////////////////////////////////////////////
 	//initialize directX
@@ -1863,15 +1890,15 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	ShowWindow(hWnd,nShowCmd);
 
 
-	//초기화
-	if(FAILED(wonjo_dx::AAR3DInitD3D(hWnd))) 
+	//초기화 (EN: Initialization)
+	if(FAILED(wonjo_dx::AAR3DInitD3D(hWnd)))
 	{
 		MessageBox(NULL,"DirectX Device Failed.\nthe application will be terminated.","BaekAR",MB_OK);
-		return 0;	//실패시 윈도우 끝내버림.
+		return 0;	//실패시 윈도우 끝내버림. (EN: Terminate window on failure)
 	}
 	//~initialize directX
 	//////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////// 
+	//////////////////////////////////////////////////////////////////////////
 
 
 	InitializeEngineMain();
@@ -1880,14 +1907,14 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE );
 	while(true) {	//main loop start
 
-		//윈도우 핸들링이 들어올 때 처리
+		//윈도우 핸들링이 들어올 때 처리 (EN: Handle window messages)
 		if( PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE ) )
 		{
 			TranslateMessage( &Message );
 			DispatchMessage( &Message );
 			continue;
 		}
-		//메시지가 들어오지 않았을 때 처리 (main loop)
+		//메시지가 들어오지 않았을 때 처리 (main loop) (EN: Process main loop when no messages)
 		else mainLoop();
 	}	//end of main loop
 	//~direct X code
@@ -1895,12 +1922,30 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	ReleaseEngineMain();
 	return 0;
 }
+#else
+// macOS entry point — replaces WinMain + DirectX init with simple main loop
+// (GLFW windowing and OpenGL rendering to be added in Sprint 3/4)
+int main(int argc, char* argv[])
+{
+	InitializeEngineMain();
+
+	// Simple main loop (will be replaced with GLFW event loop in Sprint 3)
+	bool running = true;
+	while(running) {
+		mainLoop();
+	}
+
+	ReleaseEngineMain();
+	return 0;
+}
+#endif
 
 
 
 
 
 
+#ifdef _WIN32
 //Message Loop
 LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam)
 {
@@ -1949,3 +1994,4 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam)
 	}
 	return(DefWindowProc(hWnd,iMessage,wParam,lParam));
 }
+#endif // _WIN32

@@ -1,5 +1,9 @@
 #include "wonjo.h"
+// omp.h â€” OpenMP not critical for compilation; guard it
+#ifdef _OPENMP
 #include "omp.h"
+#endif
+#include <unordered_map>  // replaced stdext::hash_map
 
 
 //#define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1)
@@ -32,10 +36,10 @@ namespace wonjo_dx
 	}
 
 	//ResourceManager (Mesh only) : not Textures
-	stdext::hash_map<std::string,Mesh*> hsMeshes;
+	std::unordered_map<std::string,Mesh*> hsMeshes;
 	LPMESH LoadMeshFromFile(LPCSTR location)
 	{
-		stdext::hash_map<std::string,Mesh*>::iterator itr = hsMeshes.find(location);
+		std::unordered_map<std::string,Mesh*>::iterator itr = hsMeshes.find(location);
 		if(itr == hsMeshes.end())
 		{
 			LPMESH ms = new Mesh;
@@ -71,7 +75,7 @@ namespace wonjo_dx
 // 						ZeroMemory(buffer,sizeof(buffer));
 // 						MultiByteToWideChar(CP_ACP,MB_COMPOSITE,mtrls[i].pTextureFilename,-1,buffer,BUFSIZ);
 
-						//È®ÀåÀÚ ¶¼±â
+						//í™•ì¥ì ë–¼ê¸°
 						std::string::iterator fitr;
 						while( FileName.size() && FileName[FileName.size()-1] != '\\' )
 						{
@@ -84,7 +88,7 @@ namespace wonjo_dx
 						fullpath.append(mtrls[i].pTextureFilename);
 						if(FAILED(D3DXCreateTextureFromFile( GetDevice(), fullpath.c_str() , &tex )))
 						{
-							MessageBox(NULL, "ÅØ½ºÃÄ »ı¼º ½ÇÆĞ", "¿¡·¯¸Ş½ÃÁö", NULL );
+							MessageBox(NULL, "í…ìŠ¤ì³ ìƒì„± ì‹¤íŒ¨", "ì—ëŸ¬ë©”ì‹œì§€", NULL );
 							//					return false;
 							return NULL;
 						}
@@ -105,7 +109,7 @@ namespace wonjo_dx
 	}
 	void ReleaseMeshes()
 	{
-		for(stdext::hash_map<std::string,Mesh*>::iterator itr = hsMeshes.begin() ; itr != hsMeshes.end() ; ++itr)
+		for(std::unordered_map<std::string,Mesh*>::iterator itr = hsMeshes.begin() ; itr != hsMeshes.end() ; ++itr)
 		{
 			delete itr->second;
 		}
@@ -145,14 +149,14 @@ namespace wonjo_dx
 		GetDevice()->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
 		GetDevice()->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
 		
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);   //µğÆúÆ®°ª = ÅØ½ºÃÄ
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);    // 1°ú 2¿¡ °¢°¢ ÅØ½ºÃÄ¿Í µğÇ»Áî¸¦ ³Ö°í
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_MODULATE); // 2°³¸¦ ¸ğµâ·¹ÀÌÆ® ÇÑ´Ù (ÇÕ¼º)
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);   //ë””í´íŠ¸ê°’ = í…ìŠ¤ì³
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);    // 1ê³¼ 2ì— ê°ê° í…ìŠ¤ì³ì™€ ë””í“¨ì¦ˆë¥¼ ë„£ê³ 
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_MODULATE); // 2ê°œë¥¼ ëª¨ë“ˆë ˆì´íŠ¸ í•œë‹¤ (í•©ì„±)
 
 		for(int i = 0; i < (signed)pms->Mtrls.size(); i++)
 		{
 			//////////////////////////////////////////////////////////////////////////
-			//		m_Effector->SetUpShader(matWorld, res->m_Tex[i]);	//120109Ä«Å÷½¦ÀÌ´õrollback
+			//		m_Effector->SetUpShader(matWorld, res->m_Tex[i]);	//120109ì¹´íˆ°ì‰ì´ë”rollback
 			//////////////////////////////////////////////////////////////////////////
 			//mtrls[i].MatD3D.Diffuse.a = 0.4f;
 			pms->Mtrls[i].Ambient.a = pms->Mtrls[i].Diffuse.a = 0.95f;
@@ -247,7 +251,7 @@ namespace wonjo_dx
 			//pAddr[i].color=0xffffffff;
 			pAddr[i].normal = D3DXVECTOR3(0,1,0);
 
-		//¾Õ¸é
+		//ì•ë©´
 		pAddr[0].position=D3DXVECTOR3(-1,-1,0);
 		pAddr[0].setUV(0,1);
 
@@ -266,7 +270,7 @@ namespace wonjo_dx
 		pAddr[5].position=D3DXVECTOR3(1,1,0);
 		pAddr[5].setUV(1,0);
 		/*
-		//¿ì¸é
+		//ìš°ë©´
 		pAddr[6].position=D3DXVECTOR3(1,1,-1);
 		pAddr[6].setUV(0,0);
 
@@ -285,7 +289,7 @@ namespace wonjo_dx
 		pAddr[11].position=D3DXVECTOR3(1,-1,1);
 		pAddr[11].setUV(1,1);
 
-		//ÇÏ¸é
+		//í•˜ë©´
 		pAddr[12].position=D3DXVECTOR3(1,-1,1);
 		pAddr[12].setUV(0,0);
 
@@ -304,7 +308,7 @@ namespace wonjo_dx
 		pAddr[17].position=D3DXVECTOR3(-1,-1,-1);
 		pAddr[17].setUV(1,1);
 
-		//ÁÂ¸é
+		//ì¢Œë©´
 		pAddr[18].position=D3DXVECTOR3(-1,-1,-1);
 		pAddr[18].setUV(1,1);
 
@@ -324,7 +328,7 @@ namespace wonjo_dx
 		pAddr[23].setUV(0,0);
 
 
-		//µÚ¸é
+		//ë’¤ë©´
 		pAddr[24].position=D3DXVECTOR3(-1,1,1);
 		pAddr[24].setUV(1,0);
 
@@ -343,7 +347,7 @@ namespace wonjo_dx
 		pAddr[29].position=D3DXVECTOR3(1,-1,1);
 		pAddr[29].setUV(0,1);
 
-		//À­¸é
+		//ìœ—ë©´
 		pAddr[30].position=D3DXVECTOR3(1,1,1);
 		pAddr[30].setUV(1,0);
 
@@ -421,7 +425,7 @@ namespace wonjo_dx
 	{
 		if(bInitedOnce) return E_FAIL;
 
-		//µ¥½ºÅ©Å¾ Å©±â ¹Ş¾Æ¿È.
+		//ë°ìŠ¤í¬íƒ‘ í¬ê¸° ë°›ì•„ì˜´.
 		AAR3DMakeDesktopSize();
 
 
@@ -489,10 +493,10 @@ namespace wonjo_dx
 		gpDevice->SetRenderState(D3DRS_SPECULARENABLE, false);
 
 
-		gpDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//¿Ş¼ÕÁÂÇ¥°è´Ï±î ¹İ½Ã°è¹æÇâ ÄÃ¸µ
-		gpDevice->SetRenderState(D3DRS_ZENABLE, TRUE);//z¹öÆÛ ÄÑ±â
+		gpDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//ì™¼ì†ì¢Œí‘œê³„ë‹ˆê¹Œ ë°˜ì‹œê³„ë°©í–¥ ì»¬ë§
+		gpDevice->SetRenderState(D3DRS_ZENABLE, TRUE);//zë²„í¼ ì¼œê¸°
 
-		//¾ËÆÄÃ¤³Î ÄÑ±â
+		//ì•ŒíŒŒì±„ë„ ì¼œê¸°
 		gpDevice->SetRenderState( D3DRS_ALPHABLENDENABLE,   TRUE );
 		gpDevice->SetRenderState( D3DRS_SRCBLEND,  D3DBLEND_SRCALPHA );
 		gpDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
@@ -509,7 +513,7 @@ namespace wonjo_dx
 
 		gpDevice->SetSamplerState(0,D3DSAMP_MINFILTER,D3DTEXF_ANISOTROPIC);
 		gpDevice->SetSamplerState(0,D3DSAMP_MAGFILTER,D3DTEXF_ANISOTROPIC);
-		gpDevice->SetSamplerState(0,D3DSAMP_MAXANISOTROPY,anisotropicLv/*ÀÌºÎºĞÀÌ ¹èÀ².. ÇöÀç´Â ±×·¡ÇÈÄ«µå¿¡¼­ ¹Ş¾Æ¿Â°ª*/);
+		gpDevice->SetSamplerState(0,D3DSAMP_MAXANISOTROPY,anisotropicLv/*ì´ë¶€ë¶„ì´ ë°°ìœ¨.. í˜„ì¬ëŠ” ê·¸ë˜í”½ì¹´ë“œì—ì„œ ë°›ì•„ì˜¨ê°’*/);
 
 		gpDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		gpDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
@@ -521,11 +525,11 @@ namespace wonjo_dx
 
 		D3DXCreateFont( gpDevice, 20, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET, 
 			OUT_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, 
-			"±¼¸²Ã¼", &gFont );		
+			"êµ´ë¦¼ì²´", &gFont );		
 
 		D3DXCreateSprite( gpDevice, &gSprite );
 
-		//¹é±×¶ó¿îµå ÅØ½ºÃÄ »ı¼º
+		//ë°±ê·¸ë¼ìš´ë“œ í…ìŠ¤ì³ ìƒì„±
 		RECT rt;
 		GetWindowRect(hWnd,&rt);
 		D3DXCreateTexture(gpDevice, rt.right-rt.left, rt.bottom-rt.top, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,&gpTextureBackground);
@@ -567,7 +571,7 @@ namespace wonjo_dx
 			}
 			gpTextureBackground->UnlockRect(0);
 			gSprite->Begin(D3DXSPRITE_ALPHABLEND);
-			gSprite->Draw(gpTextureBackground,NULL,NULL,&D3DXVECTOR3(0,0,1),D3DCOLOR_ARGB(255,255,255,255));
+			{ D3DXVECTOR3 spritePos(0,0,1); gSprite->Draw(gpTextureBackground,NULL,NULL,&spritePos,D3DCOLOR_ARGB(255,255,255,255)); }
 			gSprite->End();
 		}
 	}
@@ -626,11 +630,11 @@ namespace wonjo_dx
 // 			::PrintWindow(hSrc, dcTarget, 0);
 // 			//		memcpy(temp,t,width*height*4);
 // 			
-// 			//1 °¡·Î¼¼·Î µÚÁıÈû
+// 			//1 ê°€ë¡œì„¸ë¡œ ë’¤ì§‘í˜
 // 			//memcpy(lr.pBits,t,sizeof(int)*width*height);
 // 
 // //#pragma omp parallel for
-// 			//2 ¼¼·Î°¡ µÚÁıÈû
+// 			//2 ì„¸ë¡œê°€ ë’¤ì§‘í˜
 // 			for(int i = 0 ; i < width*height ; ++i)
 // 				((int*)lr.pBits)[width*height-i-1] = t[i];
 // 						
@@ -676,7 +680,7 @@ namespace wonjo_dx
 // 
 // 
 // 
-// 		//ÁÂ¿ì µÚÁı¾îÁø ÅØ½ºÃÄ¸¦ ¹İÀüÇÏ±â À§ÇÑ World Matrix
+// 		//ì¢Œìš° ë’¤ì§‘ì–´ì§„ í…ìŠ¤ì³ë¥¼ ë°˜ì „í•˜ê¸° ìœ„í•œ World Matrix
 // 
 // 
 // 
@@ -777,10 +781,10 @@ namespace wonjo_dx
 
 
 
-	//»ï°¢ÇüÀ¸·Î ÇÇÅ·
+	//ì‚¼ê°í˜•ìœ¼ë¡œ í”¼í‚¹
 	void PickWithTriangle(POINT ptClient, D3DXVECTOR3* triangles, int size)
 	{
-		//¿ùµå¸¦ ÇÁ·ÎÁ§¼ÇÀ¸·Î °¡Á®¿È (= ¿ùµå¿ª, ºä¿ª)
+		//ì›”ë“œë¥¼ í”„ë¡œì ì…˜ìœ¼ë¡œ ê°€ì ¸ì˜´ (= ì›”ë“œì—­, ë·°ì—­)
 		D3DXMATRIXA16 worldmatrix;
 		D3DXMATRIXA16 viewmatrix;
 		D3DXMATRIXA16 worldmatrix_inverse;
@@ -804,7 +808,7 @@ namespace wonjo_dx
 		pick_pos.y /= 240;
 		D3DXVECTOR3 RayBegin = D3DXVECTOR3(pick_pos.x,pick_pos.y,0);
 		D3DXVECTOR3 RayDir = D3DXVECTOR3(pick_pos.x,pick_pos.y,1);
-		//Á¤±ÔÈ­°ø°£»ó¿¡¼­ÀÇ Ray´Â x,y´Â °°°í z¸¸ ´Ù¸§
+		//ì •ê·œí™”ê³µê°„ìƒì—ì„œì˜ RayëŠ” x,yëŠ” ê°™ê³  zë§Œ ë‹¤ë¦„
 
 		for(int i = 0 ; i < size ; ++i)
 		{
@@ -812,7 +816,7 @@ namespace wonjo_dx
 				"transformed pos " << vTransformed[i].x <<","<< vTransformed[i].y <<","<< vTransformed[i].z <<std::endl;
 		}
 
-		//projection °ø°£À¸·ÎÀÇ Æ®·£½ºÆûµÈ vTransformed
+		//projection ê³µê°„ìœ¼ë¡œì˜ íŠ¸ëœìŠ¤í¼ëœ vTransformed
 		for(int i = 0 ; i < size ; i+=3 )
 		{
 			float u, v, dist;

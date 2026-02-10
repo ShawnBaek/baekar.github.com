@@ -1,55 +1,51 @@
 /** \file Results.h
-\brief Æ®·¡Å·µÈ ¸¶Ä¿ÀÇ Á¤º¸
+\brief íŠ¸ë˜í‚¹ëœ ë§ˆì»¤ì˜ ì •ë³´
 */
 
 #pragma once
 
 
-#ifdef	_WIN32
-//	#include <cxcore.h>
-#else
-	#include <OpenCV/OpenCV.h>
-#endif
+// OpenCV headers handled by dll_header.h below
 
 #include "dll_header.h"
 
 /** \struct Results
-* \brief µğÅØÆ®µÈ ¸¶Ä¿ÀÇ ±¸Á¶
+* \brief ë””í…íŠ¸ëœ ë§ˆì»¤ì˜ êµ¬ì¡°
 * 
-* ÄÁÅõ¾î¸¦ ±¸ÇÑ ÈÄÀÇ Á¤º¸¸¦ ÀúÀå 
-* \ remark ¼±Àº ax+by+c=0·Î Ç¥ÇöµÇ±â À§ÇÏ¿© a,b,c¸¦ »ç¿ëÇÑ´Ù.
-* \param area ¶óº§¸µµÈ ¿µ¿ªÀÇ ÇÈ¼¿ °¹¼ö
-* \param id ÀÎ½ÄµÈ ¸¶Ä¿ ¹øÈ£
-* \param dir ¸¶Ä¿ÀÇ È¸Àü ¿©ºÎ¸¦ ¾Ë·ÁÁÖ´Â ¹æÇâÁ¤º¸ (0,1,2,3ÀÌ µé¾î¿È). µğÅØÆ® µÈ ¸¶Ä¿ÀÇ ¼±ºĞ ¼ø¼­¸¦ ¾Ë·ÁÁÜ.arGetTransMat()¿¡¼­ transformation matrix¸¦ ¼öÇàÇÏ±â À§ÇØ Áß¿äÇÔ.
-* \param cf ¸¶Ä¿ÀÏ °¡´É¼º
-* \param center ¸¶Ä¿ÀÇ Áß¾Ó(in ideal screen coordinates)
-* \param line ¸¶Ä¿ÀÇ ³× Ãø¸éÀ» À§ÇÑ ¼±ºĞ ¹æÁ¤½Ä (in ideal screen coordinates)
-* \param vertex ¸¶Ä¿ÀÇ edge point (in ideal screen coordinates)
-* \param Tcm Ä«¸Ş¶ó ÁÂÇ¥°è¿Í ¸¶Ä¿ ÁÂÇ¥°è °£ÀÇ Æ®·£½ºÆ÷¸ÅÀÌ¼Ç ¸ÅÆ®¸¯½º
+* ì»¨íˆ¬ì–´ë¥¼ êµ¬í•œ í›„ì˜ ì •ë³´ë¥¼ ì €ì¥ 
+* \ remark ì„ ì€ ax+by+c=0ë¡œ í‘œí˜„ë˜ê¸° ìœ„í•˜ì—¬ a,b,cë¥¼ ì‚¬ìš©í•œë‹¤.
+* \param area ë¼ë²¨ë§ëœ ì˜ì—­ì˜ í”½ì…€ ê°¯ìˆ˜
+* \param id ì¸ì‹ëœ ë§ˆì»¤ ë²ˆí˜¸
+* \param dir ë§ˆì»¤ì˜ íšŒì „ ì—¬ë¶€ë¥¼ ì•Œë ¤ì£¼ëŠ” ë°©í–¥ì •ë³´ (0,1,2,3ì´ ë“¤ì–´ì˜´). ë””í…íŠ¸ ëœ ë§ˆì»¤ì˜ ì„ ë¶„ ìˆœì„œë¥¼ ì•Œë ¤ì¤Œ.arGetTransMat()ì—ì„œ transformation matrixë¥¼ ìˆ˜í–‰í•˜ê¸° ìœ„í•´ ì¤‘ìš”í•¨.
+* \param cf ë§ˆì»¤ì¼ ê°€ëŠ¥ì„±
+* \param center ë§ˆì»¤ì˜ ì¤‘ì•™(in ideal screen coordinates)
+* \param line ë§ˆì»¤ì˜ ë„¤ ì¸¡ë©´ì„ ìœ„í•œ ì„ ë¶„ ë°©ì •ì‹ (in ideal screen coordinates)
+* \param vertex ë§ˆì»¤ì˜ edge point (in ideal screen coordinates)
+* \param Tcm ì¹´ë©”ë¼ ì¢Œí‘œê³„ì™€ ë§ˆì»¤ ì¢Œí‘œê³„ ê°„ì˜ íŠ¸ëœìŠ¤í¬ë§¤ì´ì…˜ ë§¤íŠ¸ë¦­ìŠ¤
 */
 typedef struct 
 {
-	int					ID;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	int					dir;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	double				cf;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
+	int					ID;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	int					dir;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	double				cf;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
 
-	CvPoint2D		vertex[4];	// Detector::MSL_arGetLine2()¿¡¼­ °è»ê		/  Detector::MSL_arGetLine2()¿¡¼­ ÀúÀå
-	CvPoint2D		center;		// Detector::GetLocationInfo()¿¡¼­ °è»ê		/  Detector::GetLocationInfo()¿¡¼­ ÀúÀå
-	double				area;			// Detector::doDetecting()¿¡¼­ °è»ê				/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	double				line[4][3];	// Detector::MSL_arGetLine2()¿¡¼­ °è»ê		/  Detector::MSL_arGetLine2()¿¡¼­ ÀúÀå
+	CvPoint2D		vertex[4];	// Detector::MSL_arGetLine2()ì—ì„œ ê³„ì‚°		/  Detector::MSL_arGetLine2()ì—ì„œ ì €ì¥
+	CvPoint2D		center;		// Detector::GetLocationInfo()ì—ì„œ ê³„ì‚°		/  Detector::GetLocationInfo()ì—ì„œ ì €ì¥
+	double				area;			// Detector::doDetecting()ì—ì„œ ê³„ì‚°				/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	double				line[4][3];	// Detector::MSL_arGetLine2()ì—ì„œ ê³„ì‚°		/  Detector::MSL_arGetLine2()ì—ì„œ ì €ì¥
 	double				Tcm[3][4];	// 
 } Results;	// end of struct
 
 
 /** \struct ARMultiMarkerEach
-* \brief ¸ÖÆ¼ ¸¶Ä¿ »ç¿ë½Ã °¢°¢ÀÇ ¸¶Ä¿ Á¤º¸
-* \param id ÀÎ½ÄµÈ ¸¶Ä¿ ¹øÈ£
-* \param width ¸¶Ä¿ÀÇ °¡·Î Å©±â
-* \param center ¸¶Ä¿ÀÇ ¼¾ÅÍ
+* \brief ë©€í‹° ë§ˆì»¤ ì‚¬ìš©ì‹œ ê°ê°ì˜ ë§ˆì»¤ ì •ë³´
+* \param id ì¸ì‹ëœ ë§ˆì»¤ ë²ˆí˜¸
+* \param width ë§ˆì»¤ì˜ ê°€ë¡œ í¬ê¸°
+* \param center ë§ˆì»¤ì˜ ì„¼í„°
 * \param trans[3][4] transform matrix
 * \param itrans[3][4] 10. inverse transform matrix
-* \param pos3d[4][3] ¸¶Ä¿ ÁÂÇ¥°è¿¡¼­ÀÇ ³× Æ÷ÀÎÆ®ÀÇ À§Ä¡µéÀ» ±Û·Î¹ú ÁÂÇ¥°è¿¡¼­ÀÇ À§Ä¡·Î ¹Ù²Û Á¤º¸
-* \param visible visible ¿©ºÎ
+* \param pos3d[4][3] ë§ˆì»¤ ì¢Œí‘œê³„ì—ì„œì˜ ë„¤ í¬ì¸íŠ¸ì˜ ìœ„ì¹˜ë“¤ì„ ê¸€ë¡œë²Œ ì¢Œí‘œê³„ì—ì„œì˜ ìœ„ì¹˜ë¡œ ë°”ê¾¼ ì •ë³´
+* \param visible visible ì—¬ë¶€
 */
 typedef	struct	{
 	int				id;
@@ -62,12 +58,12 @@ typedef	struct	{
 }	ARMultiMarkerEach;
 
 /** \struct MultiConfigure
-* \brief ¸ÖÆ¼ ¸¶Ä¿ Configure ±¸Á¶Ã¼
-* \param num_of_markers ¸¶Ä¿ÀÇ °³¼ö
-* \param markers °¢°¢ÀÇ ¸¶Ä¿
+* \brief ë©€í‹° ë§ˆì»¤ Configure êµ¬ì¡°ì²´
+* \param num_of_markers ë§ˆì»¤ì˜ ê°œìˆ˜
+* \param markers ê°ê°ì˜ ë§ˆì»¤
 * \param trans[3][4] transform matrix
-* \param prevF ÀÌÀü ¸¶Ä¿
-* \param cVisible visible ¿©ºÎ
+* \param prevF ì´ì „ ë§ˆì»¤
+* \param cVisible visible ì—¬ë¶€
 */
 typedef struct 
 {

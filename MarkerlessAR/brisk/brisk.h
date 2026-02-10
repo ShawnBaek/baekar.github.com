@@ -27,18 +27,17 @@
 #ifndef _BRISK_H_
 #define _BRISK_H_
 
-#pragma comment(lib, "opencv_calib3d231d.lib")
-#pragma comment(lib, "opencv_core231d.lib")
-#pragma comment(lib, "opencv_features2d231d.lib")
-#pragma comment(lib, "opencv_flann231d.lib")
-#pragma comment(lib, "opencv_gpu231d.lib")
-#pragma comment(lib, "opencv_highgui231d.lib")
-#pragma comment(lib, "opencv_imgproc231d.lib")
-#pragma comment(lib, "opencv_ml231d.lib")
+// MSVC #pragma comment(lib,...) removed — linking handled by CMake
 
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/core/core.hpp>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 #include <emmintrin.h>
+#else
+#include <arm_neon.h>
+// SSE→NEON compatibility shim: define __m128i as a NEON 128-bit type
+typedef int32x4_t __m128i;
+#endif
 
 #include "../agast/oast9_16.h"
 #include "../agast/agast7_12s.h"
@@ -71,7 +70,7 @@ struct BriskLongPair{
 };
 
 	// this is needed to avoid aliasing issues with the __m128i data type:
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 	typedef unsigned char __attribute__ ((__may_alias__)) UCHAR_ALIAS;
 	typedef unsigned short __attribute__ ((__may_alias__)) UINT16_ALIAS;
 	typedef unsigned int __attribute__ ((__may_alias__)) UINT32_ALIAS;

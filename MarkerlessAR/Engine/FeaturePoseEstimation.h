@@ -57,7 +57,7 @@ public:
     void TickCountNewLine();
     void TickCountDummy();
 
-	//120325 cwj DirectX¸¦ ÀÌ¿ëÇÑ ÇÁ·ÎÁ§¼Ç/ºä Çà·Ä °è»êÆÄÀÏ
+	//120325 cwj DirectXë¥¼ ì´ìš©í•œ í”„ë¡œì ì…˜/ë·° í–‰ë ¬ ê³„ì‚°íŒŒì¼
 	D3DXMATRIXA16* D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut);
 	D3DXMATRIXA16* D3DXMakeViewMatrix(D3DXMATRIXA16* pOut);
 	//~120325 cwj

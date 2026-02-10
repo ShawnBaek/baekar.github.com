@@ -25,7 +25,16 @@
 */
 #include "SungwookAR.hpp"
 #include "SungwookFeature.hpp"
-#include "stdint.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/imgproc/types_c.h>
+// stdint.h â€” system-provided on macOS; MSVC polyfill only needed for old VS
+#ifdef _MSC_VER
+#include "msc_stdint.h"
+#else
+#include <cstdint>
+#endif
 #include "brisk/brisk.h"
 
 
@@ -37,17 +46,17 @@
 
 Name:       makeDescriptors			for query
 
-Purpose:    ÁÖ¾îÁø ÀÌ¹ÌÁö¿¡¼­ keypoints¸¦ Ã£°í °¢ keypointsµéÀÇ descriptor¸¦ ¸¸µê
+Purpose:    ì£¼ì–´ì§„ ì´ë¯¸ì§€ì—ì„œ keypointsë¥¼ ì°¾ê³  ê° keypointsë“¤ì˜ descriptorë¥¼ ë§Œë“¦
 
-Parameters: Mat		&img_input:					keypoints¸¦ Ã£°í descriptor¸¦ »ı¼ºÇÒ ÀÌ¹ÌÁö 
-			vector<KeyPoint>	&keypoints:		°ËÃâµÈ keypointsµéÀÇ ¸ñ·Ï
-			Mat		&descriptors:				°ËÃâµÈ keypointsµé¿¡ ´ëÀÀµÇ´Â descriptorµé
+Parameters: Mat		&img_input:					keypointsë¥¼ ì°¾ê³  descriptorë¥¼ ìƒì„±í•  ì´ë¯¸ì§€ 
+			vector<KeyPoint>	&keypoints:		ê²€ì¶œëœ keypointsë“¤ì˜ ëª©ë¡
+			Mat		&descriptors:				ê²€ì¶œëœ keypointsë“¤ì— ëŒ€ì‘ë˜ëŠ” descriptorë“¤
 							
 Language:   C++
 
 ///////////////////////////////////////////////////////////////////////*/
-void	makeDescriptors(	const Mat			&img_input,									// ÀÔ·Â º¯¼ö
-							vector<KeyPoint>	&keypoints,		Mat		&descriptors)		// Ãâ·Â º¯¼ö
+void	makeDescriptors(	const Mat			&img_input,									// ì…ë ¥ ë³€ìˆ˜
+							vector<KeyPoint>	&keypoints,		Mat		&descriptors)		// ì¶œë ¥ ë³€ìˆ˜
 {
 
 
@@ -55,7 +64,7 @@ void	makeDescriptors(	const Mat			&img_input,									// ÀÔ·Â º¯¼ö
 	//=======================================================================
 	//===		1. Feature Extraction
 	Ptr<FeatureDetector>	featureDetector;
-	const int DESIRED_FTRS = 100;		// query ¿µ»ó¿¡¼­ »ÌÈ÷´Â Feature ÀÇ °³¼ö
+	const int DESIRED_FTRS = 100;		// query ì˜ìƒì—ì„œ ë½‘íˆëŠ” Feature ì˜ ê°œìˆ˜
 
 	// Create feature extractor
 #if	defined(FAST_FeatureDetector)
@@ -121,17 +130,17 @@ void	makeDescriptors(	const Mat			&img_input,									// ÀÔ·Â º¯¼ö
 
 Name:       makeDescriptors			for DB
 
-Purpose:    ÁÖ¾îÁø ÀÌ¹ÌÁö¿¡¼­ keypoints¸¦ Ã£°í °¢ keypointsµéÀÇ descriptor¸¦ ¸¸µê
+Purpose:    ì£¼ì–´ì§„ ì´ë¯¸ì§€ì—ì„œ keypointsë¥¼ ì°¾ê³  ê° keypointsë“¤ì˜ descriptorë¥¼ ë§Œë“¦
 
-Parameters: Mat		&img_input:					keypoints¸¦ Ã£°í descriptor¸¦ »ı¼ºÇÒ ÀÌ¹ÌÁö 
-			vector<KeyPoint>	&keypoints:		°ËÃâµÈ keypointsµéÀÇ ¸ñ·Ï
-			Mat		&descriptors:				°ËÃâµÈ keypointsµé¿¡ ´ëÀÀµÇ´Â descriptorµé
+Parameters: Mat		&img_input:					keypointsë¥¼ ì°¾ê³  descriptorë¥¼ ìƒì„±í•  ì´ë¯¸ì§€ 
+			vector<KeyPoint>	&keypoints:		ê²€ì¶œëœ keypointsë“¤ì˜ ëª©ë¡
+			Mat		&descriptors:				ê²€ì¶œëœ keypointsë“¤ì— ëŒ€ì‘ë˜ëŠ” descriptorë“¤
 							
 Language:   C++
 
 ///////////////////////////////////////////////////////////////////////*/
-void	makeDescriptors(	const	vector<Mat>					&img_input,									// ÀÔ·Â º¯¼ö
-							vector<vector<KeyPoint>>			&keypoints,		vector<Mat>		&descriptors)		// Ãâ·Â º¯¼ö
+void	makeDescriptors(	const	vector<Mat>					&img_input,									// ì…ë ¥ ë³€ìˆ˜
+							vector<vector<KeyPoint>>			&keypoints,		vector<Mat>		&descriptors)		// ì¶œë ¥ ë³€ìˆ˜
 {
 
 
@@ -269,7 +278,8 @@ bool niceHomography(const CvMat * H)
 //Move Original Image to Center Image
 Mat swMoveImage(Mat originalImage, Mat *tranformedImage, double idxScale){
 	
-	IplImage *src = &IplImage(originalImage);
+	IplImage srcHdr = cvIplImage(originalImage);
+	IplImage *src = &srcHdr;
 	double	angle  = 0.0;
 		
 	double x = src->width*idxScale/2.0;
@@ -285,29 +295,29 @@ Mat swMoveImage(Mat originalImage, Mat *tranformedImage, double idxScale){
 	}
 
 
-	//º¯È¯µÈ ÀÌ¹ÌÁö°¡ ÀúÀåµÉ °ø°£ »ı¼º
+	//ë³€í™˜ëœ ì´ë¯¸ì§€ê°€ ì €ì¥ë  ê³µê°„ ìƒì„±
 	IplImage *src2	= cvCreateImage( cvSize(r*2, r*2), IPL_DEPTH_8U, 1);
 	IplImage *dst	= cvCreateImage( cvSize(r*2, r*2), IPL_DEPTH_8U, 1);
 
 	cvZero(src2);
 	cvZero(dst);
 	
-	//¿øº» ÀÌ¹ÌÁöÅ©±â¸¸Å­ °ü½É¿µ¿ªÀ» ÁöÁ¤
+	//ì›ë³¸ ì´ë¯¸ì§€í¬ê¸°ë§Œí¼ ê´€ì‹¬ì˜ì—­ì„ ì§€ì •
 	cvSetImageROI(src2, cvRect(src2->width/2-src->width/2, src2->height/2-src->height/2, src->width, src->height));
 
 	cvCopy(src, src2);
 	cvResetImageROI(src2);
 
-	//È¸ÀüÁß½É¼³Á¤  
+	//íšŒì „ì¤‘ì‹¬ì„¤ì •  
 	CvPoint2D32f center = cvPoint2D32f( src2->width/2.0, src2->height/2.0);
 	CvMat *rot_mat		= cvCreateMat( 2, 3, CV_32FC1);
 
-	// ¸ŞÆ®¸¯½º º¯È¯  
+	// ë©”íŠ¸ë¦­ìŠ¤ ë³€í™˜  
 	cv2DRotationMatrix( center, angle, idxScale, rot_mat); 
-	// ¼±Çüº¸°£
+	// ì„ í˜•ë³´ê°„
 	cvWarpAffine( src2, dst, rot_mat, CV_INTER_LINEAR/*+CV_WARP_FILL_OUTLIERS*/); 
 		
-	Mat	ret(dst);
+	Mat	ret = cv::cvarrToMat(dst, true);
 
 	cvReleaseImage( &src2 );
 	cvReleaseMat( &rot_mat);
@@ -319,7 +329,8 @@ Mat swMoveImage(Mat originalImage, Mat *tranformedImage, double idxScale){
 void swMoveCorners(Mat originalImage, 	vector<Point2f>	src, vector<Point2f>	&dst,
 	unsigned int	idxRotation,	unsigned int	idxScale) {
 
-		IplImage *imgsrc = &IplImage(originalImage);
+		IplImage imgsrcHdr = cvIplImage(originalImage);
+		IplImage *imgsrc = &imgsrcHdr;
 
 		double	rotationAngle = 0.0;
 		double	scale = 0.5;
@@ -327,7 +338,7 @@ void swMoveCorners(Mat originalImage, 	vector<Point2f>	src, vector<Point2f>	&dst
 		//double	scale = scaleFactor[idxScale];
 		//double	rotationAngle = 360.0 * idxRotation/NUMBER_OF_ROTATION_STEPS;
 
-		//È¸ÀüÁß½É¼³Á¤
+		//íšŒì „ì¤‘ì‹¬ì„¤ì •
 		double x = imgsrc->width*scale/2.0;
 		double y = imgsrc->height*scale/2.0;
 		x*=x; y*=y;
@@ -344,7 +355,7 @@ void swMoveCorners(Mat originalImage, 	vector<Point2f>	src, vector<Point2f>	&dst
 		Mat	transformationMatrix = 	getRotationMatrix2D(Point2f(imgsrc->width/2.0, imgsrc->height/2.0)
 			, rotationAngle, scale);
 
-		//	destinationÀÇ Å©±â Àç¼³Á¤
+		//	destinationì˜ í¬ê¸° ì¬ì„¤ì •
 		dst.clear();
 		dst.resize(src.size());
 		
@@ -375,7 +386,7 @@ void mslTransformKeypoint(	vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 		//double	scale = scaleFactor[idxScale];
 		//double	rotationAngle = 360.0 * idxRotation/NUMBER_OF_ROTATION_STEPS;
 
-		//È¸ÀüÁß½É¼³Á¤
+		//íšŒì „ì¤‘ì‹¬ì„¤ì •
 		double x = sz_origin.width*scale/2.0;
 		double y = sz_origin.height*scale/2.0;
 		x*=x; y*=y;
@@ -392,7 +403,7 @@ void mslTransformKeypoint(	vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 		Mat	transformationMatrix = 	getRotationMatrix2D(Point2f(sz_origin.width/2.0, sz_origin.height/2.0)
 			, rotationAngle, scale);
 
-		//	destinationÀÇ Å©±â Àç¼³Á¤
+		//	destinationì˜ í¬ê¸° ì¬ì„¤ì •
 		dst.clear();
 		dst.resize(src.size());
 
@@ -417,7 +428,7 @@ void mslOriginKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 		double	rotationAngle = 360-ROT_ANGLE_INCREMENT * idxRotation;
 		double	scale = scaleFactor[idxScale];
 
-		//È¸ÀüÁß½É¼³Á¤
+		//íšŒì „ì¤‘ì‹¬ì„¤ì •
 		double x = sz_origin.width*scale/2.0;
 		double y = sz_origin.height*scale/2.0;
 		x*=x; y*=y;
@@ -435,7 +446,7 @@ void mslOriginKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 			, rotationAngle, scale);
 
 
-		//	destinationÀÇ Å©±â Àç¼³Á¤
+		//	destinationì˜ í¬ê¸° ì¬ì„¤ì •
 		dst.clear();
 		dst.resize(src.size());
 
@@ -473,7 +484,7 @@ void mslRotateKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 		//double	rotationAngle = 360.0 * idxRotation/NUMBER_OF_ROTATION_STEPS;
 
 	
-		//È¸ÀüÁß½É¼³Á¤
+		//íšŒì „ì¤‘ì‹¬ì„¤ì •
 		double x = sz_origin.width*scale/2.0;
 		double y = sz_origin.height*scale/2.0;
 		x*=x; y*=y;
@@ -496,7 +507,7 @@ void mslRotateKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 			, rotationAngle, 1.0);
 
 
-		//	destinationÀÇ Å©±â Àç¼³Á¤
+		//	destinationì˜ í¬ê¸° ì¬ì„¤ì •
 		dst.clear();
 		dst.resize(src.size());
 
@@ -533,15 +544,16 @@ void mslRotateKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 //void mslTransformImage(Mat originalImage, Mat *tranformedImage, double rotation, double scale){
 Mat mslTransformImage(Mat originalImage, Mat *tranformedImage, int idxRotation, int idxScale){
 
-	//	const double angle  = 45.0; //È¸Àü°¢µµ  
-	//	const double scale  = 2.0;  //Å©±â
+	//	const double angle  = 45.0; //íšŒì „ê°ë„  
+	//	const double scale  = 2.0;  //í¬ê¸°
 
-	IplImage *src = &IplImage(originalImage);
+	IplImage srcHdr = cvIplImage(originalImage);
+	IplImage *src = &srcHdr;
 
 	//double	angle = 360.0 * idxRotation/NUM_OF_ROTATION;
 	double	angle  = ROT_ANGLE_INCREMENT * idxRotation;
 
-	//¹İÁö¸§ ±¸ÇÏ±â
+	//ë°˜ì§€ë¦„ êµ¬í•˜ê¸°
 	double	scale = scaleFactor[idxScale];
 
 	sz_origin.width = src->width;
@@ -562,7 +574,7 @@ Mat mslTransformImage(Mat originalImage, Mat *tranformedImage, int idxRotation, 
 	}
 
 
-	//º¯È¯µÈ ÀÌ¹ÌÁö°¡ ÀúÀåµÉ °ø°£ »ı¼º
+	//ë³€í™˜ëœ ì´ë¯¸ì§€ê°€ ì €ì¥ë  ê³µê°„ ìƒì„±
 	IplImage *src2	= cvCreateImage( cvSize(r*2, r*2), IPL_DEPTH_8U, 1);
 	IplImage *dst	= cvCreateImage( cvSize(r*2, r*2), IPL_DEPTH_8U, 1);
 
@@ -570,22 +582,22 @@ Mat mslTransformImage(Mat originalImage, Mat *tranformedImage, int idxRotation, 
 	cvZero(dst);
 
 
-	//¿øº» ÀÌ¹ÌÁöÅ©±â¸¸Å­ °ü½É¿µ¿ªÀ» ÁöÁ¤
+	//ì›ë³¸ ì´ë¯¸ì§€í¬ê¸°ë§Œí¼ ê´€ì‹¬ì˜ì—­ì„ ì§€ì •
 	cvSetImageROI(src2, cvRect(src2->width/2-src->width/2, src2->height/2-src->height/2, src->width, src->height));
 
 	cvCopy(src, src2);
 	cvResetImageROI(src2);
 
-	//È¸ÀüÁß½É¼³Á¤  
+	//íšŒì „ì¤‘ì‹¬ì„¤ì •  
 	CvPoint2D32f center = cvPoint2D32f( src2->width/2.0, src2->height/2.0);
 	CvMat *rot_mat		= cvCreateMat( 2, 3, CV_32FC1);
 
-	// ¸ŞÆ®¸¯½º º¯È¯  
+	// ë©”íŠ¸ë¦­ìŠ¤ ë³€í™˜  
 	cv2DRotationMatrix( center, angle, scale, rot_mat); 
-	// ¼±Çüº¸°£
+	// ì„ í˜•ë³´ê°„
 	cvWarpAffine( src2, dst, rot_mat, CV_INTER_LINEAR/*+CV_WARP_FILL_OUTLIERS*/); 
 
-	// ÀúÀå
+	// ì €ì¥
 	//char	FILE_NAME[] = "cola";
 	//char	save_file_name[100];
 	//sprintf(save_file_name, "%s_s%d_r%d.png", FILE_NAME, idxScale, idxRotation);
@@ -599,7 +611,7 @@ Mat mslTransformImage(Mat originalImage, Mat *tranformedImage, int idxRotation, 
 
 	//CvMat *mat=cvCreateMat(dst->height, dst->width, CV_32FC1);
 	//cvConvert(dst, mat);
-	Mat	ret(dst);
+	Mat	ret = cv::cvarrToMat(dst, true);
 
 	cvReleaseImage( &src2 );
 	//cvReleaseImage( &dst );
