@@ -188,7 +188,15 @@
 
 ### Runtime Polish
 
-- [ ] T069 [US3] Add camera error handling in MarkerlessAR/EngineMain.cpp — check `cv::VideoCapture::isOpened()` after open; print clear error message if camera not available (permissions or missing hardware); exit gracefully instead of crashing
+- [x] T069 [US3] Add camera error handling in MarkerlessAR/EngineMain.cpp — check `cv::VideoCapture::isOpened()` after open; print clear error message if camera not available (permissions or missing hardware); exit gracefully instead of crashing
+- [x] T069a [US2] Set OPENCV_AVFOUNDATION_SKIP_AUTH=1 env var in main() before any VideoCapture or GLFW init — MarkerlessAR/EngineMain.cpp
+- [x] T069b [US2] Create Info.plist with NSCameraUsageDescription and NSCameraUseContinuityCameraDeviceType keys; wire into CMakeLists.txt via MACOSX_BUNDLE_INFO_PLIST
+- [x] T069c [US2] Implement shared frame buffer (g_sharedFrame + std::mutex) in MarkerlessAR/EngineMain.cpp — main loop publishes via setSharedFrame(), worker threads read via getSharedFrame()
+- [x] T069d [US2] Ensure global VideoCapture objects (capture, capture1, capture2) are NOT opened at static init on macOS — use default constructor only
+- [x] T069e [US2] Add 10-second timeout wrapper around cv::VideoCapture::open() in MarkerlessAR/HandyAR/Capture.cpp to prevent indefinite hang on macOS
+- [x] T069f [US2] Implement deferred engine init via background thread (engineInitThread) in EngineMain.cpp — keeps GLFW window responsive while camera opens
+- [x] T069g [US2] Add fallback dummy frame when camera unavailable — app runs with "Camera Unavailable" overlay instead of crashing
+- [x] T069h [US2] Add camera permission diagnostic messages pointing to System Settings > Privacy & Security > Camera
 - [ ] T070 [US3] Add asset path validation in MarkerlessAR/EngineMain.cpp InitializeEngineMain() — check existence of calibration/camera.dat, image/ directory, database/ directory before use; print missing file paths to stderr if not found
 - [ ] T071 [US3] Fix all relative asset paths — ensure MarkerlessAR/image/, MarkerlessAR/calibration/, MarkerlessAR/database/, MarkerlessAR/3dobjects/ paths resolve correctly relative to the built executable; update CMakeLists.txt to copy or symlink asset directories to build output if needed
 - [ ] T072 [P] [US3] Verify feature detection end-to-end — launch application, point camera at bundled reference image, confirm BRISK/AGAST features detected and matched within 3 seconds

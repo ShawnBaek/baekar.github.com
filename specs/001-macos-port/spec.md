@@ -87,6 +87,7 @@ As a developer discovering BackAR, I want a clear README that explains what the 
 - **FR-013**: The application MUST render 3D objects overlaid on detected reference images
 - **FR-014**: The README MUST document prerequisites, dependency installation, build steps, and run instructions for macOS
 - **FR-015**: Existing functionality MUST be preserved — no features removed, no behavior changed beyond platform adaptation
+- **FR-016**: The application MUST handle macOS AVFoundation camera constraints: set OPENCV_AVFOUNDATION_SKIP_AUTH=1 before any VideoCapture usage, use a single VideoCapture instance with a shared frame buffer for multi-threaded access, include Info.plist with NSCameraUsageDescription and NSCameraUseContinuityCameraDeviceType keys, and implement a timeout on camera open to prevent indefinite blocking
 
 ### Key Entities
 
@@ -102,7 +103,7 @@ As a developer discovering BackAR, I want a clear README that explains what the 
 - GLFW will be used as the windowing library replacement (lightweight, widely available via Homebrew)
 - OpenGL (legacy profile available on macOS) will be used for rendering, replacing DirectX 9
 - The OpenCV GPU module usage (cv::gpu::) will be disabled or stubbed out, as CUDA is not available on macOS
-- Camera access will use OpenCV's VideoCapture which handles macOS AVFoundation internally
+- Camera access will use OpenCV's VideoCapture with macOS-specific AVFoundation workarounds: env var to skip auth blocking (OpenCV issue #7519), single-capture shared frame buffer pattern, 10-second open timeout, deferred background-thread initialization, and fallback dummy frame when camera is unavailable
 - The embedded BRISK/AGAST implementations will be used rather than OpenCV's built-in versions, to preserve original behavior
 - SSE intrinsics (emmintrin.h) are supported by Apple Clang and will work without changes
 - Sprint-based delivery: each sprint produces a PR that is verified as compilable and runnable on macOS
