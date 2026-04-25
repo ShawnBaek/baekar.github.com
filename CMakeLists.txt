@@ -51,6 +51,14 @@ if(APPLE)
         MarkerlessAR/compat/macos_camera_auth.mm
         MarkerlessAR/compat/macos_window_capture.mm
     )
+    # macos_window_capture.mm captures NSArray*/NSError* via __block, which
+    # only auto-retains under ARC. Compile this .mm with ARC so those
+    # captures stay valid past the autorelease pool drain (otherwise the
+    # picker crashes in objc_msgSend on dangling pointers).
+    set_source_files_properties(
+        MarkerlessAR/compat/macos_window_capture.mm
+        PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+    )
 endif()
 
 # BRISK feature descriptor

@@ -928,11 +928,44 @@ static void mainLoop(void)
 
 		//wonjo_dx::AAR3DDrawMesh("IEFrame",NULL,35.0f);
 
+#ifdef __APPLE__
+		// Thesis interaction model: 5-finger gesture = point/click. Use the
+		// index finger's smoothed 2D position (in 320x240 HandyAR space)
+		// as a virtual cursor; on entering the gesture, run a pick against
+		// g_contents; while held, drag the selected item.
+		static bool         g_fingerActive = false;
+		static CvPoint2D32f g_fingerPrev   = {0, 0};
+#endif
 		if ( gFingertipPoseEstimation.QueryValidPose() )
 		{
 			std::cout << " Valid Fingertip!! " <<std::endl;
-		
+#ifdef __APPLE__
+			CvPoint2D32f tip = gFingertipPoseEstimation.QueryFingertip2D(1); // index finger
+			float curX = tip.x * 2.0f;  // 320x240 -> 640x480 GLFW window
+			float curY = tip.y * 2.0f;
+			if (!g_fingerActive) {
+				POINT pt; pt.x = (LONG)curX; pt.y = (LONG)curY;
+				D3DXVECTOR3 ro, rd;
+				wonjo_dx::PickingRay(pt, &ro, &rd);
+				int hit = g_contents.pick(ro, rd);
+				if (hit >= 0) {
+					g_contents.select(hit);
+					fprintf(stderr, "BaekAR: fingertip picked AR content #%d at (%g,%g)\n",
+					        hit, curX, curY);
+				}
+			} else {
+				g_contents.dragSelected(curX - g_fingerPrev.x, curY - g_fingerPrev.y);
+			}
+			g_fingerPrev.x = curX;
+			g_fingerPrev.y = curY;
+			g_fingerActive = true;
+#endif
 		}
+#ifdef __APPLE__
+		else {
+			g_fingerActive = false;  // gesture ended — release drag state
+		}
+#endif
 		gFingertipPoseEstimation.TickCountEnd();//(7) Rendering
 		gFingertipPoseEstimation.TickCountNewLine();
 	}
