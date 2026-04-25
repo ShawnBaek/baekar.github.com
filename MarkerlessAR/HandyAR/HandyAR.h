@@ -40,7 +40,7 @@ bool fFlipFrame = CAPTURE_FLIP;
 
 // Earth Texture
 GLuint  gnEarthTexID;
-#define EARTH_TEXTURE_FILENAME  "../3dobjects/earthTexture.jpg"
+#define EARTH_TEXTURE_FILENAME  "3dobjects/earthTexture.jpg"
 
 // Render Model
 #define MODEL_BUNNY 1
@@ -54,9 +54,9 @@ int gnModel = MODEL_COORDINATE_AXES;
 #endif
 
 #ifdef PROCESS_320x240
-#define FINGERTIP_COORDINATE_FILENAME   "../calibration/fingertip_320x240.dat"
+#define FINGERTIP_COORDINATE_FILENAME   "calibration/fingertip_320x240.dat"
 #else
-#define FINGERTIP_COORDINATE_FILENAME   "../calibration/fingertip_640x480.dat"
+#define FINGERTIP_COORDINATE_FILENAME   "calibration/fingertip_640x480.dat"
 #endif
 char gszFingertipFilename[255] = FINGERTIP_COORDINATE_FILENAME;
 

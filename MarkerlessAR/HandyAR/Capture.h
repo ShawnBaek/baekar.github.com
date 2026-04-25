@@ -7,7 +7,7 @@
 #include <opencv2/core/core_c.h>
 #include <opencv2/imgproc/imgproc_c.h>
 #include <opencv2/highgui/highgui_c.h>
-#include <opencv2/videoio/videoio_c.h>
+#include <opencv2/videoio.hpp>
 
 #ifdef POINTGREY_CAPTURE
 #include "FlyCap.h"
@@ -39,9 +39,11 @@ private:
     bool        _fInitialized;
 
     IplImage *  _pFrame;
+    cv::VideoCapture _vcap;
+    cv::Mat     _matFrame;
+    IplImage    _iplHeader;  // IplImage header wrapping _matFrame
 
     int         _CaptureMethod;
-    CvCapture * _pCaptureOpenCV;
 #ifdef POINTGREY_CAPTURE
     CFlyCap *   _pCaptureFly;
 #endif

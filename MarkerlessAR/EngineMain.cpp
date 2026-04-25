@@ -8,6 +8,10 @@
 #include "compat/win32_stub.h"
 #endif
 
+#ifdef __APPLE__
+#include "compat/macos_camera_auth.h"
+#endif
+
 #include <fstream>
 
 #include <opencv2/opencv.hpp>
@@ -58,6 +62,7 @@
 
 // GLFW for macOS windowing
 #ifndef _WIN32
+#include <unistd.h>
 #include <GLFW/glfw3.h>
 static GLFWwindow* g_window = nullptr;
 static bool g_mouseDown = false;
@@ -93,9 +98,37 @@ double	mProjection[16];
 
 
 // 영상 입력 받을 Capture형 선언
+// On macOS, only one VideoCapture can access a camera at a time (AVFoundation).
+// gCapture owns the camera; threads read from a shared frame buffer instead.
+#ifdef _WIN32
 VideoCapture	capture(0);
 VideoCapture	capture1(0);
 VideoCapture	capture2(0);
+#else
+// Shared frame buffer: mainLoop captures from gCapture and stores the latest
+// frame here.  Matching/tracking threads read from this shared buffer.
+#include <mutex>
+static std::mutex g_frameMutex;
+static Mat g_sharedFrame;
+
+static Mat getSharedFrame() {
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	return g_sharedFrame.clone();
+}
+static void setSharedFrame(const Mat& frame) {
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	frame.copyTo(g_sharedFrame);
+}
+// Dummy VideoCapture objects (never opened) to keep Windows code path compilable
+VideoCapture	capture;
+VideoCapture	capture1;
+VideoCapture	capture2;
+
+// Camera fallback: when camera is unavailable, use a dummy frame
+static bool g_cameraAvailable = false;
+static cv::Mat g_dummyFrameMat;
+static IplImage g_dummyIpl;
+#endif
 
 char ch=0;
 const int MAX_CORNERS=200;
@@ -187,8 +220,8 @@ ofstream mslNFT_Log("mslNFT_Log.txt");
 strFilename Filename[20] = 
 {
 	//파일명을 iu2에서 yejin으로 수정함
-    "../image/yejin.jpg",
-	"../image/yejin.jpg",
+    "image/yejin.jpg",
+	"image/yejin.jpg",
 };
 
 //////////////////////////////HandyAR Display()////////////////////////////////////////////
@@ -407,11 +440,15 @@ void init()
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, 0 );
     cv::Mat tempMat = cv::imread( EARTH_TEXTURE_FILENAME, cv::IMREAD_COLOR );
-    cv::cvtColor( tempMat, tempMat, cv::COLOR_BGR2RGB );
-    IplImage tempImageHdr = cvIplImage(tempMat);
-    IplImage * tempImage = &tempImageHdr;
-    cvFlip( tempImage );
-    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, tempImage->width, tempImage->height, GL_RGB, GL_UNSIGNED_BYTE, tempImage->imageData );
+    if (!tempMat.empty()) {
+        cv::cvtColor( tempMat, tempMat, cv::COLOR_BGR2RGB );
+        IplImage tempImageHdr = cvIplImage(tempMat);
+        IplImage * tempImage = &tempImageHdr;
+        cvFlip( tempImage );
+        glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, tempImage->width, tempImage->height, GL_RGB, GL_UNSIGNED_BYTE, tempImage->imageData );
+    } else {
+        fprintf(stderr, "Warning: could not load texture '%s'\n", EARTH_TEXTURE_FILENAME);
+    }
     // tempImage is stack-allocated wrapper, no release needed
 
     // Init bunny
@@ -481,8 +518,49 @@ namespace wonjo_dx
 
 IplImage		*img_input;
 
+int InitializeEngineMain();  // forward declaration
+
+#ifndef _WIN32
+#include <thread>
+#include <atomic>
+static bool g_engineInitialized = false;
+static std::atomic<bool> g_engineInitStarted{false};
+static std::atomic<bool> g_engineInitDone{false};
+static std::atomic<int>  g_engineInitResult{-1};
+
+static void engineInitThread() {
+	g_engineInitResult = InitializeEngineMain();
+	g_engineInitDone = true;
+}
+#endif
+
 static void mainLoop(void)
 {
+#ifndef _WIN32
+	// Run engine init synchronously on the main thread the first time mainLoop
+	// fires. Capture::open has its own 10s timeout and the AVFoundation auth
+	// request runs at startup, so the only way init blocks is a stuck camera
+	// daemon — which the timeout handles. Init must run on the main thread
+	// because FingertipPoseEstimation::Initialize calls glGenTextures, and on
+	// macOS GL calls only work on the thread that owns the context.
+	if (!g_engineInitialized) {
+		fprintf(stderr, "BackAR: Starting engine initialization...\n");
+		fflush(stderr);
+		int rc = InitializeEngineMain();
+		if (rc != 0) {
+			fprintf(stderr, "BackAR: Engine initialization failed (%d). Check camera permissions.\n", rc);
+			fprintf(stderr, "BackAR: On macOS, grant camera access in:\n");
+			fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
+			fflush(stderr);
+			if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
+			return;
+		}
+		fprintf(stderr, "BackAR: Engine initialized successfully.\n");
+		fflush(stderr);
+		g_engineInitialized = true;
+		return; // skip first frame to let things settle
+	}
+#endif
 #ifdef _WIN32
 	if( GetKeyState(VK_LBUTTON) & 0x8000 )
 	{
@@ -715,13 +793,33 @@ static void mainLoop(void)
 	// capture
 	IplImage * frame = 0;
 
-	gCapture.CaptureFrame();
-	frame = gCapture.QueryFrame();
+#ifndef _WIN32
+	if (g_cameraAvailable) {
+#endif
+		gCapture.CaptureFrame();
+		frame = gCapture.QueryFrame();
+#ifndef _WIN32
+	}
+	if ( !frame )
+	{
+		// Use dummy frame when camera is unavailable
+		frame = &g_dummyIpl;
+	}
+#else
 	if ( !frame )
 	{
 		return;
 	}
+#endif
 	gFingertipPoseEstimation.OnCapture( frame, gCapture.QueryTickCount() );
+
+#ifndef _WIN32
+	// Publish camera frame to shared buffer for matching/tracking threads
+	if (g_cameraAvailable) {
+		cv::Mat frameMat = cv::cvarrToMat(frame, false);
+		setSharedFrame(frameMat);
+	}
+#endif
 
 	
 	// process fingertip pose estimation
@@ -759,8 +857,10 @@ static void mainLoop(void)
 //		std::cout << std::endl;
 //		
 	//	D3DXMatrixLookAtLH(&matView,&D3DXVECTOR3(0,20000,20000),&D3DXVECTOR3(0,0,0),&D3DXVECTOR3(0,1,0));
+#ifdef _WIN32
 		wonjo_dx::GetDevice()->SetTransform(D3DTS_PROJECTION,&matProj);
-		wonjo_dx::GetDevice()->SetTransform(D3DTS_VIEW,&matView);	
+		wonjo_dx::GetDevice()->SetTransform(D3DTS_VIEW,&matView);
+#endif	
 		//wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), 1000000000.0f);
 		//wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("hand000.X"), 10000000);
 		wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), wonjo_dx::MakeScaleMatrix(10.0f,10.0f,10.0f));
@@ -899,46 +999,57 @@ int InitializeEngineMain()
     }
 
     // initialize capture
+    bool cameraOk = false;
     if ( fInputVideoFile )
     {
         // Capture From File
         if ( !gCapture.Initialize( fFlipFrame, -1, "record_debug.avi" ) )
         {
             fprintf( stderr, "capture initialization failed.\n" );
-            return -1;
         }
+        else
+            cameraOk = true;
     } else
     {
         // Live Capture From Camera
         if ( !gCapture.Initialize( fFlipFrame ) )
         {
             fprintf( stderr, "capture initialization failed.\n" );
-            return -1;
         }
+        else
+            cameraOk = true;
     }
-
-
-	// OpenGL loop
-	//120325 cwj
-	//char *myargv [1];
-	//int myargc=1;
-	//myargv [0]=strdup ("Myappname");
-
-
-    //glutInit(&myargc, &myargv[0]);
-    //glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH );
-    //glutInitWindowPosition( 100, 100 );
-	//~120325 cwj
 
     // Init Capture
     IplImage * frame = 0;
-    gCapture.CaptureFrame();
-    frame = gCapture.QueryFrame();
+    if (cameraOk) {
+        gCapture.CaptureFrame();
+        frame = gCapture.QueryFrame();
+    }
     if ( !frame )
     {
+#ifndef _WIN32
+        // Camera unavailable — create a dummy frame so the app can still run
+        fprintf( stderr, "Camera unavailable — running with dummy frame.\n" );
+        fflush(stderr);
+        g_cameraAvailable = false;
+        g_dummyFrameMat = cv::Mat::zeros(480, 640, CV_8UC3);
+        cv::putText(g_dummyFrameMat, "Camera Unavailable", cv::Point(140, 220),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0, 0, 255), 2);
+        cv::putText(g_dummyFrameMat, "BackAR Engine Running", cv::Point(130, 280),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+        g_dummyIpl = cvIplImage(g_dummyFrameMat);
+        frame = &g_dummyIpl;
+#else
         fprintf( stderr, "failed to capture a frame...\n" );
         return -1;
+#endif
     }
+#ifndef _WIN32
+    else {
+        g_cameraAvailable = true;
+    }
+#endif
 
     // Create Glut Window
 	//120325 cwj
@@ -952,10 +1063,17 @@ int InitializeEngineMain()
 	//~120325 cwj
 
     // Init Fingertip Pose Estimation
-    if ( gFingertipPoseEstimation.Initialize( frame, "../calibration.txt" ) == false )
+    fprintf(stderr, "DBG: About to init FingertipPoseEstimation...\n"); fflush(stderr);
+    if ( gFingertipPoseEstimation.Initialize( frame, "calibration/calibration.txt" ) == false )
     {
+#ifndef _WIN32
+        fprintf(stderr, "Warning: FingertipPoseEstimation init failed (continuing anyway)\n");
+        fflush(stderr);
+#else
         return -1;
+#endif
     }
+    fprintf(stderr, "DBG: FingertipPoseEstimation init done\n"); fflush(stderr);
 
 	//120325 cwj
     // initialize video writer
@@ -989,8 +1107,18 @@ int InitializeEngineMain()
 	#endif
 	
 	
-	detector = new BriskFeatureDetector(60,2);
-	descriptorExtractor = new BriskDescriptorExtractor();
+	// Note: capture/capture1/capture2 are NOT opened on macOS — only one VideoCapture
+	// can access camera 0 at a time with AVFoundation. gCapture owns the camera.
+	// The matching/tracking threads will get empty frames and skip processing.
+
+	fprintf(stderr, "DBG: Creating BRISK detector...\n"); fflush(stderr);
+	// Use OpenCV's built-in BRISK (the bundled MarkerlessAR/brisk/ predates
+	// OpenCV's Feature2D interface and throws "not implemented" on detect()).
+	{
+		cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(60, 2);
+		detector = brisk;
+		descriptorExtractor = brisk;
+	}
 	
 	//BFMatcher matcher(NORM_L2);
 	if(hamming){
@@ -1030,10 +1158,13 @@ int InitializeEngineMain()
 		img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
 	}
 	*/
+	fprintf(stderr, "DBG: Loading database images...\n"); fflush(stderr);
 	img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
+	fprintf(stderr, "DBG: img1 loaded: %dx%d\n", img_rgbdatabase1.cols, img_rgbdatabase1.rows); fflush(stderr);
 	//2번은 오버라이드하지않는다.
 	img_rgbdatabase2=imread(Filename[1]._strFilename.c_str(), 1);
-		
+	fprintf(stderr, "DBG: img2 loaded: %dx%d\n", img_rgbdatabase2.cols, img_rgbdatabase2.rows); fflush(stderr);
+
 	//Convert rgb to gray
 	cvtColor(img_rgbdatabase1,img_graydatabase1, CV_BGR2GRAY);
 
@@ -1049,6 +1180,7 @@ int InitializeEngineMain()
 	//Move obj_corners to center
 	swMoveCorners(img_graydatabase1, obj_corners1, obj_center_corners1, 0.0, 1.0);
 		
+	fprintf(stderr, "DBG: Detecting keypoints...\n"); fflush(stderr);
 	//Detect Keypoints from img_centerdatase using AGAST Feature Detector
 	detector->detect(img_centerdatabase1,kp_database1);
 	//detector->detect(img_centerdatabase2,kp_database2);
@@ -1059,40 +1191,55 @@ int InitializeEngineMain()
 	//descriptorExtractor->compute(img_centerdatabase2,kp_database2,desc_database2);
 	
 	
+#ifdef _WIN32
 	capture >> gDetectionResult1;
+#else
+	// On macOS, use gCapture's frame (capture is not opened separately)
+	{
+		IplImage* initFrame = gCapture.QueryFrame();
+		if (initFrame) {
+			gDetectionResult1 = cv::cvarrToMat(initFrame, true);
+		}
+	}
+#endif
+	if(gDetectionResult1.empty()) {
+		gDetectionResult1 = Mat::zeros(480, 640, CV_8UC3);
+	}
 	
 	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
 
+	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
+#ifdef _WIN32
 	hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
-	
 	//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
-	
 	hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
+#else
+	// macOS: matching/tracking workers race with the main loop on shared
+	// globals (kp_camera_matching_thread, matching_thread_*, etc.) and
+	// heap-corrupt under OpenCV 4. Skipping them runs the app in
+	// camera-display-only mode. Re-enable once the worker code is refactored
+	// to use proper per-thread buffers + locks.
+	(void)val1; (void)val2;
+	fprintf(stderr, "BackAR: matching/tracking workers disabled on macOS (camera-only mode)\n");
+	fflush(stderr);
+#endif
 
 	
 
 	//hDrawThread=(HANDLE)_beginthreadex( NULL, 0, &ThreadDraw, 0, 0, &uDrawThreadID);
 		
-	//경민 여기서 capture_C에 값이 들어오나 1차적으로 확인좀 해죠
-	capture_C = cvCaptureFromCAM(0);
-	cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_WIDTH, 640);
-	cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_HEIGHT, 480);
+	// Camera resolution is now set inside gCapture.Initialize() via cv::VideoCapture
+	// capture_C = cvCaptureFromCAM(0);  // removed — legacy C API, gCapture handles capture
+	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_WIDTH, 640);
+	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_HEIGHT, 480);
 
 
 	//remove opengl
 // 	glutInit(&argc, argv);
 // 	init();
- 	camera.load("../calibration/calibration.txt");
-// 	glViewport(0, 0, 640, 480);
-// 
-// 	glutDisplayFunc(mainLoop);				
-// 	glutIdleFunc( mainLoop );
-// 
-// 	//glutKeyboardFunc(keyEvent);
-// 
-// 	glutMainLoop();
-	
- 	//~remove opengl
+ 	fprintf(stderr, "DBG: Loading camera calibration...\n"); fflush(stderr);
+ 	camera.load("calibration/calibration.txt");
+ 	fprintf(stderr, "DBG: InitializeEngineMain complete!\n"); fflush(stderr);
 	return 0;
 }
 
@@ -1133,10 +1280,22 @@ unsigned int ThreadDraw(void *param)
 {
 	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 	while(true){
-		
-		
+
+
+#ifdef _WIN32
 		capture1>>mInput;
-	
+#else
+		mInput = getSharedFrame();
+#endif
+
+		// Skip if no frame available yet
+		if(mInput.empty()) {
+#ifndef _WIN32
+			struct timespec ts = {0, 50000000}; // 50ms
+			nanosleep(&ts, NULL);
+#endif
+			continue;
+		}
 
 		//Detection or Tracking 체크
 
@@ -1230,17 +1389,31 @@ unsigned int ThreadBRISKMatching(void *param)
 	while(true){
 				
 		if(idxcount==1){
- 			
-			capture1>>matching_thread_rgbcamera;		
+#ifdef _WIN32
+			capture1>>matching_thread_rgbcamera;
+#else
+			matching_thread_rgbcamera = getSharedFrame();
+#endif
 			mbistracking=bThreadTracking1;
-						
+
 		}
 		else if(idxcount==2){
-			
-			capture2>>matching_thread_rgbcamera;		
+#ifdef _WIN32
+			capture2>>matching_thread_rgbcamera;
+#else
+			matching_thread_rgbcamera = getSharedFrame();
+#endif
 			mbistracking=bThreadTracking2;
 		}
-		
+
+		// Skip if no frame available yet
+		if(matching_thread_rgbcamera.empty()) {
+#ifndef _WIN32
+			struct timespec ts = {0, 50000000}; // 50ms
+			nanosleep(&ts, NULL);
+#endif
+			continue;
+		}
 
 		//Convert Camera Input with RGB to Camera Input with GRAY
 		cvtColor(matching_thread_rgbcamera, matching_thread_graycamera, CV_BGR2GRAY);
@@ -1467,8 +1640,15 @@ unsigned int ThreadTracking(void *param)
 	img_database_resize.rows = img_rgbdatabase1.rows/2;
 	resize(img_rgbdatabase1,img_database_resize,img_database_resize.size());
 
-	//경민 capture2>>tracking_thread_rgbcamera를 capture1으로 수정함... 왜냐하면 카메라 영상을 받는 변수가 너무 많아서 꼬인거 같아서 수정함
+	//경민 capture2>>tracking_thread_rgbcamera를 capture1으로 수정함
+#ifdef _WIN32
 	capture1>>tracking_thread_rgbcamera;
+#else
+	tracking_thread_rgbcamera = getSharedFrame();
+#endif
+	if(tracking_thread_rgbcamera.empty()) {
+		tracking_thread_rgbcamera = Mat::zeros(480, 640, CV_8UC3);
+	}
 
 	Mat tracking_thread_result(tracking_thread_rgbcamera.rows-img_database_resize.rows+1,tracking_thread_rgbcamera.cols-img_database_resize.cols,CV_32FC1);
 
@@ -1489,9 +1669,21 @@ unsigned int ThreadTracking(void *param)
 		{
 
 			//경민 capture2를 capture1으로 수정함
+#ifdef _WIN32
 			capture1>>tracking_thread_rgbcamera;
+#else
+			tracking_thread_rgbcamera = getSharedFrame();
+#endif
 
-			
+			// Skip if no frame available yet
+			if(tracking_thread_rgbcamera.empty()) {
+#ifndef _WIN32
+				struct timespec ts = {0, 50000000}; // 50ms
+				nanosleep(&ts, NULL);
+#endif
+				continue;
+			}
+
 			//minMaxLoc을 위한 함수
 			double minVal; double maxVal; Point minLoc; Point maxLoc; Point matchLoc;
 
@@ -1958,6 +2150,43 @@ static void glfwMouseButtonCallback(GLFWwindow* /*window*/, int button, int acti
 
 int main(int argc, char* argv[])
 {
+#ifndef _WIN32
+	// Change working directory to the executable's directory so that data files
+	// (skin.dis, calibration/, 3dobjects/, etc.) symlinked into the .app bundle
+	// are found relative to the binary.
+	{
+		std::string exePath(argv[0]);
+		auto lastSlash = exePath.rfind('/');
+		if (lastSlash != std::string::npos) {
+			std::string exeDir = exePath.substr(0, lastSlash);
+			chdir(exeDir.c_str());
+			fprintf(stderr, "BackAR: Working directory set to %s\n", exeDir.c_str());
+			fflush(stderr);
+		}
+	}
+#endif
+	// Tell OpenCV to skip its own AVFoundation authorization handling.
+	// The .app bundle's Info.plist triggers the macOS permission dialog instead.
+	// Without this, cv::VideoCapture::open() blocks waiting for auth that
+	// never completes (OpenCV issue #7519).
+	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
+
+#ifdef __APPLE__
+	{
+		fprintf(stderr, "BackAR: requesting camera permission...\n");
+		fflush(stderr);
+		if (!RequestCameraPermission()) {
+			fprintf(stderr, "BackAR: camera permission denied — engine will run with dummy frames.\n");
+			fprintf(stderr, "  Grant access in System Settings > Privacy & Security > Camera, then reset:\n");
+			fprintf(stderr, "  tccutil reset Camera com.backar.engine\n");
+			fflush(stderr);
+		} else {
+			fprintf(stderr, "BackAR: camera permission granted.\n");
+			fflush(stderr);
+		}
+	}
+#endif
+
 	// Initialize GLFW
 	if (!glfwInit()) {
 		fprintf(stderr, "Failed to initialize GLFW\n");
@@ -1983,13 +2212,15 @@ int main(int argc, char* argv[])
 	// Initialize GLUT (needed for glutSolidCone etc. used in init())
 	glutInit(&argc, argv);
 
+	// Initialize D3D stub (allocates static gpDevice so GetDevice() is non-null)
+	wonjo_dx::AAR3DInitD3D(nullptr);
+
 	// Initialize OpenGL state
 	init();
 
-	// Initialize the AR engine
-	InitializeEngineMain();
-
-	printf("BackAR engine initialized. Press ESC to quit.\n");
+	fprintf(stderr, "BackAR: OpenGL init done. Press ESC to quit.\n");
+	fprintf(stderr, "BackAR: Camera will initialize when event loop starts...\n");
+	fflush(stderr);
 
 	// Main loop
 	while (!glfwWindowShouldClose(g_window)) {

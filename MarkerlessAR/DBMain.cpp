@@ -47,8 +47,8 @@ void  mslOriginKeypoint(	vector<KeyPoint>	src, vector<KeyPoint>	&dst,	unsigned i
 int idx_counter=0;
 strFilename Filename[20] = 
 {
-    "../image/iu2.jpg",
-	"../image/iu1.jpg",
+    "image/iu2.jpg",
+	"image/iu1.jpg",
 	
 };
 

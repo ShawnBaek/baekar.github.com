@@ -1,10 +1,14 @@
 #include "Capture.h"
+#ifndef _WIN32
+#include <thread>
+#include <atomic>
+#include <chrono>
+#endif
 
 Capture::Capture(void)
 {
     _fInitialized = false;
-    
-    _pCaptureOpenCV = 0;
+
 #ifdef POINTGREY_CAPTURE
     _pCaptureFly = 0;
 #endif
@@ -33,8 +37,8 @@ bool Capture::Initialize( bool flip, int index, char * filename )
     //
     if ( filename )
     {
-        _pCaptureOpenCV = cvCreateFileCapture( filename );
-        if ( _pCaptureOpenCV )
+        _vcap.open( filename );
+        if ( _vcap.isOpened() )
         {
             _CaptureMethod = CAPTURE_OPENCV;
             goto Initialized;
@@ -42,13 +46,50 @@ bool Capture::Initialize( bool flip, int index, char * filename )
     }
 
     //
-    // Try capture from camera using OpenCV
+    // Try capture from camera using OpenCV (cv::VideoCapture)
     //
-    _pCaptureOpenCV = cvCreateCameraCapture( index );
-    if ( _pCaptureOpenCV )
     {
-        _CaptureMethod = CAPTURE_OPENCV;
-        goto Initialized;
+        int camIndex = (index < 0) ? 0 : index;
+        fprintf(stderr, "Capture: opening camera index %d...\n", camIndex);
+        fflush(stderr);
+
+#ifndef _WIN32
+        // On macOS, VideoCapture::open can hang indefinitely if the camera
+        // subsystem is stuck (macOS 26 beta bug, or daemon crash).
+        // Use a timeout: try opening in a thread, wait up to 10 seconds.
+        {
+            std::atomic<bool> openDone{false};
+            std::thread([&]() {
+                _vcap.open( camIndex );
+                openDone = true;
+            }).detach();
+
+            auto start = std::chrono::steady_clock::now();
+            while (!openDone) {
+                auto elapsed = std::chrono::steady_clock::now() - start;
+                if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 10) {
+                    fprintf(stderr, "Capture: camera open timed out after 10s (camera may be unavailable)\n");
+                    fflush(stderr);
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+#else
+        _vcap.open( camIndex );
+#endif
+
+        if ( _vcap.isOpened() )
+        {
+            fprintf(stderr, "Capture: camera opened successfully, setting 640x480\n");
+            fflush(stderr);
+            _vcap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+            _vcap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+            _CaptureMethod = CAPTURE_OPENCV;
+            goto Initialized;
+        }
+        fprintf(stderr, "Capture: failed to open camera %d\n", camIndex);
+        fflush(stderr);
     }
 
 #ifdef POINTGREY_CAPTURE
@@ -81,10 +122,9 @@ Finished:
 
 void Capture::Terminate()
 {
-    if ( _pCaptureOpenCV )
+    if ( _vcap.isOpened() )
     {
-        cvReleaseCapture( &_pCaptureOpenCV );
-        _pCaptureOpenCV = 0;
+        _vcap.release();
     }
 
 #ifdef POINTGREY_CAPTURE
@@ -95,6 +135,7 @@ void Capture::Terminate()
     }
 #endif
 
+    _pFrame = 0;
     _fInitialized = false;
 }
 
@@ -103,12 +144,22 @@ bool Capture::CaptureFrame()
     switch ( _CaptureMethod )
     {
     case CAPTURE_OPENCV:
-        if ( _pCaptureOpenCV )
-            _pFrame = cvQueryFrame( _pCaptureOpenCV );
+        if ( _vcap.isOpened() )
+        {
+            _vcap >> _matFrame;
+            if ( _matFrame.empty() )
+            {
+                fprintf(stderr, "Capture: frame is empty (camera may need warmup)\n");
+                return false;
+            }
+            // Wrap cv::Mat as IplImage header (no data copy)
+            _iplHeader = cvIplImage(_matFrame);
+            _pFrame = &_iplHeader;
+        }
         else
             return false;
         break;
-        
+
 #ifdef POINTGREY_CAPTURE
     case CAPTURE_POINTGREY:
         _pFrame = _pCaptureFly->Capture();
