@@ -57,18 +57,38 @@ inline void cvRodrigues2(const CvMat* src, CvMat* dst, CvMat* jacobian = 0)
 }
 
 // --- cvConvertPointsHomogenious (removed in OpenCV 4, was also misspelled) ---
+// Legacy semantics:
+//   - if src has more dims than dst: project (FromHomogeneous, e.g. 4D → 3D)
+//   - if src has fewer dims than dst: lift  (ToHomogeneous,   e.g. 3D → 4D)
+//   - if same dims: copy/cast
+// Inputs may be Nxd single-channel OR Nx1 / 1xN d-channel; we normalize to
+// the d-channel form modern convertPointsXxxHomogeneous expects, then
+// reshape/copy back into dst's storage.
 inline void cvConvertPointsHomogenious(const CvMat* src, CvMat* dst)
 {
     cv::Mat srcMat = cv::cvarrToMat(src);
     cv::Mat dstMat = cv::cvarrToMat(dst);
-    // convertPointsHomogeneous: add or remove homogeneous coordinate
-    if (srcMat.channels() > dstMat.channels()) {
-        cv::convertPointsFromHomogeneous(srcMat.reshape(srcMat.channels(), srcMat.rows * srcMat.cols),
-                                         dstMat);
+
+    auto pointDim = [](const cv::Mat& m) -> int {
+        return (m.channels() > 1) ? m.channels() : m.cols;
+    };
+    int srcDim = pointDim(srcMat);
+    int dstDim = pointDim(dstMat);
+    int N = (int)(srcMat.total() * srcMat.channels() / srcDim);
+
+    cv::Mat srcPts = srcMat.reshape(srcDim, N);   // Nx1, srcDim channels
+
+    cv::Mat tmp;
+    if (srcDim == dstDim) {
+        srcPts.convertTo(tmp, srcPts.type());     // pass-through copy/cast
+    } else if (srcDim > dstDim) {
+        cv::convertPointsFromHomogeneous(srcPts, tmp);  // tmp: Nx1, dstDim ch
     } else {
-        cv::convertPointsToHomogeneous(srcMat.reshape(srcMat.channels(), srcMat.rows * srcMat.cols),
-                                       dstMat);
+        cv::convertPointsToHomogeneous(srcPts, tmp);    // tmp: Nx1, dstDim ch
     }
+
+    cv::Mat reshaped = tmp.reshape(dstMat.channels(), dstMat.rows);
+    reshaped.convertTo(dstMat, dstMat.type());
 }
 
 // --- cvProjectPoints2 (removed in OpenCV 4) ---
