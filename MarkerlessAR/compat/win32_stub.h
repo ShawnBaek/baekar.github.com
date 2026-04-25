@@ -76,7 +76,7 @@ inline void DeleteCriticalSection(CRITICAL_SECTION*) {}
 inline HANDLE CreateMutex(void*, BOOL, const char*) { return nullptr; }
 inline void CloseHandle(HANDLE h) {
     // If h is a thread handle (std::thread*), detach and delete it
-    // Threads in BackAR run infinite loops, so we detach rather than join
+    // Threads in BaekAR run infinite loops, so we detach rather than join
     auto* t = static_cast<std::thread*>(h);
     if (t) {
         if (t->joinable()) t->detach();

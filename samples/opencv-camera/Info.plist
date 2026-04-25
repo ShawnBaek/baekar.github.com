@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>OpenCVCameraSample</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.backar.opencv-camera-sample</string>
+	<string>com.baekar.opencv-camera-sample</string>
 	<key>CFBundleName</key>
 	<string>OpenCVCameraSample</string>
 	<key>CFBundlePackageType</key>

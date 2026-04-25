@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 if(APPLE)
-    project(BackAR LANGUAGES CXX OBJCXX)
+    project(BaekAR LANGUAGES CXX OBJCXX)
 else()
-    project(BackAR LANGUAGES CXX)
+    project(BaekAR LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 14)
@@ -101,9 +101,9 @@ set(ALL_SOURCES
     ${HANDYAR_SOURCES}
 )
 
-add_executable(BackAR ${ALL_SOURCES})
+add_executable(BaekAR ${ALL_SOURCES})
 
-target_include_directories(BackAR PRIVATE
+target_include_directories(BaekAR PRIVATE
     ${CMAKE_SOURCE_DIR}/MarkerlessAR
     ${CMAKE_SOURCE_DIR}/MarkerlessAR/brisk
     ${CMAKE_SOURCE_DIR}/MarkerlessAR/agast
@@ -116,7 +116,7 @@ target_include_directories(BackAR PRIVATE
     ${GLM_INCLUDE_DIR}
 )
 
-target_link_libraries(BackAR PRIVATE
+target_link_libraries(BaekAR PRIVATE
     ${OpenCV_LIBS}
     glfw
     ${OPENGL_LIBRARIES}
@@ -124,7 +124,7 @@ target_link_libraries(BackAR PRIVATE
 )
 
 if(APPLE)
-    target_link_libraries(BackAR PRIVATE
+    target_link_libraries(BaekAR PRIVATE
         "-framework AVFoundation"
         "-framework Foundation"
         "-lobjc"
@@ -133,39 +133,39 @@ endif()
 
 # macOS: build as .app bundle so the system shows camera permission dialog
 if(APPLE)
-    set_target_properties(BackAR PROPERTIES
+    set_target_properties(BaekAR PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Info.plist
-        MACOSX_BUNDLE_BUNDLE_NAME "BackAR"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.backar.engine"
+        MACOSX_BUNDLE_BUNDLE_NAME "BaekAR"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.baekar.engine"
     )
 endif()
 
 # Copy asset directories to build output for runtime access
-add_custom_command(TARGET BackAR POST_BUILD
+add_custom_command(TARGET BaekAR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/image
-        $<TARGET_FILE_DIR:BackAR>/image
+        $<TARGET_FILE_DIR:BaekAR>/image
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/calibration
-        $<TARGET_FILE_DIR:BackAR>/calibration
+        $<TARGET_FILE_DIR:BaekAR>/calibration
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/database
-        $<TARGET_FILE_DIR:BackAR>/database
+        $<TARGET_FILE_DIR:BaekAR>/database
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/3dobjects
-        $<TARGET_FILE_DIR:BackAR>/3dobjects
+        $<TARGET_FILE_DIR:BaekAR>/3dobjects
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.dis
-        $<TARGET_FILE_DIR:BackAR>/skin.dis
+        $<TARGET_FILE_DIR:BaekAR>/skin.dis
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.mgm
-        $<TARGET_FILE_DIR:BackAR>/skin.mgm
+        $<TARGET_FILE_DIR:BaekAR>/skin.mgm
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.dis
-        $<TARGET_FILE_DIR:BackAR>/nonskin.dis
+        $<TARGET_FILE_DIR:BaekAR>/nonskin.dis
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.mgm
-        $<TARGET_FILE_DIR:BackAR>/nonskin.mgm
+        $<TARGET_FILE_DIR:BaekAR>/nonskin.mgm
     COMMENT "Symlinking asset directories and data files to build output"
 )

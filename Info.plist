@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>BackAR</string>
+	<string>BaekAR</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.backar.engine</string>
+	<string>com.baekar.engine</string>
 	<key>CFBundleName</key>
-	<string>BackAR</string>
+	<string>BaekAR</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleVersion</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>NSCameraUsageDescription</key>
-	<string>BackAR needs camera access for markerless augmented reality tracking.</string>
+	<string>BaekAR needs camera access for markerless augmented reality tracking.</string>
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
 	<key>NSHighResolutionCapable</key>

@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "\nERROR: Camera permission denied.\n");
         fprintf(stderr, "Grant access in: System Settings > Privacy & Security > Camera\n");
         fprintf(stderr, "\nTo reset permission for this app:\n");
-        fprintf(stderr, "  tccutil reset Camera com.backar.opencv-camera-sample\n");
+        fprintf(stderr, "  tccutil reset Camera com.baekar.opencv-camera-sample\n");
         return 1;
     }
 

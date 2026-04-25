@@ -1,8 +1,8 @@
-# BackAR
+# BaekAR
 
 **A Markerless Augmented Reality Engine with 6DoF Hand Pose Estimation**
 
-BackAR is a real-time markerless augmented reality system that combines BRISK/AGAST feature-based object recognition with fingertip-based 6DoF hand pose estimation. It was originally developed as **Sungwook Baek's Master's thesis project** circa 2012, built for Windows with Visual Studio 2010, DirectX 9, and OpenCV 2.3.1.
+BaekAR is a real-time markerless augmented reality system that combines BRISK/AGAST feature-based object recognition with fingertip-based 6DoF hand pose estimation. It was originally developed as **Sungwook Baek's Master's thesis project** circa 2012, built for Windows with Visual Studio 2010, DirectX 9, and OpenCV 2.3.1.
 
 **After 13 years**, the project is being reborn — ported to modern macOS (Apple Silicon) and co-developed with [Claude Code](https://claude.ai/claude-code) by Anthropic.
 
@@ -10,7 +10,7 @@ BackAR is a real-time markerless augmented reality system that combines BRISK/AG
 
 ## What It Does
 
-BackAR detects a reference image in a live camera feed, computes the camera's 6DoF pose relative to that image, and overlays 3D objects in real-time. It also features a hand tracking mode that estimates camera pose from fingertip positions — no markers required.
+BaekAR detects a reference image in a live camera feed, computes the camera's 6DoF pose relative to that image, and overlays 3D objects in real-time. It also features a hand tracking mode that estimates camera pose from fingertip positions — no markers required.
 
 **Two Tracking Modes:**
 1. **Feature-based markerless tracking** — Detects and tracks a reference image using BRISK descriptors and AGAST corners, then estimates pose via homography decomposition
@@ -140,21 +140,21 @@ brew install opencv glfw glm freeglut cmake
 ### Build
 
 ```bash
-cd BackAR
+cd BaekAR
 mkdir build && cd build
 cmake ..
 cmake --build .
 ```
 
-This produces `build/BackAR.app` (a macOS application bundle).
+This produces `build/BaekAR.app` (a macOS application bundle).
 
 ### Run
 
 ```bash
-open build/BackAR.app
+open build/BaekAR.app
 ```
 
-On first launch, macOS will ask for **camera permission** — click "Allow" to grant access. BackAR requires a camera to function.
+On first launch, macOS will ask for **camera permission** — click "Allow" to grant access. BaekAR requires a camera to function.
 
 If the camera feed does not appear, verify that camera access is granted in **System Settings > Privacy & Security > Camera**.
 
