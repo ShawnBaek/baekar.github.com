@@ -36,7 +36,14 @@ bool fInputVideoFile = false;
 char gszInputVideoFilename[255];
 //bool fFlipFrame = CAPTURE_DONT_FLIP;
 //CAPTURE_FLIP
+#ifdef __APPLE__
+// AVFoundation (built-in FaceTime, USB, Continuity Camera/iPhone) delivers
+// frames in the orientation we want; the cvFlip(.., 0, 0) inside
+// Capture::CaptureFrame would flip them upside-down. Disable on macOS.
+bool fFlipFrame = CAPTURE_DONT_FLIP;
+#else
 bool fFlipFrame = CAPTURE_FLIP;
+#endif
 
 // Earth Texture
 GLuint  gnEarthTexID;
