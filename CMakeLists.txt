@@ -11,6 +11,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Suppress macOS OpenGL deprecation warnings
 add_definitions(-DGL_SILENCE_DEPRECATION)
 
+# Enable HandyAR fingertip pipeline (gates wonjo_dx::bDrawHand=TRUE in wonjo.cpp).
+# Without this, OnProcess never runs and the gesture subsystem stays dormant.
+add_definitions(-D_DRAW_HAND)
+
 # Find dependencies
 find_package(OpenCV 4 REQUIRED)
 find_package(glfw3 3 REQUIRED)
