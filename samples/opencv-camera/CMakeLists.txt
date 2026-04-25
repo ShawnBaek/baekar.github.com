@@ -20,6 +20,6 @@ if(APPLE)
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
         MACOSX_BUNDLE_BUNDLE_NAME "OpenCVCameraSample"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "com.backar.opencv-camera-sample"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.baekar.opencv-camera-sample"
     )
 endif()

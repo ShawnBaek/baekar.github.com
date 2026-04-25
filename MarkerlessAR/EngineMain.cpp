@@ -544,18 +544,18 @@ static void mainLoop(void)
 	// because FingertipPoseEstimation::Initialize calls glGenTextures, and on
 	// macOS GL calls only work on the thread that owns the context.
 	if (!g_engineInitialized) {
-		fprintf(stderr, "BackAR: Starting engine initialization...\n");
+		fprintf(stderr, "BaekAR: Starting engine initialization...\n");
 		fflush(stderr);
 		int rc = InitializeEngineMain();
 		if (rc != 0) {
-			fprintf(stderr, "BackAR: Engine initialization failed (%d). Check camera permissions.\n", rc);
-			fprintf(stderr, "BackAR: On macOS, grant camera access in:\n");
+			fprintf(stderr, "BaekAR: Engine initialization failed (%d). Check camera permissions.\n", rc);
+			fprintf(stderr, "BaekAR: On macOS, grant camera access in:\n");
 			fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
 			fflush(stderr);
 			if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
 			return;
 		}
-		fprintf(stderr, "BackAR: Engine initialized successfully.\n");
+		fprintf(stderr, "BaekAR: Engine initialized successfully.\n");
 		fflush(stderr);
 		g_engineInitialized = true;
 		return; // skip first frame to let things settle
@@ -1036,7 +1036,7 @@ int InitializeEngineMain()
         g_dummyFrameMat = cv::Mat::zeros(480, 640, CV_8UC3);
         cv::putText(g_dummyFrameMat, "Camera Unavailable", cv::Point(140, 220),
                     cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0, 0, 255), 2);
-        cv::putText(g_dummyFrameMat, "BackAR Engine Running", cv::Point(130, 280),
+        cv::putText(g_dummyFrameMat, "BaekAR Engine Running", cv::Point(130, 280),
                     cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
         g_dummyIpl = cvIplImage(g_dummyFrameMat);
         frame = &g_dummyIpl;
@@ -1220,7 +1220,7 @@ int InitializeEngineMain()
 	// camera-display-only mode. Re-enable once the worker code is refactored
 	// to use proper per-thread buffers + locks.
 	(void)val1; (void)val2;
-	fprintf(stderr, "BackAR: matching/tracking workers disabled on macOS (camera-only mode)\n");
+	fprintf(stderr, "BaekAR: matching/tracking workers disabled on macOS (camera-only mode)\n");
 	fflush(stderr);
 #endif
 
@@ -2160,7 +2160,7 @@ int main(int argc, char* argv[])
 		if (lastSlash != std::string::npos) {
 			std::string exeDir = exePath.substr(0, lastSlash);
 			chdir(exeDir.c_str());
-			fprintf(stderr, "BackAR: Working directory set to %s\n", exeDir.c_str());
+			fprintf(stderr, "BaekAR: Working directory set to %s\n", exeDir.c_str());
 			fflush(stderr);
 		}
 	}
@@ -2173,15 +2173,15 @@ int main(int argc, char* argv[])
 
 #ifdef __APPLE__
 	{
-		fprintf(stderr, "BackAR: requesting camera permission...\n");
+		fprintf(stderr, "BaekAR: requesting camera permission...\n");
 		fflush(stderr);
 		if (!RequestCameraPermission()) {
-			fprintf(stderr, "BackAR: camera permission denied — engine will run with dummy frames.\n");
+			fprintf(stderr, "BaekAR: camera permission denied — engine will run with dummy frames.\n");
 			fprintf(stderr, "  Grant access in System Settings > Privacy & Security > Camera, then reset:\n");
-			fprintf(stderr, "  tccutil reset Camera com.backar.engine\n");
+			fprintf(stderr, "  tccutil reset Camera com.baekar.engine\n");
 			fflush(stderr);
 		} else {
-			fprintf(stderr, "BackAR: camera permission granted.\n");
+			fprintf(stderr, "BaekAR: camera permission granted.\n");
 			fflush(stderr);
 		}
 	}
@@ -2196,7 +2196,7 @@ int main(int argc, char* argv[])
 	// Create window with OpenGL context (legacy profile for fixed-function pipeline)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-	g_window = glfwCreateWindow(640, 480, "BackAR - Markerless AR Engine", nullptr, nullptr);
+	g_window = glfwCreateWindow(640, 480, "BaekAR - Markerless AR Engine", nullptr, nullptr);
 	if (!g_window) {
 		fprintf(stderr, "Failed to create GLFW window\n");
 		glfwTerminate();
@@ -2218,8 +2218,8 @@ int main(int argc, char* argv[])
 	// Initialize OpenGL state
 	init();
 
-	fprintf(stderr, "BackAR: OpenGL init done. Press ESC to quit.\n");
-	fprintf(stderr, "BackAR: Camera will initialize when event loop starts...\n");
+	fprintf(stderr, "BaekAR: OpenGL init done. Press ESC to quit.\n");
+	fprintf(stderr, "BaekAR: Camera will initialize when event loop starts...\n");
 	fflush(stderr);
 
 	// Main loop
