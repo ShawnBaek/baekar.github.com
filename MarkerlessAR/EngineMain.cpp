@@ -1561,26 +1561,24 @@ unsigned int ThreadBRISKMatching(void *param)
 		vector<DMatch> matches_popcount; 
 		//double pop_time = match(kpts_1, kpts_2, matcher_popcount, desc_1, desc_2, matches_popcount);
 		
-		if(idxcount==1){
- 			if(hamming){
-
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-			else{
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,0.21);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-
-		}
-		else if(idxcount==2){
-			if(hamming){
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-			else{
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,0.21);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
+		// Original used radiusMatch(..., 100.0) which accepts every train
+		// descriptor within Hamming distance 100 — far too loose for OpenCV's
+		// 64-byte BRISK, so RANSAC kept fitting confident-but-wrong homographies
+		// (e.g. yejin.jpg's bounds locking onto terminal text).
+		// knnMatch(k=2) + Lowe's ratio (best/second-best < 0.75) is the standard
+		// robust filter and gives stable, marker-aligned poses.
+		{
+			std::vector<std::vector<DMatch>> raw;
+			descriptorMatcher1->knnMatch(desc_camera_matching_thread, desc_database, raw, 2);
+			matches.clear();
+			matches.reserve(raw.size());
+			for (size_t k = 0; k < raw.size(); ++k) {
+				if (raw[k].size() == 2 &&
+				    raw[k][0].distance < 0.75f * raw[k][1].distance) {
+					matches.push_back({ raw[k][0] });
+				} else if (raw[k].size() == 1) {
+					matches.push_back({ raw[k][0] });
+				}
 			}
 		}
 		
