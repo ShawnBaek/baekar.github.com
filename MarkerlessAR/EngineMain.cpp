@@ -71,6 +71,8 @@ static double g_mousePrevX = 0, g_mousePrevY = 0;
 #endif
 
 #ifdef __APPLE__
+#include <dirent.h>
+#include <algorithm>
 #include "compat/macos_window_capture.h"
 #include "Contents.hpp"
 static Contents  g_contents;
@@ -231,12 +233,65 @@ bool hamming = true;
 CRITICAL_SECTION   hCriticalSection[2];
 ofstream mslNFT_Log("mslNFT_Log.txt");
 
-strFilename Filename[20] = 
+strFilename Filename[20] =
 {
 	//파일명을 iu2에서 yejin으로 수정함
     "image/yejin.jpg",
 	"image/yejin.jpg",
 };
+
+#ifdef __APPLE__
+// Lists feature-detectable photos in image/ and lets the user pick one as
+// the marker image (the BRISK reference). Empty input or a bad index
+// keeps the hardcoded default in Filename[0].
+static std::string PickMarkerImage()
+{
+	const char* dirpath = "image";
+	DIR* d = opendir(dirpath);
+	if (!d) {
+		fprintf(stderr, "MarkerPicker: cannot open '%s' (cwd-relative); keeping default\n", dirpath);
+		return "";
+	}
+	std::vector<std::string> images;
+	struct dirent* ent;
+	while ((ent = readdir(d)) != nullptr) {
+		std::string name = ent->d_name;
+		if (name.size() < 5) continue;
+		std::string lower = name;
+		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+		auto endsWith = [&](const char* ext) {
+			size_t L = strlen(ext);
+			return lower.size() >= L && lower.compare(lower.size()-L, L, ext) == 0;
+		};
+		if (endsWith(".jpg") || endsWith(".jpeg") || endsWith(".png"))
+			images.push_back(name);
+	}
+	closedir(d);
+	std::sort(images.begin(), images.end());
+
+	if (images.empty()) {
+		fprintf(stderr, "MarkerPicker: no images found in '%s'\n", dirpath);
+		return "";
+	}
+
+	fprintf(stderr, "\n=== Pick a feature-detectable marker image ===\n");
+	for (size_t i = 0; i < images.size(); ++i)
+		fprintf(stderr, "  [%2zu] %s\n", i, images[i].c_str());
+	fprintf(stderr, "Enter index (0-%zu), or anything else to keep default (yejin.jpg): ",
+	        images.size()-1);
+	fflush(stderr);
+
+	char line[64] = {0};
+	if (!fgets(line, sizeof(line), stdin)) return "";
+	int idx = -1;
+	if (sscanf(line, "%d", &idx) != 1 || idx < 0 || idx >= (int)images.size())
+		return "";
+
+	std::string path = std::string(dirpath) + "/" + images[idx];
+	fprintf(stderr, "MarkerPicker: chose [%d] %s\n", idx, path.c_str());
+	return path;
+}
+#endif
 
 //////////////////////////////HandyAR Display()////////////////////////////////////////////
 
@@ -2275,6 +2330,22 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "BaekAR: camera permission granted.\n");
 			fflush(stderr);
 		}
+	}
+
+	// Marker-image picker: thesis "select a feature-detectable photo, render
+	// the 3D scene anchored to it" workflow. Pick any image from image/ as
+	// the BRISK reference; skipping keeps the hardcoded default.
+	{
+		std::string chosen = PickMarkerImage();
+		if (!chosen.empty()) {
+			Filename[0]._strFilename = chosen;
+			Filename[1]._strFilename = chosen;
+			fprintf(stderr, "BaekAR: marker = %s\n", chosen.c_str());
+		} else {
+			fprintf(stderr, "BaekAR: marker = %s (default)\n",
+			        Filename[0]._strFilename.c_str());
+		}
+		fflush(stderr);
 	}
 
 	// Window-as-AR-texture (thesis novelty): present a stdin picker so the
