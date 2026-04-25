@@ -66,6 +66,20 @@
 #include <GLFW/glfw3.h>
 static GLFWwindow* g_window = nullptr;
 static bool g_mouseDown = false;
+static bool g_mouseWasDown = false;
+static double g_mousePrevX = 0, g_mousePrevY = 0;
+#endif
+
+#ifdef __APPLE__
+#include "compat/macos_window_capture.h"
+#include "Contents.hpp"
+static Contents  g_contents;
+static WCStream* g_winStream  = nullptr;
+static unsigned int g_winTexture = 0;
+static const int    kWinTexW    = 512;
+static const int    kWinTexH    = 512;
+static std::vector<uint8_t> g_winFrameBuf;
+static bool         g_winPlaneSpawned = false;
 #endif
 
 using namespace cv;
@@ -570,13 +584,31 @@ static void mainLoop(void)
 		wonjo_dx::Picking(pt);
 	}
 #else
-	if (g_mouseDown && g_window) {
+	if (g_window) {
 		double mx, my;
 		glfwGetCursorPos(g_window, &mx, &my);
-		POINT pt;
-		pt.x = (LONG)mx;
-		pt.y = (LONG)my;
-		wonjo_dx::Picking(pt);
+
+		if (g_mouseDown && !g_mouseWasDown) {
+			// Mouse-down edge: pick the AR content under the cursor.
+			POINT pt; pt.x = (LONG)mx; pt.y = (LONG)my;
+			D3DXVECTOR3 ro, rd;
+			wonjo_dx::PickingRay(pt, &ro, &rd);
+			int hit = g_contents.pick(ro, rd);
+			if (hit >= 0) {
+				g_contents.select(hit);
+				fprintf(stderr, "BaekAR: picked AR content #%d\n", hit);
+			} else {
+				g_contents.deselectAll();
+				// Preserve the original z=0 picking trace for the no-hit case.
+				wonjo_dx::Picking(pt);
+			}
+		} else if (g_mouseDown && g_mouseWasDown) {
+			// Drag: translate the selected item.
+			g_contents.dragSelected(mx - g_mousePrevX, my - g_mousePrevY);
+		}
+		g_mousePrevX = mx;
+		g_mousePrevY = my;
+		g_mouseWasDown = g_mouseDown;
 	}
 #endif
 	
@@ -780,8 +812,25 @@ static void mainLoop(void)
 			
  			wonjo_dx::DrawPlane(wonjo_dx::MakeScaleMatrix(35,35,35));
  			wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"),wonjo_dx::MakeScaleMatrix(10,10,10));			//드로우
-// 			
-		
+//
+
+#ifdef __APPLE__
+			// Window-as-AR-texture (thesis novelty): pull the latest frame from
+			// ScreenCaptureKit, upload to a GL texture, and render via Contents.
+			// The textured plane lives in marker-local space, so it locks to
+			// the tracked image and the user can pick/drag it.
+			if (g_winStream) {
+				if (WCStream_LatestFrame(g_winStream, g_winFrameBuf.data(), kWinTexW, kWinTexH)) {
+					wonjo_dx::UploadTexture(&g_winTexture, g_winFrameBuf.data(), kWinTexW, kWinTexH);
+				}
+				if (g_winTexture != 0 && !g_winPlaneSpawned) {
+					g_contents.addWindowPlane(g_winTexture, /*halfSize=*/50.0f);
+					g_winPlaneSpawned = true;
+				}
+				g_contents.render();
+			}
+#endif
+
 		}//end of processing marker
 	
 		
@@ -2193,6 +2242,23 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "BaekAR: camera permission granted.\n");
 			fflush(stderr);
 		}
+	}
+
+	// Window-as-AR-texture (thesis novelty): present a stdin picker so the
+	// user chooses any on-screen window; ScreenCaptureKit streams its pixels
+	// into g_winFrameBuf. Skipping the picker leaves AR running marker-only.
+	{
+		uint32_t winId = WCPicker_PickWindowID();
+		if (winId != 0) {
+			g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
+			if (g_winStream) {
+				g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
+				fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
+			}
+		} else {
+			fprintf(stderr, "BaekAR: no window chosen — running marker-only mode.\n");
+		}
+		fflush(stderr);
 	}
 #endif
 

@@ -18,6 +18,8 @@
 	<string>BaekAR needs camera access for markerless augmented reality tracking.</string>
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>BaekAR captures a chosen application's window pixels and renders them as an interactive 3D plane in AR.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

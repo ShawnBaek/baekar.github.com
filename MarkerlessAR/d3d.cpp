@@ -1011,8 +1011,94 @@ namespace wonjo_dx
 		Picked.y = temp * ray._direction.y + ray._origin.y;
 
 		std::cout << "picked pos is " << Picked.x << "/" << Picked.y << std::endl;
-		
-		
+
+
 		return Picked;
+	}
+
+	void PickingRay(POINT pt, D3DXVECTOR3* outOrigin, D3DXVECTOR3* outDir)
+	{
+		Ray ray = CalcPickingRay(pt.x, pt.y);
+
+		D3DXMATRIXA16 view;
+		wonjo_dx::GetDevice()->GetTransform(D3DTS_VIEW, &view);
+		D3DXMATRIXA16 viewInverse;
+		D3DXMatrixInverse(&viewInverse, 0, &view);
+		TransformRay(&ray, &viewInverse);
+
+		if (outOrigin) *outOrigin = ray._origin;
+		if (outDir)    *outDir    = ray._direction;
+	}
+
+	void UploadTexture(unsigned int* tex, const unsigned char* bgra, int w, int h)
+	{
+#ifdef __APPLE__
+		if (!tex || !bgra) return;
+		if (*tex == 0) {
+			glGenTextures(1, tex);
+			glBindTexture(GL_TEXTURE_2D, *tex);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0,
+				GL_BGRA, GL_UNSIGNED_BYTE, bgra);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, *tex);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h,
+				GL_BGRA, GL_UNSIGNED_BYTE, bgra);
+		}
+#else
+		(void)tex; (void)bgra; (void)w; (void)h;
+#endif
+	}
+
+	void DrawTexturedPlane(const D3DXMATRIXA16* matWorld, unsigned int tex, bool selected)
+	{
+#ifdef __APPLE__
+		if (matWorld) {
+			float glWorld[16];
+			for (int r = 0; r < 4; ++r)
+				for (int c = 0; c < 4; ++c)
+					glWorld[c*4+r] = matWorld->m[r][c];
+			glPushMatrix();
+			glMultMatrixf(glWorld);
+		}
+
+		if (tex != 0) {
+			glEnable(GL_TEXTURE_2D);
+			glBindTexture(GL_TEXTURE_2D, tex);
+			glColor4f(1, 1, 1, 1);
+		} else {
+			glDisable(GL_TEXTURE_2D);
+			glColor4f(0.6f, 0.6f, 0.6f, 0.7f);
+		}
+
+		// Window pixels arrive top-row-first; flip V so the texture renders
+		// upright on the AR plane.
+		glBegin(GL_QUADS);
+			glNormal3f(0, 0, 1);
+			glTexCoord2f(0, 1); glVertex3f(-1, -1, 0);
+			glTexCoord2f(1, 1); glVertex3f( 1, -1, 0);
+			glTexCoord2f(1, 0); glVertex3f( 1,  1, 0);
+			glTexCoord2f(0, 0); glVertex3f(-1,  1, 0);
+		glEnd();
+		glDisable(GL_TEXTURE_2D);
+
+		if (selected) {
+			glColor4f(1.0f, 0.2f, 0.2f, 1.0f);
+			glLineWidth(3.0f);
+			glBegin(GL_LINE_LOOP);
+				glVertex3f(-1, -1, 0);
+				glVertex3f( 1, -1, 0);
+				glVertex3f( 1,  1, 0);
+				glVertex3f(-1,  1, 0);
+			glEnd();
+			glLineWidth(1.0f);
+			glColor4f(1, 1, 1, 1);
+		}
+
+		if (matWorld) glPopMatrix();
+#else
+		(void)matWorld; (void)tex; (void)selected;
+#endif
 	}
 }

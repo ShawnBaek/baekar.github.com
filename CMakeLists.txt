@@ -44,8 +44,13 @@ set(ENGINE_SOURCES
     MarkerlessAR/stdafx.cpp
 )
 
+list(APPEND ENGINE_SOURCES MarkerlessAR/Contents.cpp)
+
 if(APPLE)
-    list(APPEND ENGINE_SOURCES MarkerlessAR/compat/macos_camera_auth.mm)
+    list(APPEND ENGINE_SOURCES
+        MarkerlessAR/compat/macos_camera_auth.mm
+        MarkerlessAR/compat/macos_window_capture.mm
+    )
 endif()
 
 # BRISK feature descriptor
@@ -131,6 +136,10 @@ if(APPLE)
     target_link_libraries(BaekAR PRIVATE
         "-framework AVFoundation"
         "-framework Foundation"
+        "-framework ScreenCaptureKit"
+        "-framework CoreMedia"
+        "-framework CoreVideo"
+        "-framework CoreGraphics"
         "-lobjc"
     )
 endif()
