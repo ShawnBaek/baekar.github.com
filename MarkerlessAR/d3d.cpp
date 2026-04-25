@@ -9,8 +9,10 @@
 #define GL_SILENCE_DEPRECATION
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
+#include <GLUT/glut.h>
 #else
 #include <GL/gl.h>
+#include <GL/glut.h>
 #endif
 #endif
 
@@ -52,10 +54,20 @@ namespace wonjo_dx
 		if(itr == hsMeshes.end())
 		{
 			LPMESH ms = new Mesh;
-			HRESULT hr = D3DXLoadMeshFromX(location, D3DXMESH_MANAGED, GetDevice(), 
+			HRESULT hr = D3DXLoadMeshFromX(location, D3DXMESH_MANAGED, GetDevice(),
 				&ms->m_AdjBuffer, &ms->m_MtrlBuffer, NULL, &ms->m_NumMtrl, &ms->m_Mesh
 				);
-			if(FAILED(hr)) 
+#ifdef __APPLE__
+			// .X loading is stubbed on macOS — D3DXLoadMeshFromX always returns
+			// E_FAIL. Instead of dropping the request, return a sentinel mesh
+			// whose only data is the requested filename; DrawMesh inspects the
+			// filename and renders a synthetic primitive (axes for Arrow3Axis,
+			// teapot for default, etc).
+			ms->filename.assign(location);
+			hsMeshes[location] = ms;
+			return ms;
+#endif
+			if(FAILED(hr))
 			{
 				delete ms;
 				return NULL;
@@ -170,9 +182,11 @@ namespace wonjo_dx
 			pms->m_Mesh->DrawSubset( i );
 		}
 #else
-		// macOS: .X mesh format not supported — draw placeholder coordinate axes
+		// macOS: .X mesh format isn't loadable; we get a sentinel Mesh whose
+		// only payload is its filename. Render a synthetic primitive based on
+		// the requested mesh — the user gets actual 3D content on the marker
+		// instead of nothing.
 		if(!matWorld) return;
-		// Transpose world matrix for OpenGL
 		float glWorld[16];
 		for(int r = 0; r < 4; ++r)
 			for(int c = 0; c < 4; ++c)
@@ -181,22 +195,82 @@ namespace wonjo_dx
 		glPushMatrix();
 		glMultMatrixf(glWorld);
 
-		// Draw RGB coordinate axes as placeholder
-		glDisable(GL_TEXTURE_2D);
-		glLineWidth(2.0f);
-		glBegin(GL_LINES);
-			// X axis — red
-			glColor3f(1, 0, 0);
-			glVertex3f(0, 0, 0); glVertex3f(1, 0, 0);
-			// Y axis — green
-			glColor3f(0, 1, 0);
-			glVertex3f(0, 0, 0); glVertex3f(0, 1, 0);
-			// Z axis — blue
-			glColor3f(0, 0, 1);
-			glVertex3f(0, 0, 0); glVertex3f(0, 0, 1);
-		glEnd();
-		glColor3f(1, 1, 1);
+		const std::string& name = pms->filename;
+		bool isAxes = (name.find("Arrow3Axis") != std::string::npos ||
+		               name.find("axis")       != std::string::npos);
+		bool isHand = (name.find("hand")       != std::string::npos ||
+		               name.find("Hand")       != std::string::npos);
 
+		// Lighting setup so the solid primitives look 3D, not flat-shaded blobs.
+		GLboolean wasLit = glIsEnabled(GL_LIGHTING);
+		if (!wasLit) {
+			glEnable(GL_LIGHTING);
+			glEnable(GL_LIGHT0);
+			GLfloat lightPos[4]  = { 0.5f,  0.5f, 1.0f, 0.0f };
+			GLfloat lightDiff[4] = { 1.0f,  1.0f, 1.0f, 1.0f };
+			GLfloat lightAmb[4]  = { 0.25f, 0.25f, 0.30f, 1.0f };
+			glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+			glLightfv(GL_LIGHT0, GL_DIFFUSE,  lightDiff);
+			glLightfv(GL_LIGHT0, GL_AMBIENT,  lightAmb);
+			glEnable(GL_COLOR_MATERIAL);
+			glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+		}
+		glDisable(GL_TEXTURE_2D);
+
+		if (isAxes) {
+			// XYZ axes as solid cones for visibility (instead of 1-pixel lines).
+			// Each axis: shaft (cylinder via cone with base==top) + arrowhead.
+			const float axisLen = 1.0f;
+			const float headLen = 0.2f;
+			const float radius  = 0.05f;
+			// X (red)
+			glColor3f(1, 0, 0);
+			glPushMatrix();
+				glRotatef(90, 0, 1, 0);
+				glutSolidCone(radius, axisLen - headLen, 12, 1);
+				glTranslatef(0, 0, axisLen - headLen);
+				glutSolidCone(radius * 2.0f, headLen, 12, 1);
+			glPopMatrix();
+			// Y (green)
+			glColor3f(0, 1, 0);
+			glPushMatrix();
+				glRotatef(-90, 1, 0, 0);
+				glutSolidCone(radius, axisLen - headLen, 12, 1);
+				glTranslatef(0, 0, axisLen - headLen);
+				glutSolidCone(radius * 2.0f, headLen, 12, 1);
+			glPopMatrix();
+			// Z (blue)
+			glColor3f(0, 0, 1);
+			glPushMatrix();
+				glutSolidCone(radius, axisLen - headLen, 12, 1);
+				glTranslatef(0, 0, axisLen - headLen);
+				glutSolidCone(radius * 2.0f, headLen, 12, 1);
+			glPopMatrix();
+		} else if (isHand) {
+			// Hand stand-in: palm sphere + finger cylinders (cones with low taper).
+			glColor3f(0.95f, 0.78f, 0.65f);   // skin-ish
+			glPushMatrix();
+				glutSolidSphere(0.6, 16, 12);
+				for (int i = -2; i <= 2; ++i) {
+					glPushMatrix();
+						glTranslatef(i * 0.18f, 0.55f, 0);
+						glRotatef(-90, 1, 0, 0);
+						glutSolidCone(0.08, 0.7, 10, 1);
+					glPopMatrix();
+				}
+			glPopMatrix();
+		} else {
+			// Default 3D model: the iconic Utah teapot.
+			glColor3f(0.85f, 0.55f, 0.25f);
+			glutSolidTeapot(0.7);
+		}
+
+		if (!wasLit) {
+			glDisable(GL_COLOR_MATERIAL);
+			glDisable(GL_LIGHT0);
+			glDisable(GL_LIGHTING);
+		}
+		glColor3f(1, 1, 1);
 		glPopMatrix();
 #endif
 	}
