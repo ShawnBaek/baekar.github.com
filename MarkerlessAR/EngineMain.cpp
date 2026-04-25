@@ -723,7 +723,11 @@ static void mainLoop(void)
 // 			std::cout << std::endl;
 			
 			//wonjo_dx::AAR3DDrawMesh("IEFrame",NULL,35.0f);
+#ifdef _WIN32
+			// AAR3DTexturing captures a target Win32 window's pixels via
+			// FindWindow/GetDC/PrintWindow as an AR texture — Windows-only.
 			wonjo_dx::AAR3DTexturing text("IEFrame",NULL);
+#endif
 
 			
 // 			if(camera.m_vecTrans)	//m_vecTrans : (= T)
@@ -1209,20 +1213,9 @@ int InitializeEngineMain()
 	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
 
 	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
-#ifdef _WIN32
 	hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
 	//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
 	hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
-#else
-	// macOS: matching/tracking workers race with the main loop on shared
-	// globals (kp_camera_matching_thread, matching_thread_*, etc.) and
-	// heap-corrupt under OpenCV 4. Skipping them runs the app in
-	// camera-display-only mode. Re-enable once the worker code is refactored
-	// to use proper per-thread buffers + locks.
-	(void)val1; (void)val2;
-	fprintf(stderr, "BaekAR: matching/tracking workers disabled on macOS (camera-only mode)\n");
-	fflush(stderr);
-#endif
 
 	
 
@@ -1489,10 +1482,17 @@ unsigned int ThreadBRISKMatching(void *param)
 
 				}
 				//Find Homography
-				if(mpts_1.size()<5 && mpts_2.size()<5)
+				// Original used `&&` (skip only when BOTH < 5) — wrong: findHomography
+				// requires both inputs to have ≥4 points and equal size. Use `||`.
+				if(mpts_1.size()<5 || mpts_2.size()<5 || mpts_1.size()!=mpts_2.size())
 					continue;
-				
+
 				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2);
+
+				// RANSAC can fail to find a model and return an empty Mat; guard
+				// before perspectiveTransform asserts on it.
+				if(H.empty() || H.cols != 3 || H.rows != 3)
+					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
 				perspectiveTransform( obj_matching_corners, dst_matching_corners, H);
@@ -1588,22 +1588,22 @@ unsigned int ThreadBRISKMatching(void *param)
 		
 			
 
-		matches.~vector<vector<DMatch>>();
-	
+		// Was: explicit ~vector / ~Mat on stack-local objects (UB — next
+		// iteration writes through freed storage and heap-corrupts).
+		matches.clear();
+
 		desc_camera_matching_thread.release();
-		kp_camera_matching_thread.~vector<KeyPoint>();
+		kp_camera_matching_thread.clear();
 
 		matching_thread_rgbcamera.release();
 		matching_thread_graycamera.release();
 		matching_thread_result.release();
 
 		dst_matching_corners.clear();
-		
+
 	}
 
-
-	kp_database.~vector<KeyPoint>();
-	desc_database.~Mat();
+	// kp_database / desc_database are auto-storage; let scope exit destruct them.
 	
 	_endthreadex(0);
 	return 0;
@@ -1691,7 +1691,8 @@ unsigned int ThreadTracking(void *param)
 
 			//Homography & NCC
 			//Cam으로부터 받아오는 영상의 포인트 mpts_2, DB로부터 받아오는 포인트 mpts_1
-			if(g_mpts_2.size()<5 && g_mpts_1.size()<5)
+			// Original used `&&` (skip only when BOTH < 5) — wrong, see matching thread.
+			if(g_mpts_2.size()<5 || g_mpts_1.size()<5 || g_mpts_2.size()!=g_mpts_1.size())
 			{
 				//mbisDetecting=false;
 
@@ -1703,8 +1704,16 @@ unsigned int ThreadTracking(void *param)
 				continue;
 			}
 			Mat HH = findHomography(Mat(g_mpts_2), Mat(g_mpts_1), RANSAC, 2);						//Homography
-			Mat HH_inver;			
-				
+			// RANSAC can fail and return an empty Mat — guard before invert/perspectiveTransform.
+			if(HH.empty() || HH.cols != 3 || HH.rows != 3) {
+				bThreadTracking1=false;
+				//트랙킹을 실패했을 경우 정보를 지워줌
+				dst_tracking_corners.clear();
+				dst_tracking_corners1=dst_tracking_corners;
+				continue;
+			}
+			Mat HH_inver;
+
 
 			invert(HH, HH_inver,DECOMP_LU );//역행렬 계산
 			//bIsHomographyInvertMatrix = true;
