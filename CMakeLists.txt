@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
-project(BackAR LANGUAGES CXX)
+if(APPLE)
+    project(BackAR LANGUAGES CXX OBJCXX)
+else()
+    project(BackAR LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +39,10 @@ set(ENGINE_SOURCES
     MarkerlessAR/SungwookUtility.cpp
     MarkerlessAR/stdafx.cpp
 )
+
+if(APPLE)
+    list(APPEND ENGINE_SOURCES MarkerlessAR/compat/macos_camera_auth.mm)
+endif()
 
 # BRISK feature descriptor
 set(BRISK_SOURCES
@@ -115,6 +123,24 @@ target_link_libraries(BackAR PRIVATE
     ${GLUT_LIBRARIES}
 )
 
+if(APPLE)
+    target_link_libraries(BackAR PRIVATE
+        "-framework AVFoundation"
+        "-framework Foundation"
+        "-lobjc"
+    )
+endif()
+
+# macOS: build as .app bundle so the system shows camera permission dialog
+if(APPLE)
+    set_target_properties(BackAR PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/Info.plist
+        MACOSX_BUNDLE_BUNDLE_NAME "BackAR"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.backar.engine"
+    )
+endif()
+
 # Copy asset directories to build output for runtime access
 add_custom_command(TARGET BackAR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -129,5 +155,17 @@ add_custom_command(TARGET BackAR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/3dobjects
         $<TARGET_FILE_DIR:BackAR>/3dobjects
-    COMMENT "Symlinking asset directories to build output"
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.dis
+        $<TARGET_FILE_DIR:BackAR>/skin.dis
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.mgm
+        $<TARGET_FILE_DIR:BackAR>/skin.mgm
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.dis
+        $<TARGET_FILE_DIR:BackAR>/nonskin.dis
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.mgm
+        $<TARGET_FILE_DIR:BackAR>/nonskin.mgm
+    COMMENT "Symlinking asset directories and data files to build output"
 )

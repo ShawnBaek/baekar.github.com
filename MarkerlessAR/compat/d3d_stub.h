@@ -236,11 +236,73 @@ inline void D3DXMatrixScaling(D3DXMATRIXA16* m, float x, float y, float z) {
 inline void D3DXMatrixTranslation(D3DXMATRIXA16* m, float x, float y, float z) {
     memset(m->flat, 0, sizeof(m->flat)); m->_11=m->_22=m->_33=m->_44=1; m->_41=x; m->_42=y; m->_43=z;
 }
-inline void D3DXMatrixRotationYawPitchRoll(D3DXMATRIXA16*, float, float, float) {}
-inline float D3DXMatrixDeterminant(const D3DXMATRIXA16*) { return 1.0f; }
-inline D3DXMATRIXA16* D3DXMatrixInverse(D3DXMATRIXA16* out, float*, const D3DXMATRIXA16*) { return out; }
-inline void D3DXVec3TransformCoord(D3DXVECTOR3*, const D3DXVECTOR3*, const D3DXMATRIXA16*) {}
-inline void D3DXVec3TransformNormal(D3DXVECTOR3*, const D3DXVECTOR3*, const D3DXMATRIXA16*) {}
+inline void D3DXMatrixRotationYawPitchRoll(D3DXMATRIXA16* out, float yaw, float pitch, float roll) {
+    float cy = cosf(yaw), sy = sinf(yaw);
+    float cp = cosf(pitch), sp = sinf(pitch);
+    float cr = cosf(roll), sr = sinf(roll);
+    memset(out->flat, 0, sizeof(out->flat));
+    out->_11 = cy*cr + sy*sp*sr;   out->_12 = sr*cp;                out->_13 = -sy*cr + cy*sp*sr;
+    out->_21 = -cy*sr + sy*sp*cr;  out->_22 = cr*cp;                out->_23 = sr*sy + cy*sp*cr;
+    out->_31 = sy*cp;              out->_32 = -sp;                   out->_33 = cy*cp;
+    out->_44 = 1;
+}
+inline float D3DXMatrixDeterminant(const D3DXMATRIXA16* pm) {
+    const float* m = pm->flat;
+    float a0 = m[0]*m[5] - m[1]*m[4];
+    float a1 = m[0]*m[6] - m[2]*m[4];
+    float a2 = m[0]*m[7] - m[3]*m[4];
+    float a3 = m[1]*m[6] - m[2]*m[5];
+    float a4 = m[1]*m[7] - m[3]*m[5];
+    float a5 = m[2]*m[7] - m[3]*m[6];
+    float b0 = m[8]*m[13] - m[9]*m[12];
+    float b1 = m[8]*m[14] - m[10]*m[12];
+    float b2 = m[8]*m[15] - m[11]*m[12];
+    float b3 = m[9]*m[14] - m[10]*m[13];
+    float b4 = m[9]*m[15] - m[11]*m[13];
+    float b5 = m[10]*m[15] - m[11]*m[14];
+    return a0*b5 - a1*b4 + a2*b3 + a3*b2 - a4*b1 + a5*b0;
+}
+inline D3DXMATRIXA16* D3DXMatrixInverse(D3DXMATRIXA16* out, float* pDet, const D3DXMATRIXA16* pm) {
+    const float* m = pm->flat;
+    float inv[16];
+    inv[0]  =  m[5]*m[10]*m[15] - m[5]*m[11]*m[14] - m[9]*m[6]*m[15] + m[9]*m[7]*m[14] + m[13]*m[6]*m[11] - m[13]*m[7]*m[10];
+    inv[4]  = -m[4]*m[10]*m[15] + m[4]*m[11]*m[14] + m[8]*m[6]*m[15] - m[8]*m[7]*m[14] - m[12]*m[6]*m[11] + m[12]*m[7]*m[10];
+    inv[8]  =  m[4]*m[9]*m[15]  - m[4]*m[11]*m[13] - m[8]*m[5]*m[15] + m[8]*m[7]*m[13] + m[12]*m[5]*m[11] - m[12]*m[7]*m[9];
+    inv[12] = -m[4]*m[9]*m[14]  + m[4]*m[10]*m[13] + m[8]*m[5]*m[14] - m[8]*m[6]*m[13] - m[12]*m[5]*m[10] + m[12]*m[6]*m[9];
+    inv[1]  = -m[1]*m[10]*m[15] + m[1]*m[11]*m[14] + m[9]*m[2]*m[15] - m[9]*m[3]*m[14] - m[13]*m[2]*m[11] + m[13]*m[3]*m[10];
+    inv[5]  =  m[0]*m[10]*m[15] - m[0]*m[11]*m[14] - m[8]*m[2]*m[15] + m[8]*m[3]*m[14] + m[12]*m[2]*m[11] - m[12]*m[3]*m[10];
+    inv[9]  = -m[0]*m[9]*m[15]  + m[0]*m[11]*m[13] + m[8]*m[1]*m[15] - m[8]*m[3]*m[13] - m[12]*m[1]*m[11] + m[12]*m[3]*m[9];
+    inv[13] =  m[0]*m[9]*m[14]  - m[0]*m[10]*m[13] - m[8]*m[1]*m[14] + m[8]*m[2]*m[13] + m[12]*m[1]*m[10] - m[12]*m[2]*m[9];
+    inv[2]  =  m[1]*m[6]*m[15]  - m[1]*m[7]*m[14]  - m[5]*m[2]*m[15] + m[5]*m[3]*m[14] + m[13]*m[2]*m[7]  - m[13]*m[3]*m[6];
+    inv[6]  = -m[0]*m[6]*m[15]  + m[0]*m[7]*m[14]  + m[4]*m[2]*m[15] - m[4]*m[3]*m[14] - m[12]*m[2]*m[7]  + m[12]*m[3]*m[6];
+    inv[10] =  m[0]*m[5]*m[15]  - m[0]*m[7]*m[13]  - m[4]*m[1]*m[15] + m[4]*m[3]*m[13] + m[12]*m[1]*m[7]  - m[12]*m[3]*m[5];
+    inv[14] = -m[0]*m[5]*m[14]  + m[0]*m[6]*m[13]  + m[4]*m[1]*m[14] - m[4]*m[2]*m[13] - m[12]*m[1]*m[6]  + m[12]*m[2]*m[5];
+    inv[3]  = -m[1]*m[6]*m[11]  + m[1]*m[7]*m[10]  + m[5]*m[2]*m[11] - m[5]*m[3]*m[10] - m[9]*m[2]*m[7]   + m[9]*m[3]*m[6];
+    inv[7]  =  m[0]*m[6]*m[11]  - m[0]*m[7]*m[10]  - m[4]*m[2]*m[11] + m[4]*m[3]*m[10] + m[8]*m[2]*m[7]   - m[8]*m[3]*m[6];
+    inv[11] = -m[0]*m[5]*m[11]  + m[0]*m[7]*m[9]   + m[4]*m[1]*m[11] - m[4]*m[3]*m[9]  - m[8]*m[1]*m[7]   + m[8]*m[3]*m[5];
+    inv[15] =  m[0]*m[5]*m[10]  - m[0]*m[6]*m[9]   - m[4]*m[1]*m[10] + m[4]*m[2]*m[9]  + m[8]*m[1]*m[6]   - m[8]*m[2]*m[5];
+    float det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
+    if(pDet) *pDet = det;
+    if(det == 0) return out;
+    det = 1.0f / det;
+    for(int i = 0; i < 16; i++) out->flat[i] = inv[i] * det;
+    return out;
+}
+inline void D3DXVec3TransformCoord(D3DXVECTOR3* out, const D3DXVECTOR3* in, const D3DXMATRIXA16* mat) {
+    // D3D convention: v_out = v_in * M (row-vector * matrix)
+    float x = in->x*mat->m[0][0] + in->y*mat->m[1][0] + in->z*mat->m[2][0] + mat->m[3][0];
+    float y = in->x*mat->m[0][1] + in->y*mat->m[1][1] + in->z*mat->m[2][1] + mat->m[3][1];
+    float z = in->x*mat->m[0][2] + in->y*mat->m[1][2] + in->z*mat->m[2][2] + mat->m[3][2];
+    float w = in->x*mat->m[0][3] + in->y*mat->m[1][3] + in->z*mat->m[2][3] + mat->m[3][3];
+    if(w != 0) { out->x = x/w; out->y = y/w; out->z = z/w; }
+    else { out->x = x; out->y = y; out->z = z; }
+}
+inline void D3DXVec3TransformNormal(D3DXVECTOR3* out, const D3DXVECTOR3* in, const D3DXMATRIXA16* mat) {
+    // D3D convention: v_out = v_in * M (w=0, no translation)
+    out->x = in->x*mat->m[0][0] + in->y*mat->m[1][0] + in->z*mat->m[2][0];
+    out->y = in->x*mat->m[0][1] + in->y*mat->m[1][1] + in->z*mat->m[2][1];
+    out->z = in->x*mat->m[0][2] + in->y*mat->m[1][2] + in->z*mat->m[2][2];
+}
 inline void D3DXVec3Normalize(D3DXVECTOR3* out, const D3DXVECTOR3* in) {
     float len = sqrtf(in->x*in->x + in->y*in->y + in->z*in->z);
     if(len > 0) { out->x = in->x/len; out->y = in->y/len; out->z = in->z/len; }

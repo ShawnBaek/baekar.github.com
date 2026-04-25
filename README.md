@@ -99,7 +99,7 @@ Image-set matching pipeline with multi-scale/rotation descriptor extraction, hom
 MarkerlessAR/
   EngineMain.cpp          # Application entry point, main loop, threading
   BaekAR.cpp              # AR engine controller (detector, tracker, pose, contents)
-  d3d.cpp                 # Rendering layer (DirectX 9 stubs, migrating to OpenGL)
+  d3d.cpp                 # Rendering layer (OpenGL on macOS, DirectX 9 on Windows)
   wonjo.cpp/.h            # 3D math, matrix operations, mesh management
   cam.cpp                 # Camera matrix setup for rendering pipeline
   SungwookFeature.cpp     # Feature extraction and matching utilities
@@ -146,7 +146,22 @@ cmake ..
 cmake --build .
 ```
 
-The binary is produced at `build/BackAR`.
+This produces `build/BackAR.app` (a macOS application bundle).
+
+### Run
+
+```bash
+open build/BackAR.app
+```
+
+On first launch, macOS will ask for **camera permission** — click "Allow" to grant access. BackAR requires a camera to function.
+
+If the camera feed does not appear, verify that camera access is granted in **System Settings > Privacy & Security > Camera**.
+
+### Controls
+
+- **ESC** — Quit the application
+- **Left mouse click** — Place/interact with 3D content (picking)
 
 ---
 
@@ -156,8 +171,8 @@ The binary is produced at `build/BackAR`.
 |--------|--------|-------------|
 | Sprint 1 | Done | Build system (CMake) + MSVC cleanup. Compiles on macOS ARM64 with 0 errors. |
 | Sprint 2 | Skipped | OpenCV C API already works via compat wrappers. No refactoring needed. |
-| Sprint 3 | In Progress | Replace Win32 threading (std::thread) + GLFW windowing |
-| Sprint 4 | Planned | Replace DirectX 9 rendering with OpenGL |
+| Sprint 3 | Done | GLFW windowing + C++11 std::thread/std::mutex replacing Win32 API |
+| Sprint 4 | Done | DirectX 9 rendering replaced with OpenGL. Camera feed displays in GLFW window. |
 | Sprint 5 | Planned | Runtime polish, end-to-end verification |
 
 ---

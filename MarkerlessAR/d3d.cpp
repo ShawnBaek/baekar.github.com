@@ -5,6 +5,15 @@
 #endif
 #include <unordered_map>  // replaced stdext::hash_map
 
+#ifndef _WIN32
+#define GL_SILENCE_DEPRECATION
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+#endif
+
 
 //#define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1)
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1 )
@@ -140,41 +149,61 @@ namespace wonjo_dx
 	void DrawMesh(LPMESH pms, const D3DXMATRIXA16* matWorld)
 	{
 		if(!pms) return;
-		
+
+#ifdef _WIN32
 		D3DXMATRIXA16 matWorld_backup;
-		//GetDevice()->GetTransform(D3DTS_WORLD, &matWorld_backup);
 		if(matWorld) GetDevice()->SetTransform(D3DTS_WORLD, matWorld);
 
 		GetDevice()->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		GetDevice()->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
 		GetDevice()->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-		
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);   //디폴트값 = 텍스쳐
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);    // 1과 2에 각각 텍스쳐와 디퓨즈를 넣고
-		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_MODULATE); // 2개를 모듈레이트 한다 (합성)
+
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
+		GetDevice()->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 
 		for(int i = 0; i < (signed)pms->Mtrls.size(); i++)
 		{
-			//////////////////////////////////////////////////////////////////////////
-			//		m_Effector->SetUpShader(matWorld, res->m_Tex[i]);	//120109카툰쉐이더rollback
-			//////////////////////////////////////////////////////////////////////////
-			//mtrls[i].MatD3D.Diffuse.a = 0.4f;
 			pms->Mtrls[i].Ambient.a = pms->Mtrls[i].Diffuse.a = 0.95f;
 			GetDevice()->SetMaterial( &pms->Mtrls[i] );
 			GetDevice()->SetTexture( 0, pms->m_Tex[i] );
-			//////////////////////////////////////////////////////////////////////////
-			//deprecated source
-			//m_Mesh->DrawSubset(i);
-			//new source
 			pms->m_Mesh->DrawSubset( i );
-			//////////////////////////////////////////////////////////////////////////
 		}
+#else
+		// macOS: .X mesh format not supported — draw placeholder coordinate axes
+		if(!matWorld) return;
+		// Transpose world matrix for OpenGL
+		float glWorld[16];
+		for(int r = 0; r < 4; ++r)
+			for(int c = 0; c < 4; ++c)
+				glWorld[c*4+r] = matWorld->m[r][c];
 
-		//GetDevice()->SetTransform(D3DTS_WORLD, &matWorld_backup);
+		glPushMatrix();
+		glMultMatrixf(glWorld);
+
+		// Draw RGB coordinate axes as placeholder
+		glDisable(GL_TEXTURE_2D);
+		glLineWidth(2.0f);
+		glBegin(GL_LINES);
+			// X axis — red
+			glColor3f(1, 0, 0);
+			glVertex3f(0, 0, 0); glVertex3f(1, 0, 0);
+			// Y axis — green
+			glColor3f(0, 1, 0);
+			glVertex3f(0, 0, 0); glVertex3f(0, 1, 0);
+			// Z axis — blue
+			glColor3f(0, 0, 1);
+			glVertex3f(0, 0, 0); glVertex3f(0, 0, 1);
+		glEnd();
+		glColor3f(1, 1, 1);
+
+		glPopMatrix();
+#endif
 	}
 
 	void DrawPlane(const D3DXMATRIXA16* matWorld /* = NULL */)
 	{
+#ifdef _WIN32
 		if(matWorld) GetDevice()->SetTransform(D3DTS_WORLD, matWorld);
 		D3DMATERIAL9 mtrl;
 		mtrl.Ambient  = D3DXCOLOR( 1.0f, 1.0f, 1.0f, 0);
@@ -183,19 +212,40 @@ namespace wonjo_dx
 		mtrl.Emissive = D3DXCOLOR( 1.0f, 1.0f, 1.0f, 0);
 		mtrl.Power    = 0.0f;
 		gpDevice->SetMaterial(&mtrl);
-		//gpDevice->SetTexture( 0, ptxt );
 		gpDevice->SetTextureStageState( 0, D3DTSS_COLOROP, D3DTOP_MODULATE );
 		gpDevice->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
 		gpDevice->SetTextureStageState( 0, D3DTSS_COLORARG2, D3DTA_DIFFUSE );
 		gpDevice->SetTextureStageState( 0, D3DTSS_ALPHAOP, D3DTOP_DISABLE );
 
-		//gpDevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-
-		// Render the vertex buffer contents
 		gpDevice->SetStreamSource( 0, AAR3DGetModel(), 0, sizeof( CUSTOMVERTEX ) );
 		gpDevice->SetFVF( D3DFVF_CUSTOMVERTEX );
+		gpDevice->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 2 );
+#else
+		// OpenGL: draw a unit quad from (-1,-1) to (1,1) in XY plane
+		if(matWorld) {
+			float glWorld[16];
+			for(int r = 0; r < 4; ++r)
+				for(int c = 0; c < 4; ++c)
+					glWorld[c*4+r] = matWorld->m[r][c];
+			glPushMatrix();
+			glMultMatrixf(glWorld);
+		}
 
-		gpDevice->DrawPrimitive( D3DPT_TRIANGLELIST, 0, 2 );	//triangle 12	
+		glDisable(GL_TEXTURE_2D);
+		glColor4f(1, 1, 1, 0.5f);
+		glBegin(GL_QUADS);
+			glNormal3f(0, 1, 0);
+			glTexCoord2f(0, 1); glVertex3f(-1, -1, 0);
+			glTexCoord2f(0, 0); glVertex3f(-1,  1, 0);
+			glTexCoord2f(1, 0); glVertex3f( 1,  1, 0);
+			glTexCoord2f(1, 1); glVertex3f( 1, -1, 0);
+		glEnd();
+		glColor4f(1, 1, 1, 1);
+
+		if(matWorld) {
+			glPopMatrix();
+		}
+#endif
 	}
 
 
@@ -436,7 +486,7 @@ namespace wonjo_dx
 
 	HRESULT AAR3DInitD3D(HWND hWnd)
 	{
-
+#ifdef _WIN32
 		AAR3DInitSystemOnce();
 		// Create the D3D object.
 		if( NULL == ( gpD3D = Direct3DCreate9( D3D_SDK_VERSION ) ) )
@@ -452,16 +502,6 @@ namespace wonjo_dx
 		d3dpp.EnableAutoDepthStencil = TRUE;
 		d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
 
-
-
-		//full-screen anti aliasing check
-// 		if( SUCCEEDED(gpDevice->CheckDeviceMultiSampleType( D3DADAPTER_DEFAULT, 
-// 			D3DDEVTYPE_HAL , D3DFMT_R8G8B8, FALSE, 
-// 			D3DMULTISAMPLE_2_SAMPLES, NULL ) ) )
-// 		{
-// 			d3dpp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES;
-// 		}
-
 		// Create the D3DDevice
 		if( FAILED( gpD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd,
 			D3DCREATE_SOFTWARE_VERTEXPROCESSING,
@@ -473,8 +513,6 @@ namespace wonjo_dx
 		// Turn off culling
 		gpDevice->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
 
-		// Turn off D3D lighting
-		//gpDevice->SetRenderState( D3DRS_LIGHTING, TRUE );
 		D3DXCOLOR   c(1.0f, 1.0f, 1.0f, 1.0f);
 		D3DXVECTOR3 m_vLight = D3DXVECTOR3(1.0f, -1.0f, 0.0f);
 		D3DLIGHT9 m_Light;
@@ -492,11 +530,9 @@ namespace wonjo_dx
 		gpDevice->SetRenderState(D3DRS_NORMALIZENORMALS, true);
 		gpDevice->SetRenderState(D3DRS_SPECULARENABLE, false);
 
+		gpDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);
+		gpDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
 
-		gpDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CCW);//왼손좌표계니까 반시계방향 컬링
-		gpDevice->SetRenderState(D3DRS_ZENABLE, TRUE);//z버퍼 켜기
-
-		//알파채널 켜기
 		gpDevice->SetRenderState( D3DRS_ALPHABLENDENABLE,   TRUE );
 		gpDevice->SetRenderState( D3DRS_SRCBLEND,  D3DBLEND_SRCALPHA );
 		gpDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
@@ -504,7 +540,6 @@ namespace wonjo_dx
 		gpDevice->SetRenderState( D3DRS_ALPHAREF,        0x08 );
 		gpDevice->SetRenderState( D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL );
 
-		// Turn on the zbuffer
 		gpDevice->SetRenderState( D3DRS_ZENABLE, TRUE );
 
 		D3DCAPS9 caps;
@@ -513,7 +548,7 @@ namespace wonjo_dx
 
 		gpDevice->SetSamplerState(0,D3DSAMP_MINFILTER,D3DTEXF_ANISOTROPIC);
 		gpDevice->SetSamplerState(0,D3DSAMP_MAGFILTER,D3DTEXF_ANISOTROPIC);
-		gpDevice->SetSamplerState(0,D3DSAMP_MAXANISOTROPY,anisotropicLv/*이부분이 배율.. 현재는 그래픽카드에서 받아온값*/);
+		gpDevice->SetSamplerState(0,D3DSAMP_MAXANISOTROPY,anisotropicLv);
 
 		gpDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
 		gpDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
@@ -523,19 +558,31 @@ namespace wonjo_dx
 		QueryPerformanceFrequency(&cpufrq);
 		QueryPerformanceCounter(&LastTime);
 
-		D3DXCreateFont( gpDevice, 20, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET, 
-			OUT_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, 
-			"굴림체", &gFont );		
+		D3DXCreateFont( gpDevice, 20, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET,
+			OUT_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
+			"굴림체", &gFont );
 
 		D3DXCreateSprite( gpDevice, &gSprite );
 
-		//백그라운드 텍스쳐 생성
 		RECT rt;
 		GetWindowRect(hWnd,&rt);
 		D3DXCreateTexture(gpDevice, rt.right-rt.left, rt.bottom-rt.top, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,&gpTextureBackground);
-		//D3DXCreateTexture(gpDevice, 640, 480, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,&gpTextureBackground);
-		
+
 		return S_OK;
+#else
+		// macOS: allocate a static device stub so GetDevice() returns non-null
+		AAR3DInitSystemOnce();
+		static IDirect3DDevice9_stub staticDevice;
+		gpDevice = &staticDevice;
+
+		// Initialize OpenGL state
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisable(GL_CULL_FACE);
+
+		return S_OK;
+#endif
 	}
 
 
@@ -553,8 +600,7 @@ namespace wonjo_dx
 
 	void AAR3DDrawCameraPreview(char* cameradata, int pixelx, int pixely)
 	{
-		//gpDevice->Clear( 0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB( 0, 0, 0 ), 1.0f, 0 );
-		
+#ifdef _WIN32
 		D3DLOCKED_RECT lr;
 		if(SUCCEEDED(gpTextureBackground->LockRect(0,&lr,NULL,D3DLOCK_DISCARD)))
 		{
@@ -562,7 +608,7 @@ namespace wonjo_dx
 			int i = 0;
 			int minimal = 640*480-1;
 			for( ; i < pixelx*pixely*3 ; i+=3, --minimal )
-			{				
+			{
 				char a = char(255);
 				char b = cameradata[i];
 				char g = cameradata[i+1];
@@ -574,6 +620,52 @@ namespace wonjo_dx
 			{ D3DXVECTOR3 spritePos(0,0,1); gSprite->Draw(gpTextureBackground,NULL,NULL,&spritePos,D3DCOLOR_ARGB(255,255,255,255)); }
 			gSprite->End();
 		}
+#else
+		// OpenGL: upload camera BGR data as texture and draw fullscreen quad
+		static GLuint bgTextureId = 0;
+
+		// Save current matrix state
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glOrtho(0, pixelx, 0, pixely, -1, 1);
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
+		glDisable(GL_DEPTH_TEST);
+
+		// Create or update background texture
+		if(bgTextureId == 0) {
+			glGenTextures(1, &bgTextureId);
+			glBindTexture(GL_TEXTURE_2D, bgTextureId);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pixelx, pixely, 0,
+				GL_BGR, GL_UNSIGNED_BYTE, cameradata);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, bgTextureId);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, pixelx, pixely,
+				GL_BGR, GL_UNSIGNED_BYTE, cameradata);
+		}
+
+		// Draw fullscreen quad with flipped texture to match D3D pixel reversal
+		glEnable(GL_TEXTURE_2D);
+		glColor4f(1, 1, 1, 1);
+		glBegin(GL_QUADS);
+			glTexCoord2f(1, 1); glVertex2f(0, 0);
+			glTexCoord2f(0, 1); glVertex2f(pixelx, 0);
+			glTexCoord2f(0, 0); glVertex2f(pixelx, pixely);
+			glTexCoord2f(1, 0); glVertex2f(0, pixely);
+		glEnd();
+		glDisable(GL_TEXTURE_2D);
+
+		// Restore state
+		glEnable(GL_DEPTH_TEST);
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+#endif
 	}
 
 // 	void AAR3DDrawMesh(LPCSTR DestClassName, LPCSTR DestWindowName, float size)
@@ -721,8 +813,13 @@ namespace wonjo_dx
 
 	HRESULT BeginRender()
 	{
+#ifdef _WIN32
 		gpDevice->Clear( 0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB( 0, 0, 0 ), 1.0f, 0 );
 		return gpDevice->BeginScene();
+#else
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		return S_OK;
+#endif
 	}
 
 	void Matrix_LH_RH_Swap(D3DXMATRIXA16* pOut, const D3DXMATRIXA16* pIn)
@@ -740,12 +837,15 @@ namespace wonjo_dx
 
 	void Flip()
 	{
+#ifdef _WIN32
 		// End the scene
 		gpDevice->EndScene();
 
 		// Present the backbuffer contents to the display
 		gpDevice->Present( NULL, NULL, NULL, NULL );
-
+#else
+		// macOS: no-op — GLFW handles buffer swap via glfwSwapBuffers()
+#endif
 	}
 
 	double GetTimeEllapse()
