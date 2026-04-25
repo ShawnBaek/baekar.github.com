@@ -1604,18 +1604,16 @@ unsigned int ThreadBRISKMatching(void *param)
 		 if (computeHomography && (mpts_1.size() > 5))
          {
                 			
-			    if(bInitTracking==true){
-					g_mpts_1=mpts_1;
-					g_mpts_2=mpts_2;
-					
-					bInitTracking=false;
-				}else if(bThreadTracking1==false){
-
-					
-					g_mpts_1=mpts_1;
-					g_mpts_2=mpts_2;
-
-				}
+				// Always feed the latest matches to the tracking thread, even
+				// while bThreadTracking1==true. The original code only did so
+				// when tracking was inactive, which left tracking stuck on a
+				// stale (potentially wrong) initial homography — once tracking
+				// latched onto a wrong region it could never re-sync to fresh
+				// detections. With the always-update policy, every iteration
+				// of matching nudges tracking back toward ground truth.
+				g_mpts_1 = mpts_1;
+				g_mpts_2 = mpts_2;
+				if (bInitTracking) bInitTracking = false;
 				//Find Homography
 				// Original used `&&` (skip only when BOTH < 5) — wrong: findHomography
 				// requires both inputs to have ≥4 points and equal size. Use `||`.
