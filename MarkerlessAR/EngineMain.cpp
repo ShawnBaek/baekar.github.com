@@ -75,6 +75,7 @@ static double g_mousePrevX = 0, g_mousePrevY = 0;
 #include <algorithm>
 #include "compat/macos_window_capture.h"
 #include "Contents.hpp"
+static int g_chosenCameraIndex = -1;
 static Contents  g_contents;
 static WCStream* g_winStream  = nullptr;
 static unsigned int g_winTexture = 0;
@@ -1153,7 +1154,14 @@ int InitializeEngineMain()
     } else
     {
         // Live Capture From Camera
+#ifdef __APPLE__
+        // Use the user's chosen camera index (set by PickCameraIndex in main()).
+        // -1 means "use the default index 0".
+        int camIndex = (g_chosenCameraIndex >= 0) ? g_chosenCameraIndex : -1;
+        if ( !gCapture.Initialize( fFlipFrame, camIndex ) )
+#else
         if ( !gCapture.Initialize( fFlipFrame ) )
+#endif
         {
             fprintf( stderr, "capture initialization failed.\n" );
         }
@@ -2333,6 +2341,11 @@ int main(int argc, char* argv[])
 			fflush(stderr);
 		}
 	}
+
+	// Camera picker: enumerate AVFoundation video devices (built-in,
+	// external USB, iPhone Continuity Camera) so the user can choose
+	// which one BaekAR captures from. Empty/invalid input keeps default.
+	g_chosenCameraIndex = PickCameraIndex();
 
 	// Marker-image picker: thesis "select a feature-detectable photo, render
 	// the 3D scene anchored to it" workflow. Pick any image from image/ as
