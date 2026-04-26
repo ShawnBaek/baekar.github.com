@@ -1368,7 +1368,10 @@ int InitializeEngineMain()
 	// Use OpenCV's built-in BRISK (the bundled MarkerlessAR/brisk/ predates
 	// OpenCV's Feature2D interface and throws "not implemented" on detect()).
 	{
-		cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(60, 2);
+		// Threshold 60 was too strict for screen-displayed markers (iPhone /
+		// MacBook screen — soft edges, no crisp print contrast). 30 is the
+		// OpenCV default and finds 5-10x more keypoints on the same scene.
+		cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(30, 3);
 		detector = brisk;
 		descriptorExtractor = brisk;
 	}
@@ -1665,6 +1668,16 @@ unsigned int ThreadBRISKMatching(void *param)
 //#endif
 		detector->detect(matching_thread_graycamera,kp_camera_matching_thread);
 		descriptorExtractor->compute(matching_thread_graycamera,kp_camera_matching_thread,desc_camera_matching_thread);
+
+		// Diagnostic after detect: how many keypoints did BRISK find this frame?
+		static int detectTick = 0;
+		if (++detectTick % 30 == 0) {
+			fprintf(stderr, "matching: frame=%dx%d kp_db=%lu kp_cam=%lu desc_cam=%dx%d\n",
+			        matching_thread_graycamera.cols, matching_thread_graycamera.rows,
+			        (unsigned long)kp_database.size(),
+			        (unsigned long)kp_camera_matching_thread.size(),
+			        desc_camera_matching_thread.rows, desc_camera_matching_thread.cols);
+		}
 		
 		matching_thread_result=matching_thread_rgbcamera;
 		std::vector<std::vector<DMatch> > matches;
