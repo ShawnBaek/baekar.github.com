@@ -860,8 +860,15 @@ static void mainLoop(void)
 					glEnd();
 					glLineWidth(1.0f);
 
-					// Now the teapot, anchored at the same centroid.
+					// Real .X mesh — Arrow3Axis.X loaded by Assimp in PR #14.
+					// Anchored at the marker centroid like the teapot was.
 					glTranslatef(cx, cy, 0);
+					// Spin slowly around screen-space Y so the user sees it's 3D.
+					static float spinDeg = 0;
+					spinDeg += 1.2f;
+					glRotatef(spinDeg, 0, 1, 0);
+					// Mesh native extents are ~1 unit; scale to marker size.
+					// Negative Y to align with screen-down convention.
 					glScalef(meshScale, -meshScale, meshScale);
 
 					glEnable(GL_DEPTH_TEST);
@@ -875,8 +882,15 @@ static void mainLoop(void)
 					glLightfv(GL_LIGHT0, GL_AMBIENT,  la);
 					glEnable(GL_COLOR_MATERIAL);
 					glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-					glColor3f(0.95f, 0.55f, 0.20f);
-					glutSolidTeapot(0.5);
+
+					// Identity world matrix → DrawMesh draws at the current
+					// modelview position (where we just translated/scaled).
+					D3DXMATRIXA16 ident;
+					for (int r = 0; r < 4; ++r)
+						for (int c = 0; c < 4; ++c)
+							ident.m[r][c] = (r == c) ? 1.0f : 0.0f;
+					wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), &ident);
+
 					glDisable(GL_LIGHTING);
 
 					glPopMatrix();
