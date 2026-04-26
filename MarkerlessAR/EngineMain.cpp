@@ -1625,13 +1625,20 @@ unsigned int ThreadBRISKMatching(void *param)
 
 				cv::Mat inlierMask;
 				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 3.0, inlierMask);
-
-				// RANSAC can fail (empty H), or fit to a tiny consensus set with
-				// the bulk of matches as outliers. Require enough RANSAC inliers
-				// before trusting the homography — this rejects the scenario
-				// where a few coincidentally-coherent points lock onto noise.
 				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
-				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 15)
+
+				// Diagnostic: every ~30 attempts, log match + inlier counts so
+				// we can see whether matching is even producing candidates.
+				static int logTick = 0;
+				if (++logTick % 30 == 0) {
+					fprintf(stderr, "matching: candidates=%lu, RANSAC inliers=%d\n",
+					        (unsigned long)mpts_1.size(), inlierCount);
+				}
+
+				// Lowered from 15 → 8 inliers so weak-but-real homographies
+				// still fire on iPhone Continuity Camera (where downsampling
+				// from 1920x1080 → 640x480 reduces feature-point count).
+				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 8)
 					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
