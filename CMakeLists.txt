@@ -55,6 +55,7 @@ if(APPLE)
         MarkerlessAR/compat/macos_camera_auth.mm
         MarkerlessAR/compat/macos_window_capture.mm
         MarkerlessAR/compat/macos_av_capture.mm
+        MarkerlessAR/compat/macos_camera_menu.mm
     )
     # These .mm files capture Obj-C objects via __block; without ARC the
     # captures don't auto-retain and the autorelease pool drains them
@@ -62,9 +63,11 @@ if(APPLE)
     set_source_files_properties(
         MarkerlessAR/compat/macos_window_capture.mm
         MarkerlessAR/compat/macos_av_capture.mm
+        MarkerlessAR/compat/macos_camera_menu.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
     )
 endif()
+
 
 # BRISK feature descriptor
 set(BRISK_SOURCES
@@ -154,6 +157,7 @@ if(APPLE)
     target_link_libraries(BaekAR PRIVATE
         "-framework AVFoundation"
         "-framework Foundation"
+        "-framework Cocoa"
         "-framework ScreenCaptureKit"
         "-framework CoreMedia"
         "-framework CoreVideo"
