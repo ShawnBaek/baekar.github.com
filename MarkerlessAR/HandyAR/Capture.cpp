@@ -82,7 +82,10 @@ bool Capture::Initialize( bool flip, int index, char * filename )
 
         if ( _vcap.isOpened() )
         {
-            fprintf(stderr, "Capture: camera opened successfully, setting 640x480\n");
+            int aw = (int)_vcap.get(cv::CAP_PROP_FRAME_WIDTH);
+            int ah = (int)_vcap.get(cv::CAP_PROP_FRAME_HEIGHT);
+            fprintf(stderr, "Capture: camera index=%d opened (native %dx%d, backend=%s)\n",
+                    camIndex, aw, ah, _vcap.getBackendName().c_str());
             fflush(stderr);
             _vcap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
             _vcap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
