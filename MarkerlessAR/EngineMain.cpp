@@ -1707,21 +1707,24 @@ unsigned int ThreadBRISKMatching(void *param)
 					continue;
 
 				cv::Mat inlierMask;
-				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 3.0, inlierMask);
+				// Tighter reprojection threshold (1.5 from 3.0) and the modern
+				// RHO solver. RHO (PROSAC) is faster & more robust than vanilla
+				// RANSAC for noisy correspondences from a screen-displayed
+				// marker captured by iPhone — fewer wobbly fits.
+				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), cv::RHO, 1.5, inlierMask);
+				if (H.empty()) {
+					// RHO can fail in some cases — fall back to RANSAC.
+					H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 1.5, inlierMask);
+				}
 				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
 
-				// Diagnostic: every ~30 attempts, log match + inlier counts so
-				// we can see whether matching is even producing candidates.
 				static int logTick = 0;
 				if (++logTick % 30 == 0) {
-					fprintf(stderr, "matching: candidates=%lu, RANSAC inliers=%d\n",
+					fprintf(stderr, "matching: candidates=%lu, inliers=%d\n",
 					        (unsigned long)mpts_1.size(), inlierCount);
 				}
 
-				// Lowered from 15 → 8 inliers so weak-but-real homographies
-				// still fire on iPhone Continuity Camera (where downsampling
-				// from 1920x1080 → 640x480 reduces feature-point count).
-				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 8)
+				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 12)
 					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
