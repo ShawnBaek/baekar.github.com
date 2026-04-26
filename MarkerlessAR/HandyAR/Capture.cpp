@@ -6,6 +6,11 @@
 #include <chrono>
 #endif
 
+#ifdef __APPLE__
+#include "../compat/macos_av_capture.h"
+static AVCap* g_avcap = nullptr;
+#endif
+
 Capture::Capture(void)
 {
     _fInitialized = false;
@@ -54,31 +59,29 @@ bool Capture::Initialize( bool flip, int index, char * filename )
         fprintf(stderr, "Capture: opening camera index %d...\n", camIndex);
         fflush(stderr);
 
-#ifndef _WIN32
-        // On macOS, VideoCapture::open can hang indefinitely if the camera
-        // subsystem is stuck (macOS 26 beta bug, or daemon crash).
-        // Use a timeout: try opening in a thread, wait up to 10 seconds.
-        {
-            std::atomic<bool> openDone{false};
-            std::thread([&]() {
-                _vcap.open( camIndex );
-                openDone = true;
-            }).detach();
-
-            auto start = std::chrono::steady_clock::now();
-            while (!openDone) {
-                auto elapsed = std::chrono::steady_clock::now() - start;
-                if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 10) {
-                    fprintf(stderr, "Capture: camera open timed out after 10s (camera may be unavailable)\n");
-                    fflush(stderr);
-                    break;
-                }
+#ifdef __APPLE__
+        // Use native AVFoundation capture (modern AVCaptureDeviceDiscoverySession
+        // — includes Continuity Camera, which OpenCV's deprecated AVFoundation
+        // path doesn't enumerate). The index here matches PickCameraIndex's
+        // numbering since both use the same discovery enumeration.
+        g_avcap = AVCap_Open(camIndex, 640, 480);
+        if (g_avcap) {
+            int aw = 0, ah = 0;
+            // Wait briefly for the first frame so actual size is known.
+            for (int i = 0; i < 50 && (aw == 0 || ah == 0); ++i) {
+                AVCap_GetActualSize(g_avcap, &aw, &ah);
+                if (aw && ah) break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
+            fprintf(stderr, "Capture: AVCap opened (native %dx%d)\n", aw, ah);
+            fflush(stderr);
+            _CaptureMethod = CAPTURE_OPENCV;  // reuse the existing branch
+            goto Initialized;
         }
+        fprintf(stderr, "Capture: AVCap_Open failed for index %d\n", camIndex);
+        fflush(stderr);
 #else
         _vcap.open( camIndex );
-#endif
 
         if ( _vcap.isOpened() )
         {
@@ -94,6 +97,7 @@ bool Capture::Initialize( bool flip, int index, char * filename )
         }
         fprintf(stderr, "Capture: failed to open camera %d\n", camIndex);
         fflush(stderr);
+#endif
     }
 
 #ifdef POINTGREY_CAPTURE
@@ -126,6 +130,9 @@ Finished:
 
 void Capture::Terminate()
 {
+#ifdef __APPLE__
+    if (g_avcap) { AVCap_Close(g_avcap); g_avcap = nullptr; }
+#endif
     if ( _vcap.isOpened() )
     {
         _vcap.release();
@@ -148,6 +155,31 @@ bool Capture::CaptureFrame()
     switch ( _CaptureMethod )
     {
     case CAPTURE_OPENCV:
+#ifdef __APPLE__
+        if (g_avcap) {
+            int aw = 0, ah = 0;
+            AVCap_GetActualSize(g_avcap, &aw, &ah);
+            if (aw == 0 || ah == 0) return false;
+            // Allocate native-size buffer + copy from AVF.
+            _matFrame.create(ah, aw, CV_8UC3);
+            if (!AVCap_GetLatestBGR(g_avcap, _matFrame.data, aw, ah)) {
+                // No fresh frame yet — keep the previous IplImage view valid.
+                if (_pFrame) return true;
+                return false;
+            }
+            // Resize to 640x480 if the camera delivers a different size
+            // (Continuity Camera, USB cams, etc.).
+            if (_matFrame.cols != 640 || _matFrame.rows != 480) {
+                cv::resize(_matFrame, _matFrameResized, cv::Size(640, 480), 0, 0, cv::INTER_AREA);
+                _iplHeader = cvIplImage(_matFrameResized);
+            } else {
+                _iplHeader = cvIplImage(_matFrame);
+            }
+            _pFrame = &_iplHeader;
+            break;
+        }
+        // fall through to cv::VideoCapture path if AVCap unavailable
+#endif
         if ( _vcap.isOpened() )
         {
             _vcap >> _matFrame;
@@ -156,9 +188,6 @@ bool Capture::CaptureFrame()
                 fprintf(stderr, "Capture: frame is empty (camera may need warmup)\n");
                 return false;
             }
-            // CAP_PROP_FRAME_WIDTH/HEIGHT is advisory on macOS — Continuity
-            // Camera (iPhone) ignores it and delivers e.g. 1920x1080. Force
-            // the size HandyAR's cvPyrDown(frame -> 320x240) expects.
             if ( _matFrame.cols != 640 || _matFrame.rows != 480 )
             {
                 cv::resize( _matFrame, _matFrameResized, cv::Size(640, 480), 0, 0, cv::INTER_AREA );

@@ -54,13 +54,14 @@ if(APPLE)
     list(APPEND ENGINE_SOURCES
         MarkerlessAR/compat/macos_camera_auth.mm
         MarkerlessAR/compat/macos_window_capture.mm
+        MarkerlessAR/compat/macos_av_capture.mm
     )
-    # macos_window_capture.mm captures NSArray*/NSError* via __block, which
-    # only auto-retains under ARC. Compile this .mm with ARC so those
-    # captures stay valid past the autorelease pool drain (otherwise the
-    # picker crashes in objc_msgSend on dangling pointers).
+    # These .mm files capture Obj-C objects via __block; without ARC the
+    # captures don't auto-retain and the autorelease pool drains them
+    # before they're read (objc_msgSend crash on dangling pointer).
     set_source_files_properties(
         MarkerlessAR/compat/macos_window_capture.mm
+        MarkerlessAR/compat/macos_av_capture.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
     )
 endif()
