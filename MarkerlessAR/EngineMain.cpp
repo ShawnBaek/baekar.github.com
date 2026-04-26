@@ -759,19 +759,11 @@ static void mainLoop(void)
 
 
 	cvFlip(image);
-	// Always draw the MATCHING corners (fresh per frame from BRISK + RANSAC),
-	// not the tracking corners (LK drift accumulates and the yellow rectangle
-	// visually diverges from the actual marker). The matching pipeline is
-	// firing on every frame with high inlier counts, so the bounding rectangle
-	// is accurate and the same matrices feed featurePoseEstimation for the
-	// 3D AR overlay.
-	if(bThreadDetection1==true || bThreadTracking1==true)
-	{
-		cvLine(image, cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvScalar( 0, 255, 255), 4);
-	}
+	// Don't draw the rectangle into the image here (the camera-preview
+	// quad does an H+V texture flip that puts cvLine output in the wrong
+	// place on screen). The rectangle is drawn later in OpenGL screen-
+	// space ortho, sharing the same coordinate convention as the AR
+	// overlay teapot — they always agree.
 	
 	
 	cvFlip(image, NULL, -1);
@@ -853,11 +845,26 @@ static void mainLoop(void)
 					glMatrixMode(GL_MODELVIEW);
 					glPushMatrix();
 					glLoadIdentity();
+
+					// Yellow tracking rectangle — same coord system as the
+					// teapot, so they always agree on where the marker is.
+					glDisable(GL_DEPTH_TEST);
+					glDisable(GL_TEXTURE_2D);
+					glDisable(GL_LIGHTING);
+					glColor3f(1.0f, 1.0f, 0.0f);
+					glLineWidth(4.0f);
+					glBegin(GL_LINE_LOOP);
+						for (int k = 0; k < 4; ++k)
+							glVertex2f(dst_matching_corners1[k].x,
+							           dst_matching_corners1[k].y);
+					glEnd();
+					glLineWidth(1.0f);
+
+					// Now the teapot, anchored at the same centroid.
 					glTranslatef(cx, cy, 0);
 					glScalef(meshScale, -meshScale, meshScale);
 
 					glEnable(GL_DEPTH_TEST);
-					glDisable(GL_TEXTURE_2D);
 					glEnable(GL_LIGHTING);
 					glEnable(GL_LIGHT0);
 					GLfloat lp[4] = { 0.5f, 0.5f, 1.0f, 0.0f };
