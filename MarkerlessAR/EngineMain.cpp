@@ -1707,14 +1707,13 @@ unsigned int ThreadBRISKMatching(void *param)
 					continue;
 
 				cv::Mat inlierMask;
-				// Tighter reprojection threshold (1.5 from 3.0) and the modern
-				// RHO solver. RHO (PROSAC) is faster & more robust than vanilla
-				// RANSAC for noisy correspondences from a screen-displayed
-				// marker captured by iPhone — fewer wobbly fits.
-				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), cv::RHO, 1.5, inlierMask);
+				// Threshold tuned by trial: 1.5 px was too strict (no fits at all
+				// with screen-displayed markers); 3.0 was too loose (wobbly).
+				// 2.5 is the sweet spot. RHO (PROSAC) solver where available;
+				// fall back to RANSAC if RHO can't find a model.
+				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), cv::RHO, 2.5, inlierMask);
 				if (H.empty()) {
-					// RHO can fail in some cases — fall back to RANSAC.
-					H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 1.5, inlierMask);
+					H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2.5, inlierMask);
 				}
 				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
 
@@ -1724,7 +1723,7 @@ unsigned int ThreadBRISKMatching(void *param)
 					        (unsigned long)mpts_1.size(), inlierCount);
 				}
 
-				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 12)
+				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 8)
 					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
