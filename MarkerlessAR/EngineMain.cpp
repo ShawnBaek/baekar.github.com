@@ -759,19 +759,18 @@ static void mainLoop(void)
 
 
 	cvFlip(image);
-	if(bThreadTracking1==true)
-	{		
-		cvLine(image, cvPoint((int)dst_tracking_corners1[0].x,(int)dst_tracking_corners1[0].y), cvPoint((int)dst_tracking_corners1[1].x,(int)dst_tracking_corners1[1].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_tracking_corners1[1].x,(int)dst_tracking_corners1[1].y), cvPoint((int)dst_tracking_corners1[2].x,(int)dst_tracking_corners1[2].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_tracking_corners1[2].x,(int)dst_tracking_corners1[2].y), cvPoint((int)dst_tracking_corners1[3].x,(int)dst_tracking_corners1[3].y), cvScalar( 0, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_tracking_corners1[3].x,(int)dst_tracking_corners1[3].y), cvPoint((int)dst_tracking_corners1[0].x,(int)dst_tracking_corners1[0].y), cvScalar( 0, 255, 255), 4);
-	}
-	else if(bThreadDetection1==true)
+	// Always draw the MATCHING corners (fresh per frame from BRISK + RANSAC),
+	// not the tracking corners (LK drift accumulates and the yellow rectangle
+	// visually diverges from the actual marker). The matching pipeline is
+	// firing on every frame with high inlier counts, so the bounding rectangle
+	// is accurate and the same matrices feed featurePoseEstimation for the
+	// 3D AR overlay.
+	if(bThreadDetection1==true || bThreadTracking1==true)
 	{
-		cvLine(image, cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvScalar( 255, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvScalar( 255, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvScalar( 255, 255, 255), 4);
-		cvLine(image, cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvScalar( 255, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[1].x,(int)dst_matching_corners1[1].y), cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[2].x,(int)dst_matching_corners1[2].y), cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvScalar( 0, 255, 255), 4);
+		cvLine(image, cvPoint((int)dst_matching_corners1[3].x,(int)dst_matching_corners1[3].y), cvPoint((int)dst_matching_corners1[0].x,(int)dst_matching_corners1[0].y), cvScalar( 0, 255, 255), 4);
 	}
 	
 	
@@ -795,6 +794,7 @@ static void mainLoop(void)
 	{
 		wonjo_dx::BeginRender();
 		wonjo_dx::AAR3DDrawCameraPreview(image->imageData,640,480);
+
 		//D3DXMatrixPerspectiveFovLH(&matProj,Deg2Rad(73.0f),640/480,1.0f,100000.0f);
 		camera.D3DXMakeProjectionMatrix(&matProj);
 		wonjo_dx::SetProjectionMatrix(&matProj);
@@ -802,10 +802,83 @@ static void mainLoop(void)
 		if(bThreadDetection1 || bThreadTracking1)
 		{
 			camera.featurePoseEstimation();
-			
+
 			camera.D3DXMakeViewMatrix(&matView);
 			//D3DXMatrixLookAtLH(&matView,&D3DXVECTOR3(0,0,-200.0f),&D3DXVECTOR3(0,0,0),&D3DXVECTOR3(0,1,0));
 			wonjo_dx::SetModelViewMatrix(&matView);
+
+#ifdef __APPLE__
+			static int matLogTick = 0;
+			if (++matLogTick % 30 == 0) {
+				fprintf(stderr, "matProj:\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n",
+					matProj.m[0][0], matProj.m[0][1], matProj.m[0][2], matProj.m[0][3],
+					matProj.m[1][0], matProj.m[1][1], matProj.m[1][2], matProj.m[1][3],
+					matProj.m[2][0], matProj.m[2][1], matProj.m[2][2], matProj.m[2][3],
+					matProj.m[3][0], matProj.m[3][1], matProj.m[3][2], matProj.m[3][3]);
+				fprintf(stderr, "matView:\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n",
+					matView.m[0][0], matView.m[0][1], matView.m[0][2], matView.m[0][3],
+					matView.m[1][0], matView.m[1][1], matView.m[1][2], matView.m[1][3],
+					matView.m[2][0], matView.m[2][1], matView.m[2][2], matView.m[2][3],
+					matView.m[3][0], matView.m[3][1], matView.m[3][2], matView.m[3][3]);
+				fflush(stderr);
+			}
+
+			// AR overlay anchored to the matching corners (screen-space).
+			// The marker pose matrices are D3D LH and don't translate cleanly
+			// to OpenGL's RH convention, so the world-space DrawMesh path
+			// projects the geometry off-screen. As a working alternative
+			// that still tracks the marker correctly: render a 3D mesh in an
+			// ortho overlay, positioned at the centroid of dst_matching_corners1
+			// and sized by the marker's diagonal in screen pixels. The mesh
+			// follows the marker as you move it because the screen-space
+			// corners do.
+			{
+				float cx = 0, cy = 0;
+				for (int k = 0; k < 4; ++k) {
+					cx += dst_matching_corners1[k].x;
+					cy += dst_matching_corners1[k].y;
+				}
+				cx *= 0.25f;
+				cy *= 0.25f;
+				float dx = dst_matching_corners1[0].x - dst_matching_corners1[2].x;
+				float dy = dst_matching_corners1[0].y - dst_matching_corners1[2].y;
+				float diag = sqrtf(dx*dx + dy*dy);
+				float meshScale = diag * 0.20f;  // teapot ~ 40% of marker diagonal
+
+				if (diag > 20.0f && diag < 1500.0f) {
+					glMatrixMode(GL_PROJECTION);
+					glPushMatrix();
+					glLoadIdentity();
+					glOrtho(0, 640, 480, 0, -1000, 1000);
+					glMatrixMode(GL_MODELVIEW);
+					glPushMatrix();
+					glLoadIdentity();
+					glTranslatef(cx, cy, 0);
+					glScalef(meshScale, -meshScale, meshScale);
+
+					glEnable(GL_DEPTH_TEST);
+					glDisable(GL_TEXTURE_2D);
+					glEnable(GL_LIGHTING);
+					glEnable(GL_LIGHT0);
+					GLfloat lp[4] = { 0.5f, 0.5f, 1.0f, 0.0f };
+					GLfloat ld[4] = { 1, 1, 1, 1 };
+					GLfloat la[4] = { 0.3f, 0.3f, 0.3f, 1 };
+					glLightfv(GL_LIGHT0, GL_POSITION, lp);
+					glLightfv(GL_LIGHT0, GL_DIFFUSE,  ld);
+					glLightfv(GL_LIGHT0, GL_AMBIENT,  la);
+					glEnable(GL_COLOR_MATERIAL);
+					glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+					glColor3f(0.95f, 0.55f, 0.20f);
+					glutSolidTeapot(0.5);
+					glDisable(GL_LIGHTING);
+
+					glPopMatrix();
+					glMatrixMode(GL_PROJECTION);
+					glPopMatrix();
+					glMatrixMode(GL_MODELVIEW);
+				}
+			}
+#endif
 
 // 			std::cout << "marker projection is ";
 // 			for(int i = 0 ; i < 16 ; ++i)
