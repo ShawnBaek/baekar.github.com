@@ -41,7 +41,8 @@ private:
     IplImage *  _pFrame;
     cv::VideoCapture _vcap;
     cv::Mat     _matFrame;
-    IplImage    _iplHeader;  // IplImage header wrapping _matFrame
+    cv::Mat     _matFrameResized;  // 640x480 view used when camera delivers a different size
+    IplImage    _iplHeader;        // IplImage header wrapping _matFrame{,Resized}
 
     int         _CaptureMethod;
 #ifdef POINTGREY_CAPTURE

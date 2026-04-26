@@ -1,4 +1,5 @@
 #include "Capture.h"
+#include <opencv2/imgproc.hpp>
 #ifndef _WIN32
 #include <thread>
 #include <atomic>
@@ -152,8 +153,18 @@ bool Capture::CaptureFrame()
                 fprintf(stderr, "Capture: frame is empty (camera may need warmup)\n");
                 return false;
             }
-            // Wrap cv::Mat as IplImage header (no data copy)
-            _iplHeader = cvIplImage(_matFrame);
+            // CAP_PROP_FRAME_WIDTH/HEIGHT is advisory on macOS — Continuity
+            // Camera (iPhone) ignores it and delivers e.g. 1920x1080. Force
+            // the size HandyAR's cvPyrDown(frame -> 320x240) expects.
+            if ( _matFrame.cols != 640 || _matFrame.rows != 480 )
+            {
+                cv::resize( _matFrame, _matFrameResized, cv::Size(640, 480), 0, 0, cv::INTER_AREA );
+                _iplHeader = cvIplImage(_matFrameResized);
+            }
+            else
+            {
+                _iplHeader = cvIplImage(_matFrame);
+            }
             _pFrame = &_iplHeader;
         }
         else
