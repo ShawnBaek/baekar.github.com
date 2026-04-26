@@ -32,6 +32,14 @@ public:
     bool        CaptureFrame();
     IplImage *  QueryFrame();
 
+#ifdef __APPLE__
+    // Hot-swap the AVFoundation device. Index follows the same enumeration
+    // as PickCameraIndex / AVCap_Open. Safe to call from the main thread
+    // while the matching/tracking workers are running — the new session
+    // simply takes over feeding _matFrame.
+    bool        SwitchCamera(int newIndex);
+#endif
+
     int64       QueryTickCount();
 
 private:

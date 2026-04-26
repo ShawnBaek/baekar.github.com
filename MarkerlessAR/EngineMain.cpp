@@ -74,8 +74,18 @@ static double g_mousePrevX = 0, g_mousePrevY = 0;
 #include <dirent.h>
 #include <algorithm>
 #include "compat/macos_window_capture.h"
+#include "compat/macos_camera_menu.h"
 #include "Contents.hpp"
 static int g_chosenCameraIndex = -1;
+
+// Forward decl: gCapture is defined in HandyAR/HandyAR.h (included via
+// EngineMain.cpp's existing includes). The menu callback fires on the
+// AppKit main thread; SwitchCamera mutex-free (just AVCap close+reopen).
+extern Capture gCapture;
+static void OnCameraMenuPicked(int newIdx) {
+    gCapture.SwitchCamera(newIdx);
+    g_chosenCameraIndex = newIdx;
+}
 static Contents  g_contents;
 static WCStream* g_winStream  = nullptr;
 static unsigned int g_winTexture = 0;
@@ -2409,6 +2419,15 @@ int main(int argc, char* argv[])
 	// Set up input callbacks
 	glfwSetKeyCallback(g_window, glfwKeyCallback);
 	glfwSetMouseButtonCallback(g_window, glfwMouseButtonCallback);
+
+#ifdef __APPLE__
+	// Install macOS menu-bar "Camera" menu listing every AVFoundation device
+	// (built-in, USB, iPhone via Continuity). Selecting one hot-swaps the
+	// AVCap session — capture continues against the chosen device without
+	// needing to relaunch.
+	InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
+	                  &OnCameraMenuPicked);
+#endif
 
 	// Initialize GLUT (needed for glutSolidCone etc. used in init())
 	glutInit(&argc, argv);

@@ -128,6 +128,27 @@ Finished:
     return _fInitialized;
 }
 
+#ifdef __APPLE__
+bool Capture::SwitchCamera(int newIndex)
+{
+    if (g_avcap) { AVCap_Close(g_avcap); g_avcap = nullptr; }
+    g_avcap = AVCap_Open(newIndex, 640, 480);
+    if (!g_avcap) {
+        fprintf(stderr, "Capture::SwitchCamera: AVCap_Open(%d) failed\n", newIndex);
+        return false;
+    }
+    int aw = 0, ah = 0;
+    for (int i = 0; i < 50 && (aw == 0 || ah == 0); ++i) {
+        AVCap_GetActualSize(g_avcap, &aw, &ah);
+        if (aw && ah) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    fprintf(stderr, "Capture::SwitchCamera: now using index %d (native %dx%d)\n",
+            newIndex, aw, ah);
+    return true;
+}
+#endif
+
 void Capture::Terminate()
 {
 #ifdef __APPLE__
