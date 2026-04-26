@@ -1823,8 +1823,15 @@ unsigned int ThreadTracking(void *param)
 
 			//Homography & NCC
 			//Cam으로부터 받아오는 영상의 포인트 mpts_2, DB로부터 받아오는 포인트 mpts_1
-			// Original used `&&` (skip only when BOTH < 5) — wrong, see matching thread.
-			if(g_mpts_2.size()<5 || g_mpts_1.size()<5 || g_mpts_2.size()!=g_mpts_1.size())
+			// Snapshot the shared point sets to locals: PR #13 has matching
+			// thread overwriting g_mpts_1/g_mpts_2 every iteration with no
+			// lock, so size N can change between the size check and the
+			// findHomography call (findHomography then asserts
+			// src.checkVector(2) == dst.checkVector(2)). Copy first, validate
+			// after — local copies are immune to mid-iteration updates.
+			std::vector<cv::Point2f> local_mpts_1 = g_mpts_1;
+			std::vector<cv::Point2f> local_mpts_2 = g_mpts_2;
+			if(local_mpts_2.size()<5 || local_mpts_1.size()<5 || local_mpts_2.size()!=local_mpts_1.size())
 			{
 				//mbisDetecting=false;
 
@@ -1835,7 +1842,7 @@ unsigned int ThreadTracking(void *param)
 
 				continue;
 			}
-			Mat HH = findHomography(Mat(g_mpts_2), Mat(g_mpts_1), RANSAC, 2);						//Homography
+			Mat HH = findHomography(Mat(local_mpts_2), Mat(local_mpts_1), RANSAC, 2);						//Homography
 			// RANSAC can fail and return an empty Mat — guard before invert/perspectiveTransform.
 			if(HH.empty() || HH.cols != 3 || HH.rows != 3) {
 				bThreadTracking1=false;
