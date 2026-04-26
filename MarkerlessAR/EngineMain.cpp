@@ -1561,12 +1561,9 @@ unsigned int ThreadBRISKMatching(void *param)
 		vector<DMatch> matches_popcount; 
 		//double pop_time = match(kpts_1, kpts_2, matcher_popcount, desc_1, desc_2, matches_popcount);
 		
-		// Original used radiusMatch(..., 100.0) which accepts every train
-		// descriptor within Hamming distance 100 — far too loose for OpenCV's
-		// 64-byte BRISK, so RANSAC kept fitting confident-but-wrong homographies
-		// (e.g. yejin.jpg's bounds locking onto terminal text).
-		// knnMatch(k=2) + Lowe's ratio (best/second-best < 0.75) is the standard
-		// robust filter and gives stable, marker-aligned poses.
+		// knnMatch(k=2) + tight Lowe's ratio. Tightened to 0.65 (from 0.75)
+		// because BRISK keypoints on high-contrast UI/text in the camera frame
+		// produce many ambiguous matches; the stricter threshold drops them.
 		{
 			std::vector<std::vector<DMatch>> raw;
 			descriptorMatcher1->knnMatch(desc_camera_matching_thread, desc_database, raw, 2);
@@ -1574,9 +1571,7 @@ unsigned int ThreadBRISKMatching(void *param)
 			matches.reserve(raw.size());
 			for (size_t k = 0; k < raw.size(); ++k) {
 				if (raw[k].size() == 2 &&
-				    raw[k][0].distance < 0.75f * raw[k][1].distance) {
-					matches.push_back({ raw[k][0] });
-				} else if (raw[k].size() == 1) {
+				    raw[k][0].distance < 0.65f * raw[k][1].distance) {
 					matches.push_back({ raw[k][0] });
 				}
 			}
@@ -1620,11 +1615,15 @@ unsigned int ThreadBRISKMatching(void *param)
 				if(mpts_1.size()<5 || mpts_2.size()<5 || mpts_1.size()!=mpts_2.size())
 					continue;
 
-				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2);
+				cv::Mat inlierMask;
+				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 3.0, inlierMask);
 
-				// RANSAC can fail to find a model and return an empty Mat; guard
-				// before perspectiveTransform asserts on it.
-				if(H.empty() || H.cols != 3 || H.rows != 3)
+				// RANSAC can fail (empty H), or fit to a tiny consensus set with
+				// the bulk of matches as outliers. Require enough RANSAC inliers
+				// before trusting the homography — this rejects the scenario
+				// where a few coincidentally-coherent points lock onto noise.
+				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
+				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 15)
 					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
