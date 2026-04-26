@@ -20,6 +20,10 @@ find_package(OpenCV 4 REQUIRED)
 find_package(glfw3 3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
+# assimp loads the original .X mesh files (Arrow3Axis.X, hand001.X, ipad.X)
+# the thesis ships under MarkerlessAR/Engine/. Optional: missing assimp falls
+# back to the synthetic primitives in DrawMesh.
+find_package(assimp QUIET)
 
 # GLM is header-only; find via pkg-config or just use include path
 find_path(GLM_INCLUDE_DIR glm/glm.hpp
@@ -140,6 +144,11 @@ target_link_libraries(BaekAR PRIVATE
     ${GLUT_LIBRARIES}
 )
 
+if(assimp_FOUND)
+    target_link_libraries(BaekAR PRIVATE assimp::assimp)
+    target_compile_definitions(BaekAR PRIVATE BAEKAR_HAVE_ASSIMP=1)
+endif()
+
 if(APPLE)
     target_link_libraries(BaekAR PRIVATE
         "-framework AVFoundation"
@@ -176,6 +185,9 @@ add_custom_command(TARGET BaekAR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/3dobjects
         $<TARGET_FILE_DIR:BaekAR>/3dobjects
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/Engine
+        $<TARGET_FILE_DIR:BaekAR>/Engine
     COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.dis
         $<TARGET_FILE_DIR:BaekAR>/skin.dis

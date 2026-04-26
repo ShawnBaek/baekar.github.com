@@ -16,6 +16,12 @@
 #endif
 #endif
 
+#ifdef BAEKAR_HAVE_ASSIMP
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#endif
+
 
 //#define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1)
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1 )
@@ -58,12 +64,67 @@ namespace wonjo_dx
 				&ms->m_AdjBuffer, &ms->m_MtrlBuffer, NULL, &ms->m_NumMtrl, &ms->m_Mesh
 				);
 #ifdef __APPLE__
-			// .X loading is stubbed on macOS — D3DXLoadMeshFromX always returns
-			// E_FAIL. Instead of dropping the request, return a sentinel mesh
-			// whose only data is the requested filename; DrawMesh inspects the
-			// filename and renders a synthetic primitive (axes for Arrow3Axis,
-			// teapot for default, etc).
 			ms->filename.assign(location);
+
+#ifdef BAEKAR_HAVE_ASSIMP
+			// Try real .X loading via Assimp. The thesis assets live under
+			// MarkerlessAR/Engine/ which is symlinked into the .app bundle as
+			// Engine/. Assimp accepts plain filenames so try the basename
+			// first, then fall back to Engine/<name>.
+			Assimp::Importer importer;
+			const aiScene* scene = importer.ReadFile(location,
+				aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices);
+			if (!scene) {
+				std::string alt = std::string("Engine/") + location;
+				scene = importer.ReadFile(alt,
+					aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices);
+			}
+			if (scene && scene->HasMeshes()) {
+				ms->m_Sub.reserve(scene->mNumMeshes);
+				for (unsigned mi = 0; mi < scene->mNumMeshes; ++mi) {
+					const aiMesh* m = scene->mMeshes[mi];
+					Mesh::SubMesh s;
+					s.vertices.reserve(m->mNumVertices * 3);
+					s.normals.reserve(m->mNumVertices * 3);
+					for (unsigned vi = 0; vi < m->mNumVertices; ++vi) {
+						s.vertices.push_back(m->mVertices[vi].x);
+						s.vertices.push_back(m->mVertices[vi].y);
+						s.vertices.push_back(m->mVertices[vi].z);
+						if (m->HasNormals()) {
+							s.normals.push_back(m->mNormals[vi].x);
+							s.normals.push_back(m->mNormals[vi].y);
+							s.normals.push_back(m->mNormals[vi].z);
+						} else {
+							s.normals.push_back(0.0f);
+							s.normals.push_back(0.0f);
+							s.normals.push_back(1.0f);
+						}
+					}
+					s.indices.reserve(m->mNumFaces * 3);
+					for (unsigned fi = 0; fi < m->mNumFaces; ++fi) {
+						const aiFace& f = m->mFaces[fi];
+						if (f.mNumIndices != 3) continue;
+						s.indices.push_back(f.mIndices[0]);
+						s.indices.push_back(f.mIndices[1]);
+						s.indices.push_back(f.mIndices[2]);
+					}
+					if (scene->HasMaterials() && m->mMaterialIndex < scene->mNumMaterials) {
+						aiColor4D col(0.85f, 0.55f, 0.25f, 1.0f);
+						aiGetMaterialColor(scene->mMaterials[m->mMaterialIndex],
+							AI_MATKEY_COLOR_DIFFUSE, &col);
+						s.diffuse[0] = col.r; s.diffuse[1] = col.g;
+						s.diffuse[2] = col.b; s.diffuse[3] = col.a > 0 ? col.a : 1.0f;
+					}
+					ms->m_Sub.push_back(std::move(s));
+				}
+				fprintf(stderr, "Mesh: loaded %s (%lu sub-meshes via assimp)\n",
+				        location, (unsigned long)ms->m_Sub.size());
+			} else {
+				fprintf(stderr, "Mesh: %s not loadable by assimp (%s) — using synthetic\n",
+				        location, importer.GetErrorString());
+			}
+#endif // BAEKAR_HAVE_ASSIMP
+
 			hsMeshes[location] = ms;
 			return ms;
 #endif
@@ -201,7 +262,7 @@ namespace wonjo_dx
 		bool isHand = (name.find("hand")       != std::string::npos ||
 		               name.find("Hand")       != std::string::npos);
 
-		// Lighting setup so the solid primitives look 3D, not flat-shaded blobs.
+		// Lighting setup so the meshes/primitives look 3D, not flat-shaded blobs.
 		GLboolean wasLit = glIsEnabled(GL_LIGHTING);
 		if (!wasLit) {
 			glEnable(GL_LIGHTING);
@@ -216,6 +277,32 @@ namespace wonjo_dx
 			glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
 		}
 		glDisable(GL_TEXTURE_2D);
+
+#ifdef BAEKAR_HAVE_ASSIMP
+		if (!pms->m_Sub.empty()) {
+			// Real .X mesh — draw via vertex/normal arrays + glDrawElements.
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glEnableClientState(GL_NORMAL_ARRAY);
+			for (const auto& s : pms->m_Sub) {
+				glColor4fv(s.diffuse);
+				glVertexPointer(3, GL_FLOAT, 0, s.vertices.data());
+				glNormalPointer(GL_FLOAT, 0, s.normals.data());
+				glDrawElements(GL_TRIANGLES, (GLsizei)s.indices.size(),
+				               GL_UNSIGNED_INT, s.indices.data());
+			}
+			glDisableClientState(GL_NORMAL_ARRAY);
+			glDisableClientState(GL_VERTEX_ARRAY);
+
+			if (!wasLit) {
+				glDisable(GL_COLOR_MATERIAL);
+				glDisable(GL_LIGHT0);
+				glDisable(GL_LIGHTING);
+			}
+			glColor3f(1, 1, 1);
+			glPopMatrix();
+			return;
+		}
+#endif
 
 		if (isAxes) {
 			// XYZ axes as solid cones for visibility (instead of 1-pixel lines).
