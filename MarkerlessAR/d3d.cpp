@@ -793,7 +793,12 @@ namespace wonjo_dx
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		glLoadIdentity();
+		// Disable depth WRITES too (not just tests). Otherwise the camera
+		// quad's z=0 vertices fill the depth buffer at ~0.5, which then
+		// fails the depth test for any 3D AR mesh drawn after — so the
+		// teapot/.X meshes never appear on the marker. Restored below.
 		glDisable(GL_DEPTH_TEST);
+		glDepthMask(GL_FALSE);
 
 		// Create or update background texture
 		if(bgTextureId == 0) {
@@ -821,6 +826,7 @@ namespace wonjo_dx
 		glDisable(GL_TEXTURE_2D);
 
 		// Restore state
+		glDepthMask(GL_TRUE);
 		glEnable(GL_DEPTH_TEST);
 		glMatrixMode(GL_PROJECTION);
 		glPopMatrix();
