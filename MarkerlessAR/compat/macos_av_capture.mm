@@ -31,8 +31,8 @@ struct AVCap {
 - (void)captureOutput:(AVCaptureOutput*)output
         didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         fromConnection:(AVCaptureConnection*)connection {
-    if (!self.owner) return;
     AVCap* cap = (AVCap*)self.owner;
+    if (!cap) return;  // owner was nulled by AVCap_Close — safe bail
     CVImageBufferRef pb = CMSampleBufferGetImageBuffer(sampleBuffer);
     if (!pb) return;
     CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
@@ -157,10 +157,27 @@ void AVCap_GetActualSize(AVCap* cap, int* outW, int* outH)
 void AVCap_Close(AVCap* cap)
 {
     if (!cap) return;
+    // Order matters to avoid UAF in the delegate. The delegate runs on
+    // cap->queue (a serial dispatch queue) and dereferences cap via
+    // self.owner. We must:
+    //   1) Stop the session so no NEW sample buffers are produced.
+    //   2) Detach the delegate from the output (clears the queue's
+    //      reference to the delegate for sample delivery).
+    //   3) Null out the owner pointer so any in-flight callback that
+    //      already fired sees nil and bails.
+    //   4) Drain the queue with a synchronous dispatch_sync barrier —
+    //      after this returns, no callback is executing.
+    //   5) Now safe to delete cap.
     if (cap->session) [cap->session stopRunning];
+    if (cap->output)  [cap->output  setSampleBufferDelegate:nil queue:nil];
+    if (cap->delegate) cap->delegate.owner = nullptr;
+    if (cap->queue) {
+        dispatch_sync(cap->queue, ^{ /* barrier — wait for any in-flight callback */ });
+    }
     cap->session  = nil;
     cap->input    = nil;
     cap->output   = nil;
     cap->delegate = nil;
+    cap->queue    = nullptr;
     delete cap;
 }
