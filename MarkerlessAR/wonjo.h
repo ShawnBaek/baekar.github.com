@@ -67,6 +67,18 @@ namespace wonjo_dx
 		std::vector<D3DMATERIAL9> Mtrls;
 		std::string filename;
 		std::vector<LPDIRECT3DTEXTURE9> m_Tex;
+#ifdef __APPLE__
+		// Real .X content via Assimp. Each sub-mesh is a flat triangle list:
+		// vertices interleaved is overkill for fixed-function GL — keep three
+		// parallel arrays and call glVertexPointer/glNormalPointer.
+		struct SubMesh {
+			std::vector<float> vertices;   // x,y,z * N
+			std::vector<float> normals;    // x,y,z * N (zero-filled if missing)
+			std::vector<unsigned int> indices;
+			float diffuse[4] = { 0.85f, 0.55f, 0.25f, 1.0f };
+		};
+		std::vector<SubMesh> m_Sub;     // empty => fall back to synthetic primitive
+#endif
 	private:
 		Mesh();
 		~Mesh();
