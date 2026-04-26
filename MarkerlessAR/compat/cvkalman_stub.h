@@ -49,7 +49,10 @@ static inline CvKalman* cvCreateKalman(int dynam_params, int measure_params, int
     kalman->temp1 = cvCreateMat(dynam_params, dynam_params, CV_32FC1);
     kalman->temp2 = cvCreateMat(measure_params, dynam_params, CV_32FC1);
     kalman->temp3 = cvCreateMat(measure_params, measure_params, CV_32FC1);
-    kalman->temp4 = cvCreateMat(measure_params, dynam_params, CV_32FC1);
+    // temp4 holds P_pre * H^T (DPxDP * DPxMP = DPxMP), used as K's first
+    // operand in the gain computation. Must be DPxMP, not MPxDP — the
+    // wrong shape tripped cvGEMM at runtime ("D.rows == A.rows").
+    kalman->temp4 = cvCreateMat(dynam_params, measure_params, CV_32FC1);
     kalman->temp5 = cvCreateMat(measure_params, 1, CV_32FC1);
 
     cvSetIdentity(kalman->transition_matrix);
