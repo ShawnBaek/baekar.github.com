@@ -9,6 +9,9 @@
 #include <opencv2/highgui/highgui_c.h>
 #include <opencv2/videoio.hpp>
 
+#include <string>
+#include <vector>
+
 #ifdef POINTGREY_CAPTURE
 #include "FlyCap.h"
 #endif
@@ -31,6 +34,7 @@ public:
 
     bool Initialize( bool flip = CAPTURE_DONT_FLIP, int index = -1, char * filename = 0 );
     bool InitializeSynthetic( const char * markerFilename );
+    bool InitializeSynthetic( const std::vector<std::string>& markerFilenames );
     void Terminate();
 
     bool        CaptureFrame();
