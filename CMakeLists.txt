@@ -114,6 +114,7 @@ set(HANDYAR_SOURCES
     MarkerlessAR/HandyAR/HandRegion.cpp
     MarkerlessAR/HandyAR/MixGaussian.cpp
     MarkerlessAR/HandyAR/PoseEstimation.cpp
+    MarkerlessAR/compat/synthetic_marker_source.cpp
 )
 
 # Combine all sources

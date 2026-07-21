@@ -16,6 +16,9 @@
 #define CAPTURE_NONE        0
 #define CAPTURE_OPENCV      1
 #define CAPTURE_POINTGREY   2
+#define CAPTURE_SYNTHETIC   3
+
+class SyntheticMarkerSource;
 
 #define CAPTURE_FLIP        true
 #define CAPTURE_DONT_FLIP   false
@@ -27,6 +30,7 @@ public:
     ~Capture(void);
 
     bool Initialize( bool flip = CAPTURE_DONT_FLIP, int index = -1, char * filename = 0 );
+    bool InitializeSynthetic( const char * markerFilename );
     void Terminate();
 
     bool        CaptureFrame();
@@ -51,6 +55,7 @@ private:
     cv::Mat     _matFrame;
     cv::Mat     _matFrameResized;  // 640x480 view used when camera delivers a different size
     IplImage    _iplHeader;        // IplImage header wrapping _matFrame{,Resized}
+    SyntheticMarkerSource * _pSynthetic;
 
     int         _CaptureMethod;
 #ifdef POINTGREY_CAPTURE

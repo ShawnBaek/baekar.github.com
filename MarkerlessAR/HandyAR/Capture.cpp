@@ -1,4 +1,5 @@
 #include "Capture.h"
+#include "../compat/synthetic_marker_source.h"
 #include <opencv2/imgproc.hpp>
 #ifndef _WIN32
 #include <thread>
@@ -20,8 +21,35 @@ Capture::Capture(void)
 #endif
 
     _pFrame = 0;
+    _pSynthetic = 0;
+    _CaptureMethod = CAPTURE_NONE;
 
     _fFlipVertical = false;
+}
+
+bool Capture::InitializeSynthetic( const char * markerFilename )
+{
+    if ( _fInitialized || !markerFilename )
+        return false;
+
+    _pSynthetic = new SyntheticMarkerSource();
+    if ( !_pSynthetic->Initialize( markerFilename, 640, 480 ) )
+    {
+        delete _pSynthetic;
+        _pSynthetic = 0;
+        return false;
+    }
+
+    _CaptureMethod = CAPTURE_SYNTHETIC;
+    _fFlipVertical = false;
+    _fInitialized = CaptureFrame();
+    if ( !_fInitialized )
+    {
+        delete _pSynthetic;
+        _pSynthetic = 0;
+        _CaptureMethod = CAPTURE_NONE;
+    }
+    return _fInitialized;
 }
 
 Capture::~Capture(void)
@@ -159,6 +187,12 @@ void Capture::Terminate()
         _vcap.release();
     }
 
+    if ( _pSynthetic )
+    {
+        delete _pSynthetic;
+        _pSynthetic = 0;
+    }
+
 #ifdef POINTGREY_CAPTURE
     if ( _pCaptureFly )
     {
@@ -169,12 +203,20 @@ void Capture::Terminate()
 
     _pFrame = 0;
     _fInitialized = false;
+    _CaptureMethod = CAPTURE_NONE;
 }
 
 bool Capture::CaptureFrame()
 {
     switch ( _CaptureMethod )
     {
+    case CAPTURE_SYNTHETIC:
+        if ( !_pSynthetic || !_pSynthetic->NextFrame( _matFrame ) )
+            return false;
+        _iplHeader = cvIplImage( _matFrame );
+        _pFrame = &_iplHeader;
+        break;
+
     case CAPTURE_OPENCV:
 #ifdef __APPLE__
         if (g_avcap) {

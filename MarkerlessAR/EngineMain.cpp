@@ -155,6 +155,8 @@ VideoCapture	capture2;
 static bool g_cameraAvailable = false;
 static cv::Mat g_dummyFrameMat;
 static IplImage g_dummyIpl;
+static bool g_markerSimulationEnabled = false;
+static std::string g_markerSimulationPath;
 #endif
 
 char ch=0;
@@ -1246,6 +1248,17 @@ int InitializeEngineMain()
 
     // initialize capture
     bool cameraOk = false;
+#ifndef _WIN32
+    if ( g_markerSimulationEnabled )
+    {
+        fprintf( stderr, "BaekAR: starting marker simulation with %s\n",
+                 g_markerSimulationPath.c_str() );
+        cameraOk = gCapture.InitializeSynthetic( g_markerSimulationPath.c_str() );
+        if ( !cameraOk )
+            fprintf( stderr, "marker simulation initialization failed.\n" );
+    }
+    else
+#endif
     if ( fInputVideoFile )
     {
         // Capture From File
@@ -2447,6 +2460,31 @@ int main(int argc, char* argv[])
 		}
 	}
 #endif
+
+#ifdef __APPLE__
+	for (int i = 1; i < argc; ++i) {
+		if (std::string(argv[i]) != "--simulate-marker")
+			continue;
+		if (i + 1 >= argc) {
+			fprintf(stderr, "BaekAR: --simulate-marker needs an image path or filename.\n");
+			return 2;
+		}
+
+		std::string markerPath = argv[++i];
+		if (access(markerPath.c_str(), R_OK) != 0 && markerPath.find('/') == std::string::npos)
+			markerPath = std::string("image/") + markerPath;
+		if (access(markerPath.c_str(), R_OK) != 0) {
+			fprintf(stderr, "BaekAR: simulation marker not found: %s\n", markerPath.c_str());
+			return 2;
+		}
+
+		g_markerSimulationEnabled = true;
+		g_markerSimulationPath = markerPath;
+		Filename[0]._strFilename = markerPath;
+		Filename[1]._strFilename = markerPath;
+	}
+#endif
+
 	// Tell OpenCV to skip its own AVFoundation authorization handling.
 	// The .app bundle's Info.plist triggers the macOS permission dialog instead.
 	// Without this, cv::VideoCapture::open() blocks waiting for auth that
@@ -2454,6 +2492,7 @@ int main(int argc, char* argv[])
 	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
 
 #ifdef __APPLE__
+	if (!g_markerSimulationEnabled) {
 	{
 		fprintf(stderr, "BaekAR: requesting camera permission...\n");
 		fflush(stderr);
@@ -2505,6 +2544,12 @@ int main(int argc, char* argv[])
 		}
 		fflush(stderr);
 	}
+	} else {
+		fprintf(stderr,
+		        "BaekAR: synthetic camera enabled — marker=%s; camera and window pickers skipped.\n",
+		        g_markerSimulationPath.c_str());
+		fflush(stderr);
+	}
 #endif
 
 	// Initialize GLFW
@@ -2534,8 +2579,10 @@ int main(int argc, char* argv[])
 	// (built-in, USB, iPhone via Continuity). Selecting one hot-swaps the
 	// AVCap session — capture continues against the chosen device without
 	// needing to relaunch.
-	InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
-	                  &OnCameraMenuPicked);
+	if (!g_markerSimulationEnabled) {
+		InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
+		                  &OnCameraMenuPicked);
+	}
 #endif
 
 	// Initialize GLUT (needed for glutSolidCone etc. used in init())

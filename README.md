@@ -1,203 +1,90 @@
 # BaekAR
 
-**A Markerless Augmented Reality Engine with 6DoF Hand Pose Estimation**
+This was my old project. I made it as my Master's thesis research at Yonsei University in 2012.
 
-BaekAR is a real-time markerless augmented reality system that combines BRISK/AGAST feature-based object recognition with fingertip-based 6DoF hand pose estimation. It was originally developed as **Sungwook Baek's Master's thesis project** circa 2012, built for Windows with Visual Studio 2010, DirectX 9, and OpenCV 2.3.1.
+BaekAR is a markerless AR engine with natural feature tracking, 6DoF camera pose estimation, 3D rendering, and hand interaction.
 
-**After 13 years**, the project is being reborn — ported to modern macOS (Apple Silicon) and co-developed with [Claude Code](https://claude.ai/claude-code) by Anthropic.
+My last markerless AR research was 2012.
 
----
+Now I want to refactor it with modern C++, verify it working well on macOS, and catch up markerless AR trends per year.
 
-## What It Does
+This is my original research project. I want to preserve its originality and Git history while continuing it on macOS.
 
-BaekAR detects a reference image in a live camera feed, computes the camera's 6DoF pose relative to that image, and overlays 3D objects in real-time. It also features a hand tracking mode that estimates camera pose from fingertip positions — no markers required.
+## Current state
 
-**Two Tracking Modes:**
-1. **Feature-based markerless tracking** — Detects and tracks a reference image using BRISK descriptors and AGAST corners, then estimates pose via homography decomposition
-2. **Fingertip-based hand pose tracking** — Segments the hand via skin color modeling, detects fingertips using distance transform + curvature analysis, and estimates 6DoF pose from fingertip correspondences
+The original project was built with Visual Studio 2010, OpenCV 2.3.1, DirectX 9, BRISK, and AGAST.
 
----
+The macOS version is on the [`001-macos-port`](https://github.com/ShawnBaek/baekar.github.com/tree/001-macos-port) branch. The original 2012 `master` is saved in [`snapshot/2012-original`](https://github.com/ShawnBaek/baekar.github.com/tree/snapshot/2012-original).
 
-## Architecture
+The goal is to merge the macOS version into `master` without squashing or rewriting the original Git history. After that, every new PR will merge into `master`.
 
-```
-Camera Feed (640x480)
-       |
-       v
-+------------------+     +-------------------+
-| Feature Detection |     | Hand Segmentation |
-| (AGAST corners)  |     | (Skin color GMM)  |
-+--------+---------+     +---------+---------+
-         |                          |
-         v                          v
-+------------------+     +-------------------+
-| Feature Matching |     | Fingertip Detection|
-| (BRISK binary    |     | (Distance transform|
-|  descriptors,    |     |  + curvature +     |
-|  Hamming dist)   |     |  K-means cluster)  |
-+--------+---------+     +---------+---------+
-         |                          |
-         v                          v
-+------------------+     +-------------------+
-| Homography       |     | Fingertip Tracking |
-| (RANSAC)         |     | (Kalman filters)   |
-+--------+---------+     +---------+---------+
-         |                          |
-         +------------+-------------+
-                      |
-                      v
-            +-------------------+
-            | Pose Estimation   |
-            | (Kato-Billinghurst|
-            |  / PnP solver)    |
-            +--------+----------+
-                     |
-                     v
-            +-------------------+
-            | 3D Rendering      |
-            | (OpenGL)          |
-            +-------------------+
-```
-
----
-
-## Modules
-
-### BRISK Feature Descriptor (`brisk/`)
-Binary Robust Invariant Scalable Keypoints. Generates 512-bit binary descriptors that are scale- and rotation-invariant, enabling fast Hamming distance matching. Based on the paper by Leutenegger, Chli & Siegwart (ICCV 2011, ETH Zurich).
-
-### AGAST Corner Detector (`agast/`)
-Adaptive and Generic Accelerated Segment Test. Faster than FAST corner detection with multiple pattern variants (5_8, 7_12s, 7_12d, 9_16). Provides the keypoint locations that BRISK then describes. By Elmar Mair (2010).
-
-### Kato Pose Estimation (`KatoPoseEstimation/`)
-Implements the Kato & Billinghurst transformation matrix computation. Takes 2D-3D point correspondences from detected marker corners and computes the camera-to-marker transformation matrix (rotation + translation) with iterative refinement.
-
-### HandyAR Hand Tracking (`HandyAR/`)
-Complete hand tracking pipeline:
-- **HandRegion** — Skin color segmentation using Mixture of Gaussians in YCrCb color space with 16x16x16 histogram bins
-- **FingerTip** — Fingertip detection via distance transform, contour curvature analysis (angle threshold 0.5 rad), and template matching with K-means clustering
-- **FingertipTracker** — Kalman filter bank (up to 20 simultaneous trackers) for temporal smoothing
-- **PoseEstimation** — Computes extrinsic camera parameters from fingertip 3D-2D correspondences; outputs rotation (matrix + quaternion) and translation
-
-### Camera Calibration (`calibration/`)
-Camera intrinsic/extrinsic parameter management, distortion correction, and a custom `cvFindExtrinsicCameraParams3` implementation for pose estimation from known 3D-2D correspondences.
-
-### Multi-Scale Multi-Rotation Database
-For robust recognition under arbitrary viewpoints, the system pre-computes feature databases across:
-- **3 scale levels**: 0.5x, 1.0x, 2.0x
-- **20 rotation steps**: 0 to 340 degrees (18-degree increments)
-- **60 total templates** per reference image
-
-### Custom Feature Utilities (`SungwookFeature.cpp`)
-Image-set matching pipeline with multi-scale/rotation descriptor extraction, homography validation, and NCC patch tracking for temporal coherence.
-
----
-
-## Project Structure
-
-```
-MarkerlessAR/
-  EngineMain.cpp          # Application entry point, main loop, threading
-  BaekAR.cpp              # AR engine controller (detector, tracker, pose, contents)
-  d3d.cpp                 # Rendering layer (OpenGL on macOS, DirectX 9 on Windows)
-  wonjo.cpp/.h            # 3D math, matrix operations, mesh management
-  cam.cpp                 # Camera matrix setup for rendering pipeline
-  SungwookFeature.cpp     # Feature extraction and matching utilities
-  SungwookUtility.cpp     # Image transformation and helper functions
-  Detector.cpp            # Object detection coordinator
-  Contents.cpp            # 3D content management
-  brisk/                  # BRISK feature descriptor (ETH Zurich)
-  agast/                  # AGAST corner detector
-  calibration/            # Camera calibration and pose computation
-  KatoPoseEstimation/     # Kato-Billinghurst pose estimator
-  HandyAR/                # Hand tracking + fingertip 6DoF pose estimation
-  compat/                 # Cross-platform compatibility layers
-    d3d_stub.h            #   DirectX 9 type stubs
-    win32_stub.h          #   Win32 API type stubs
-    opencv_compat.h       #   OpenCV 2->4 removed C API wrappers
-    cvkalman_stub.h       #   CvKalman/CvRandState stubs
-  image/                  # Reference images for detection
-  3dobjects/              # 3D mesh assets (bunny, hand, iPad models)
-  database/               # Pre-computed feature databases (YAML)
-```
-
----
-
-## Build Instructions
-
-### Prerequisites
-
-- macOS 13+ (Apple Silicon or Intel)
-- Xcode Command Line Tools
-- Homebrew
-
-### Install Dependencies
+## Build on macOS
 
 ```bash
-brew install opencv glfw glm freeglut cmake
-```
+brew install cmake opencv glfw glm freeglut assimp
 
-### Build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 
-```bash
-cd BaekAR
-mkdir build && cd build
-cmake ..
-cmake --build .
-```
-
-This produces `build/BaekAR.app` (a macOS application bundle).
-
-### Run
-
-```bash
 open build/BaekAR.app
 ```
 
-On first launch, macOS will ask for **camera permission** — click "Allow" to grant access. BaekAR requires a camera to function.
+BaekAR needs camera permission on first launch.
 
-If the camera feed does not appear, verify that camera access is granted in **System Settings > Privacy & Security > Camera**.
+To run it with a virtual camera looking at one of the marker images:
 
-### Controls
+```bash
+open -n build/BaekAR.app --args --simulate-marker yejin.jpg
+```
 
-- **ESC** — Quit the application
-- **Left mouse click** — Place/interact with 3D content (picking)
+The virtual camera moves, changes depth and direction, tilts, and rotates. It uses the same marker detection, tracking, pose, and rendering pipeline as the real camera.
 
----
+## Plan
 
-## Current Status
+### Step 1 — Foundation and refactoring
 
-| Sprint | Status | Description |
-|--------|--------|-------------|
-| Sprint 1 | Done | Build system (CMake) + MSVC cleanup. Compiles on macOS ARM64 with 0 errors. |
-| Sprint 2 | Skipped | OpenCV C API already works via compat wrappers. No refactoring needed. |
-| Sprint 3 | Done | GLFW windowing + C++11 std::thread/std::mutex replacing Win32 API |
-| Sprint 4 | Done | DirectX 9 rendering replaced with OpenGL. Camera feed displays in GLFW window. |
-| Sprint 5 | Planned | Runtime polish, end-to-end verification |
+Start from the current macOS version. Verify the current behavior first, merge it into `master`, and then refactor it with smaller PRs.
 
----
+- Folder structure
+- Modern C++ and RAII
+- Camera, tracking, pose, hand tracking, and rendering separation
+- C++ design patterns where they are useful
+- Tests and recorded fixtures
+- Native macOS rendering and app packaging
 
-## History
+The original 2012 pipeline will stay available for comparison.
 
-This project was originally developed as **Sungwook Baek's Master's thesis** at **Yonsei University, Department of Computer Science** (circa 2012) — a markerless augmented reality engine combining state-of-the-art feature detection (BRISK/AGAST), pose estimation (Kato-Billinghurst), and a novel hand tracking system (HandyAR) for 6DoF fingertip-based camera pose estimation.
+### Step 2 — Verify on macOS
 
-The original thesis is included in this repository: [`Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf`](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
+Verify real and simulated camera input, marker detection and tracking, 3D object overlay, hand and fingertip tracking, ScreenCaptureKit, permissions, relaunch, and Debug and Release builds.
 
-The original system was built for **Windows with Visual Studio 2010**, using DirectX 9 for rendering, OpenCV 2.3.1 for computer vision, and Win32 API for windowing and threading. It supported real-time AR at 640x480 with multi-threaded feature matching and tracking.
+### Step 3 — Catch up markerless AR trends
 
-**13 years later**, the project is being brought back to life — ported to modern macOS (Apple Silicon) with OpenCV 4.x, OpenGL, GLFW, and C++14. This resurrection is a collaboration between the original author and **Claude Code** (Anthropic's AI coding assistant), tackling the substantial challenge of modernizing ~15,000 lines of decade-old C++ across 83 source files.
+Every year will have one focused PR.
 
----
+| Year | Focus |
+|---|---|
+| 2013 | Semi-dense visual odometry |
+| 2014 | Direct SLAM and keyframe maps |
+| 2015 | ORB-SLAM and relocalization |
+| 2016 | Monocular, stereo, and RGB-D SLAM |
+| 2017 | Visual-inertial tracking and world anchors |
+| 2018 | Learned local features |
+| 2019 | Scene understanding and occlusion |
+| 2020 | Learned hand tracking |
+| 2021 | Visual-inertial and multi-map SLAM |
+| 2022 | Neural implicit maps |
+| 2023 | 3D Gaussian Splatting |
+| 2024 | Learned dense reconstruction |
+| 2025 | 3D visual foundation models |
+| 2026 | Streaming spatial maps |
 
-## Acknowledgments
+Every yearly PR will include research notes, one working experiment, comparison with the previous version, and macOS verification.
 
-- **BRISK**: Stefan Leutenegger, Margarita Chli, Roland Siegwart — ETH Zurich, Autonomous Systems Lab (ICCV 2011)
-- **AGAST**: Elmar Mair (2010)
-- **Kato Pose Estimation**: Hirokazu Kato, Mark Billinghurst — ARToolKit
-- **macOS Port**: Co-developed with [Claude Code](https://claude.ai/claude-code) by Anthropic
+## Master's thesis
 
----
+[Master Thesis — Sungwook Baek — BaekAR](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
 
 ## License
 
-Original research code. BRISK and AGAST modules are licensed under their respective open-source licenses (see source file headers).
+License and asset review will be part of the foundation work. Third-party source and assets will keep their original attribution and license information.
