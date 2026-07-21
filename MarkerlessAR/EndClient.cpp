@@ -38,25 +38,25 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	ShowWindow(hWnd,nShowCmd);
 
 
-	//ÃÊ±âÈ­
+	//ì´ˆê¸°í™”
 	if(FAILED(wonjo_dx::AAR3DInitD3D(hWnd))) 
 	{
 		MessageBox(NULL,"DirectX Device Failed.\nthe application will be terminated.","BaekAR",MB_OK);
-		return 0;	//½ÇÆĞ½Ã À©µµ¿ì ³¡³»¹ö¸².
+		return 0;	//ì‹¤íŒ¨ì‹œ ìœˆë„ìš° ëë‚´ë²„ë¦¼.
 	}
 
 	//direct X code mainloop
 	PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE );
 	while(true) {	//main loop start
 
-		//À©µµ¿ì ÇÚµé¸µÀÌ µé¾î¿Ã ¶§ Ã³¸®
+		//ìœˆë„ìš° í•¸ë“¤ë§ì´ ë“¤ì–´ì˜¬ ë•Œ ì²˜ë¦¬
 		if( PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE ) )
 		{
 			TranslateMessage( &Message );
 			DispatchMessage( &Message );
 			continue;
 		}
-		//¸Ş½ÃÁö°¡ µé¾î¿ÀÁö ¾Ê¾ÒÀ» ¶§ Ã³¸® (main loop)
+		//ë©”ì‹œì§€ê°€ ë“¤ì–´ì˜¤ì§€ ì•Šì•˜ì„ ë•Œ ì²˜ë¦¬ (main loop)
 		else GLOBAL::mainLoop();
 	}	//end of main loop
 	//~direct X code

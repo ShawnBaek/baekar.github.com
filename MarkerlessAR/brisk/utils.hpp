@@ -27,51 +27,57 @@
 #include <fstream>
 
 #include <time.h>
-#include <windows.h> //I've ommited this line.
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
 #else
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
 #endif
 
+#ifndef _WIN32
+#include <sys/time.h>  // macOS/POSIX gettimeofday
+#endif
+
 #ifndef __MCUTILS_DEFINES
 #define __MCUTILS_DEFINES
 
 // Warnings and errors
-#define STDOUT_WARNING(msg) utils::stdoutWarning(msg, __FILE__, __LINE__, __FUNCTION__)
-#define STDOUT_WARNING_NOHALT(msg) utils::stdoutWarning(msg, __FILE__, __LINE__, __FUNCTION__, false)
-#define STDOUT_ERROR(msg) utils::stdoutError(msg, __FILE__, __LINE__, __FUNCTION__)
+#define STDOUT_WARNING(msg) ::utils::stdoutWarning(msg, __FILE__, __LINE__, __FUNCTION__)
+#define STDOUT_WARNING_NOHALT(msg) ::utils::stdoutWarning(msg, __FILE__, __LINE__, __FUNCTION__, false)
+#define STDOUT_ERROR(msg) ::utils::stdoutError(msg, __FILE__, __LINE__, __FUNCTION__)
 
 // 'ASSURE' expresses a hard constraint, even enforced in release code; remember
 // to switch off for profiling
 #define ASSURE(cond) if (!(cond)) STDOUT_ERROR("Assure failed: '" + std::string(#cond) + "'")
 #define ASSURE_FEX(url)\
-   if (!utils::fileExists(url))\
+   if (!::utils::fileExists(url))\
       STDOUT_ERROR("File not found (variable '" + std::string(#url) + "') at\n '" + std::string(url) + "'");
 #define ASSURE_EQ(lhs,rhs)\
    if (lhs != rhs)\
-      STDOUT_ERROR("`==` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " == " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`==` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " == " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 #define ASSURE_NEQ(lhs,rhs)\
    if (lhs == rhs)\
-      STDOUT_ERROR("`!=` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " != " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`!=` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " != " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 #define ASSURE_GEQ(lhs,rhs)\
    if (lhs < rhs)\
-      STDOUT_ERROR("`>=` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " >= " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`>=` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " >= " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 #define ASSURE_GT(lhs,rhs)\
    if (lhs <= rhs)\
-      STDOUT_ERROR("`>` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " > " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`>` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " > " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 #define ASSURE_LEQ(lhs,rhs)\
    if (lhs > rhs)\
-      STDOUT_ERROR("`<=` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " <= " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`<=` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " <= " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 #define ASSURE_LT(lhs,rhs)\
    if (lhs >= rhs)\
-      STDOUT_ERROR("`<` assertion violated\n" + std::string(#lhs) + "==" + utils::numToStr(lhs) +\
-                   " < " + std::string(#rhs) + "==" + utils::numToStr(rhs));
+      STDOUT_ERROR("`<` assertion violated\n" + std::string(#lhs) + "==" + ::utils::numToStr(lhs) +\
+                   " < " + std::string(#rhs) + "==" + ::utils::numToStr(rhs));
 
 // Rounds up to next even number
 #define CEIL_EVEN(v) (int(v) + (v-int(v)!=0) + ((int(v) + (v-int(v)!=0))%2>0))
@@ -111,12 +117,17 @@
 #define SQR(a) ((a)*(a))
 #endif
 
-typedef signed char int8_t; 
-typedef signed short int16_t; 
-typedef signed long int32_t; 
-typedef unsigned char uint8_t; 
-typedef unsigned short uint16_t; 
+// Standard integer types — use <cstdint> on modern compilers
+#ifdef _MSC_VER
+typedef signed char int8_t;
+typedef signed short int16_t;
+typedef signed long int32_t;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
+#else
+#include <cstdint>
+#endif
 
 namespace utils {
 
@@ -127,7 +138,9 @@ IplImage*   stackImagesVertically(const IplImage *top, const IplImage *bottom, c
 void        stdoutWarning(std::string msg, const char *file, int line, const char *func, bool pause=true);
 double      randNormal(const double std, const double mu=0.);
 double      randUniform();    // \in [0,1)
+#ifdef _WIN32
 static int			gettimeofday(struct timeval *tv, struct timezone *tz);
+#endif
 
 // numToStr traits
 template< typename T > struct numToStr_trait {};
@@ -145,7 +158,8 @@ template<> struct numToStr_trait<void*> { static inline std::string getFormat() 
 template<> struct numToStr_trait<IplImage*> { static inline std::string getFormat() { return "%p"; } };
 template<> struct numToStr_trait<const IplImage*> { static inline std::string getFormat() { return "%p"; } };
 
-struct timezone 
+#ifdef _WIN32
+struct timezone
 {
 	int  tz_minuteswest; /* minutes W of Greenwich */
 	int  tz_dsttime;     /* type of dst correction */
@@ -166,7 +180,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 		tmpres |= ft.dwLowDateTime;
 
 		/*converting file time to unix epoch*/
-		tmpres -= DELTA_EPOCH_IN_MICROSECS; 
+		tmpres -= DELTA_EPOCH_IN_MICROSECS;
 		tmpres /= 10;  /*convert into microseconds*/
 		tv->tv_sec = (long)(tmpres / 1000000UL);
 		tv->tv_usec = (long)(tmpres % 1000000UL);
@@ -185,6 +199,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 
 	return 0;
 }
+#endif // _WIN32
 
 
 template< typename T >

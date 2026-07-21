@@ -110,6 +110,7 @@ bool FingertipPoseEstimation::Initialize( IplImage * srcImage, char * calibFilen
     //
     // Initialize Process Modules
     //
+    FILE *fp = NULL;  // hoisted before gotos to avoid jump-over-declaration error
 
     // Hand Region
     if ( _HandRegion.LoadSkinColorProbTable() == false )
@@ -137,7 +138,7 @@ bool FingertipPoseEstimation::Initialize( IplImage * srcImage, char * calibFilen
     }
 
     // Intrinsic Parameters ( for Fingertips, I know, duplicated, but i'm lazy )
-	FILE *fp = fopen( calibFilename, "rt");
+	fp = fopen( calibFilename, "rt");
 	if (fp == NULL)
     {
         goto Finished;
@@ -319,7 +320,7 @@ void FingertipPoseEstimation::OnCapture( IplImage * frame, int64 nTickCount, Ipl
     // copy of the images. anyway, i am gonna do this for now.
     //
     cvCopy( frame, _pImage );
-    cvConvertImage( _pImage, _pGray, CV_BGR2GRAY );
+    cvCvtColor( _pImage, _pGray, CV_BGR2GRAY );
 #ifdef PROCESS_320x240
     cvPyrDown( frame, _pImage320x240 );
 #endif
@@ -411,7 +412,7 @@ void FingertipPoseEstimation::OnProcess()
     TickCountEnd();//(2) Fingertip Detection
 //    int nFingertipCandidates = _FingerTip.FindFingerTipCandidates( handRegion );
     
-	//_fScreenshotÀÏ °æ¿ì¸¸ È£ÃâµÇ´Â °ÍÀÌ±â ¶§¹®¿¡ Å« ÀÇ¹Ì´Â ¾ø¾îº¸ÀÓ. ´Ü... tempImage°¡ °á°úÀÌ¹ÌÁö ÀÎµí
+	//_fScreenshotì¼ ê²½ìš°ë§Œ í˜¸ì¶œë˜ëŠ” ê²ƒì´ê¸° ë•Œë¬¸ì— í° ì˜ë¯¸ëŠ” ì—†ì–´ë³´ì„. ë‹¨... tempImageê°€ ê²°ê³¼ì´ë¯¸ì§€ ì¸ë“¯
 	if ( _fScreenshot )
     {
         // dist transform image
@@ -459,7 +460,7 @@ void FingertipPoseEstimation::OnProcess()
     }
 
     //
-    // Get Centroid  (¼ÕÀÇ Áß½É°ª... Ã£´Â ºÎºĞ)
+    // Get Centroid  (ì†ì˜ ì¤‘ì‹¬ê°’... ì°¾ëŠ” ë¶€ë¶„)
     //
     _PrevCentroid = _CurrCentroid;
     _CurrCentroid = _FingerTip._maxDistPoint;
@@ -619,7 +620,7 @@ void FingertipPoseEstimation::OnProcess()
             Quaternion2Matrix( _FingerQuaternion, _FingerRotation3by3 );
         }*/
         cvInvert( &_FingerRotation3by3Mat, &_CameraCenterRMat );
-		//Projection Matrix¸¦ ±¸ÇÏ´Â ºÎºĞ
+		//Projection Matrixë¥¼ êµ¬í•˜ëŠ” ë¶€ë¶„
         cvMatMul( &_CameraCenterRMat, &_FingerTranslationMat, &_CameraCenterTMat );
         cvScale( &_CameraCenterTMat, &_CameraCenterTMat, -1 );
 
@@ -1011,7 +1012,7 @@ IplImage * FingertipPoseEstimation::OnDisplay( IplImage * image )
     //
     // Fingertips ( Candidates )
     //
-	//¼Õ ³¡Á¡¿¡ ´ëÇÑ »ö»óÀ» Ãâ·ÂÇØÁÖ´Â ºÎºĞ
+	//ì† ëì ì— ëŒ€í•œ ìƒ‰ìƒì„ ì¶œë ¥í•´ì£¼ëŠ” ë¶€ë¶„
 	/*
 	static CvScalar color[] = {
         {{64,64,255}},   // red
@@ -1023,11 +1024,11 @@ IplImage * FingertipPoseEstimation::OnDisplay( IplImage * image )
 
 
 	static CvScalar color[] = {
-        {{174,145,223}},   // ¿¬º¸¶ó
-        {{244,19,188}},  // ¹àÀºÇÎÅ©
-        {{122,220,122}},  // ¿¬³ì»ö
-        {{225,235,50}},  // ³ë¶õ»ö
-        {{253,60,49}}     // »¡°£»ö
+        {{174,145,223}},   // ì—°ë³´ë¼
+        {{244,19,188}},  // ë°ì€í•‘í¬
+        {{122,220,122}},  // ì—°ë…¹ìƒ‰
+        {{225,235,50}},  // ë…¸ë€ìƒ‰
+        {{253,60,49}}     // ë¹¨ê°„ìƒ‰
     };
 
 
@@ -1224,7 +1225,7 @@ bool FingertipPoseEstimation::ToggleBuildHandModel()
     return _fBuildHandModel;
 }
 
-//120325 cwj ´ÙÀÌ·ºÆ®x Çà·Ä
+//120325 cwj ë‹¤ì´ë ‰íŠ¸x í–‰ë ¬
 D3DXMATRIXA16* FingertipPoseEstimation::D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut)
 {
 	if( !_pImage) return pOut;
@@ -1262,7 +1263,7 @@ D3DXMATRIXA16* FingertipPoseEstimation::D3DXMakeProjectionMatrix(D3DXMATRIXA16* 
 
 	
 	
-	//3d math¿¡ ÀÇÇØÁ¦ÀÛ
+	//3d mathì— ì˜í•´ì œì‘
 	matProj[0] = (2*fnear)/(right-left);
 	matProj[1] = 0;
 	matProj[2] = (right+left)/(right-left);
@@ -1337,7 +1338,7 @@ D3DXMATRIXA16* FingertipPoseEstimation::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 #ifndef _TESTMODE
 	if(_fValidPose)
 	{
-		//ÆÄÀÏ¿¡ ·Î±× Âï¾î!!
+		//íŒŒì¼ì— ë¡œê·¸ ì°ì–´!!
 		FILE* fp;
 		fp = fopen("viewlog_fingertip.txt","a+t");
 		if(fp)

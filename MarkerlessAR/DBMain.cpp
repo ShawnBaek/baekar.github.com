@@ -9,7 +9,12 @@
 #include <fstream>
 #include <list>
 
-#include "stdint.h"
+// stdint.h â€” system-provided on macOS; MSVC polyfill only needed for old VS
+#ifdef _MSC_VER
+#include "msc_stdint.h"
+#else
+#include <cstdint>
+#endif
 #include "brisk/brisk.h"
 
 #include <opencv2/opencv.hpp>
@@ -17,7 +22,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
-#include <atlstr.h>
+// <atlstr.h> removed â€” MSVC ATL string library not available on macOS
 
 using std::string;
 using std::cout;
@@ -42,8 +47,8 @@ void  mslOriginKeypoint(	vector<KeyPoint>	src, vector<KeyPoint>	&dst,	unsigned i
 int idx_counter=0;
 strFilename Filename[20] = 
 {
-    "../image/iu2.jpg",
-	"../image/iu1.jpg",
+    "image/iu2.jpg",
+	"image/iu1.jpg",
 	
 };
 
@@ -63,7 +68,7 @@ int main()
 	Mat	desc_transformed;
 
 	Ptr<FeatureDetector>	featureDetector;
-	const int DESIRED_FTRS = 100;					// DB ÇÑÀå¿¡¼­ »Ì´Â Feature °³¼ö
+	const int DESIRED_FTRS = 100;					// DB í•œì¥ì—ì„œ ë½‘ëŠ” Feature ê°œìˆ˜
 
 	// Create feature extractor
 #if	defined(FAST_FeatureDetector)
@@ -158,7 +163,7 @@ int main()
 					if(idx_scale == 4)
 						cout << "FOUND";
 
-					//ScaleÀÌ 1.0ÀÎ ¿À¸®Áö³Î ¿µ»ó¿¡ ´ëÇÑ Á¤º¸¸¦ ÀúÀå.
+					//Scaleì´ 1.0ì¸ ì˜¤ë¦¬ì§€ë„ ì˜ìƒì— ëŒ€í•œ ì •ë³´ë¥¼ ì €ì¥.
 					for(int i=0; i<NUMBER_OF_SCALE_STEPS; i++){
 						if(scaleFactor[i]==1.0){
 							img_original_db=mslTransformImage(img_original, &img_original_db, 0, i);
@@ -173,10 +178,10 @@ int main()
 						Mat	img_transformed;
 						//Mat	desc_original;		
 
-						//¿µ»óÀ» º¯È¯ÇÏ¿© img_transformed¿¡ ÀúÀå.
+						//ì˜ìƒì„ ë³€í™˜í•˜ì—¬ img_transformedì— ì €ì¥.
 						img_transformed = mslTransformImage(img_original, &img_transformed, idx_rotation, idx_scale);
 
-						//º¯È¯µÈ ¿µ»ó¿¡ ´ëÇÏ¿© Feature Detect¸¦ ¼öÇà
+						//ë³€í™˜ëœ ì˜ìƒì— ëŒ€í•˜ì—¬ Feature Detectë¥¼ ìˆ˜í–‰
 						if(idx_rotation==0)
 							featureDetector->detect(img_transformed, kp_original);
 
@@ -187,7 +192,7 @@ int main()
 
 						//mslRotateKeypoint(kp_original, kp_original_transformed, idx_rotation, idx_scale);
 
-						//º¯ÇüµÈ ÀÌ¹ÌÁö¿¡ ´ëÇÑ KeypointµéÀ» ¿ø »óÅÂÀÇ ÀÌ¹ÌÁö¿¡ ´ëÇÑ Keypoint·Î º¹±¸½ÃÅ°´Â ÇÔ¼ö
+						//ë³€í˜•ëœ ì´ë¯¸ì§€ì— ëŒ€í•œ Keypointë“¤ì„ ì› ìƒíƒœì˜ ì´ë¯¸ì§€ì— ëŒ€í•œ Keypointë¡œ ë³µêµ¬ì‹œí‚¤ëŠ” í•¨ìˆ˜
 						//mslOriginKeypoint(kp_transform, kp_transformOrigin, idx_rotation, idx_scale);
 
 						
@@ -225,7 +230,7 @@ int main()
 						//CvPoint2D32f center;
 						//center.x=img_transformed.rows/2.0;
 						//center.y=img_transformed.cols/2.0;
-						//QuadAngle¿¡ ´ëÇÑ Rotation ¹× Scale º¯È¯ °è»ê
+						//QuadAngleì— ëŒ€í•œ Rotation ë° Scale ë³€í™˜ ê³„ì‚°
 						//mslTransformPoint(img_original, qr_DstPoints, center, idx_rotation, idx_scale);
 						
 
@@ -240,7 +245,7 @@ int main()
 							sprintf(FeatureID, "%s%d", "FeatureIndex", idx_counter );
 							//write(fs, FeatureID, kp_original);
 							
-							//È¸ÀüµÈ KeypointµéÀ» ¿øº»¿µ»ó¿¡ ¸ÅÇÎ½ÃÅ² °ÍÀ¸·Î ¼öÁ¤ÇÔ by ¼º¿í 11.11.22
+							//íšŒì „ëœ Keypointë“¤ì„ ì›ë³¸ì˜ìƒì— ë§¤í•‘ì‹œí‚¨ ê²ƒìœ¼ë¡œ ìˆ˜ì •í•¨ by ì„±ìš± 11.11.22
 							write(fs, FeatureID, kp_transform);
 							
 							
@@ -253,7 +258,7 @@ int main()
 												
 
 						}						
-						//Quadangle °è»ê ¹× ÀúÀåÇÏ´Â ºÎºĞ by ¼º¿í 11.11.22
+						//Quadangle ê³„ì‚° ë° ì €ì¥í•˜ëŠ” ë¶€ë¶„ by ì„±ìš± 11.11.22
 
 						{
 							mslTransformKeypoint(kp_canonical, kp_canonical_transformed, idx_rotation, idx_scale);
@@ -272,7 +277,7 @@ int main()
 						}
 
 
-						//// ±×¸² ±×·Á¼­ È®ÀÎÇÏÀÚ
+						//// ê·¸ë¦¼ ê·¸ë ¤ì„œ í™•ì¸í•˜ì
 						Mat	img_canvas;
 						cvtColor(img_transformed, img_canvas, CV_GRAY2BGR);
 						

@@ -41,7 +41,9 @@ Convert cpp to opencv
 #include "../agast/agast7_12s.h"
 #include "../agast/agast5_8.h"
 #include <stdlib.h>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 #include <tmmintrin.h>
+#endif
 
 #include "brisk.h"
 
@@ -583,8 +585,18 @@ void BriskFeatureDetector::detectImpl( const cv::Mat& image,
 	briskScaleSpace.constructPyramid(image);
 	briskScaleSpace.getKeypoints(threshold,keypoints);
 
-	// remove invalid points
-	removeInvalidPoints(mask, keypoints);
+	// remove invalid points — removeInvalidPoints was removed in OpenCV 4
+	if (!mask.empty()) {
+		std::vector<cv::KeyPoint> valid;
+		valid.reserve(keypoints.size());
+		for (size_t i = 0; i < keypoints.size(); i++) {
+			int x = (int)keypoints[i].pt.x;
+			int y = (int)keypoints[i].pt.y;
+			if (x >= 0 && x < mask.cols && y >= 0 && y < mask.rows && mask.at<uchar>(y, x))
+				valid.push_back(keypoints[i]);
+		}
+		keypoints.swap(valid);
+	}
 }
 
 // construct telling the octaves number:
@@ -1865,7 +1877,8 @@ __inline__ uint8_t BriskLayer::value(const cv::Mat& mat, float xf, float yf, flo
 	return 0xFF&((ret_val+scaling2/2)/scaling2/1024);
 }
 
-// half sampling
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+// half sampling — SSE optimized version
 inline void BriskLayer::halfsample(const cv::Mat& srcimg, cv::Mat& dstimg){
 	const unsigned short leftoverCols = ((srcimg.cols%16)/2);// take care with border...
 	const bool noleftover = (srcimg.cols%16)==0; // note: leftoverCols can be zero but this still false...
@@ -2092,3 +2105,36 @@ inline void BriskLayer::twothirdsample(const cv::Mat& srcimg, cv::Mat& dstimg){
 		p_dest2 = p_dest1+dstimg.cols;
 	}
 }
+
+#else // ARM/other: scalar fallback for halfsample and twothirdsample
+
+// half sampling — scalar fallback
+inline void BriskLayer::halfsample(const cv::Mat& srcimg, cv::Mat& dstimg){
+	assert(srcimg.cols/2==dstimg.cols);
+	assert(srcimg.rows/2==dstimg.rows);
+	for(int y=0; y<dstimg.rows; y++){
+		for(int x=0; x<dstimg.cols; x++){
+			dstimg.at<uchar>(y,x) = (uchar)(((int)srcimg.at<uchar>(2*y,2*x)
+				+ (int)srcimg.at<uchar>(2*y,2*x+1)
+				+ (int)srcimg.at<uchar>(2*y+1,2*x)
+				+ (int)srcimg.at<uchar>(2*y+1,2*x+1) + 2) / 4);
+		}
+	}
+}
+
+inline void BriskLayer::twothirdsample(const cv::Mat& srcimg, cv::Mat& dstimg){
+	assert((srcimg.cols/3)*2==dstimg.cols);
+	assert((srcimg.rows/3)*2==dstimg.rows);
+	for(int y=0; y<dstimg.rows; y++){
+		for(int x=0; x<dstimg.cols; x++){
+			int sx = x*3/2;
+			int sy = y*3/2;
+			if(sx < srcimg.cols && sy < srcimg.rows)
+				dstimg.at<uchar>(y,x) = srcimg.at<uchar>(sy,sx);
+			else
+				dstimg.at<uchar>(y,x) = 0;
+		}
+	}
+}
+
+#endif // x86 vs ARM

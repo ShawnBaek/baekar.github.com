@@ -831,6 +831,10 @@ bool FingertipTracker::TrackFingertips3(
     //
     // Init
     //
+    int index[5] = { 0 };
+    int minIndex[5] = { 0 };
+    float dist[5] = { 0 };
+    float minCost = 1000000;
     for ( int i = 0 ; i < NUM_FINGERTIP ; i ++ )
         _fTracked[i] = false;
 
@@ -848,10 +852,6 @@ bool FingertipTracker::TrackFingertips3(
     //
     // Match points and fingertips
     //
-    int index[5] = { 0 };
-    int minIndex[5] = { 0 };
-    float dist[5] = { 0 };
-    float minCost = 1000000;
     for ( int pt0 = 0 ; pt0 < nPoints ; pt0 ++ )                    // first fingertip
     {
         index[0] = pt0 % nPoints;

@@ -1,7 +1,8 @@
 #ifndef _MIX_GAUSSIAN_H_
 #define _MIX_GAUSSIAN_H_
 
-#include "cv.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
 
 #define MAX_NUM_GAUSSIAN    100
 

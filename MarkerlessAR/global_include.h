@@ -1,33 +1,31 @@
 #pragma once
-//³Ê¹« ¸¹Àº warningµéÀ» ÀÏ´Ü disable
-#pragma warning(disable:4996)	//This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-#pragma warning(disable:4819)	//ÇöÀç ÄÚµå ÆäÀÌÁö(949)¿¡¼­ Ç¥½ÃÇÒ ¼ö ¾ø´Â ¹®ÀÚ°¡ ÆÄÀÏ¿¡ µé¾î ÀÖ½À´Ï´Ù. µ¥ÀÌÅÍ°¡ ¼Õ½ÇµÇÁö ¾Ê°Ô ÇÏ·Á¸é ÇØ´ç ÆÄÀÏÀ» À¯´ÏÄÚµå Çü½ÄÀ¸·Î ÀúÀåÇÏ½Ê½Ã¿À.
-#pragma warning(disable:4101)	//ÂüÁ¶µÇÁö ¾ÊÀº Áö¿ª º¯¼öÀÔ´Ï´Ù.
-#pragma warning(disable:4003)	//'max' ¸ÅÅ©·ÎÀÇ ½ÇÁ¦ ¸Å°³ º¯¼ö°¡ ºÎÁ·ÇÕ´Ï´Ù.
-#pragma warning(disable:4244)	//¾Ï½ÃÀû Å¸ÀÔÄ³½ºÆ® °æ°í
-//120325 cwj ÃÖ»óÀ§ Çì´õÆÄÀÏ directx
+//ë„ˆë¬´ ë§ì€ warningë“¤ì„ ì¼ë‹¨ disable (EN: Disable too many warnings for now)
+// MSVC #pragma warning directives removed for cross-platform build:
+// 4996: This function or variable may be unsafe
+// 4819: í˜„ì¬ ì½”ë“œ í˜ì´ì§€(949)ì—ì„œ í‘œì‹œí•  ìˆ˜ ì—†ëŠ” ë¬¸ìê°€ íŒŒì¼ì— ë“¤ì–´ ìˆìŠµë‹ˆë‹¤ (EN: File contains characters not displayable in current code page 949)
+// 4101: ì°¸ì¡°ë˜ì§€ ì•Šì€ ì§€ì—­ ë³€ìˆ˜ì…ë‹ˆë‹¤ (EN: Unreferenced local variable)
+// 4003: 'max' ë§¤í¬ë¡œì˜ ì‹¤ì œ ë§¤ê°œ ë³€ìˆ˜ê°€ ë¶€ì¡±í•©ë‹ˆë‹¤ (EN: Not enough actual parameters for 'max' macro)
+// 4244: ì•”ì‹œì  íƒ€ì…ìºìŠ¤íŠ¸ ê²½ê³  (EN: Implicit typecast warning)
+
+//120325 cwj ìµœìƒìœ„ í—¤ë”íŒŒì¼ directx (EN: Top-level header file for DirectX â€” now removed for macOS port)
 
 //#define _TESTMODE
 //#define _DRAW_HAND
 //#define _LOGGING
-#include "windows.h"
+
+// windows.h removed â€” not available on macOS
 #include <iostream>
-#include <hash_map>
+#include <unordered_map>  // replaced MSVC stdext::hash_map
 #include <string>
 //#include <boost/lexical_cast.hpp>
 
-//import directx
-#include "d3d9.h"
-#include "d3dx9.h"
-#pragma comment(lib,"dxguid.lib")
-#pragma comment(lib,"d3d9.lib")
-#pragma comment(lib,"d3dx9.lib")
-#pragma comment(lib,"dxguid.lib")
+// DirectX headers and lib pragmas removed for macOS port
+// (d3d9.h, d3dx9.h, dxguid.lib, d3d9.lib, d3dx9.lib)
 
 //radian transform
 #define Deg2Rad(n) ((n)*0.01745329252222f)
 #define Rad2Deg(n) ((n)*57.2957795056010466467050759f)
-#define SAFE_RELEASE(p) {if(p) {(p)->Release(); (p)=NULL;}}
+#define SAFE_RELEASE(p) {if(p) {(p) = NULL;}}
 
 
 //~120325 cwj

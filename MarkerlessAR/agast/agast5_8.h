@@ -20,7 +20,7 @@
 #ifndef AGAST5_8_H
 #define AGAST5_8_H
 
-#include "../stdint.h"
+#include <cstdint>
 #include "AstDetector.h"
 
 struct CvPoint;

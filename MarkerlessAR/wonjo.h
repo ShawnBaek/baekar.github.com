@@ -1,5 +1,13 @@
-#include "global_include.h"
 #pragma once
+#include "global_include.h"
+
+// DirectX 9 types — use stubs on macOS (will be replaced by OpenGL in Sprint 4)
+#ifdef _WIN32
+#include <d3d9.h>
+#include <d3dx9.h>
+#else
+#include "compat/d3d_stub.h"
+#endif
 
 
 namespace wonjo_dx
@@ -59,12 +67,32 @@ namespace wonjo_dx
 		std::vector<D3DMATERIAL9> Mtrls;
 		std::string filename;
 		std::vector<LPDIRECT3DTEXTURE9> m_Tex;
+#ifdef __APPLE__
+		// Real .X content via Assimp. Each sub-mesh is a flat triangle list:
+		// vertices interleaved is overkill for fixed-function GL — keep three
+		// parallel arrays and call glVertexPointer/glNormalPointer.
+		struct SubMesh {
+			std::vector<float> vertices;   // x,y,z * N
+			std::vector<float> normals;    // x,y,z * N (zero-filled if missing)
+			std::vector<unsigned int> indices;
+			float diffuse[4] = { 0.85f, 0.55f, 0.25f, 1.0f };
+		};
+		std::vector<SubMesh> m_Sub;     // empty => fall back to synthetic primitive
+#endif
 	private:
 		Mesh();
 		~Mesh();
 	};
 	void DrawMesh(LPMESH pms, const D3DXMATRIXA16* matWorld = NULL);
 	void DrawPlane(const D3DXMATRIXA16* matWorld = NULL);
+	// Textured-quad variant: uploads `bgra` (size = w*h*4) into `*tex` (creating
+	// it if 0) and draws a unit quad transformed by matWorld. If `selected`,
+	// outlines the quad in red. macOS-only signature; on Windows it's a stub.
+	void UploadTexture(unsigned int* tex, const unsigned char* bgra, int w, int h);
+	void DrawTexturedPlane(const D3DXMATRIXA16* matWorld, unsigned int tex, bool selected = false);
+	// Picking ray (origin + direction) in world space. Used by the Contents
+	// scene-object hit tester. Picking() above keeps its z=0-plane behavior.
+	void PickingRay(POINT MousePosClient, D3DXVECTOR3* outOrigin, D3DXVECTOR3* outDir);
 	const D3DXMATRIXA16* MakeScaleMatrix(float x, float y, float z);
 	const D3DXMATRIXA16* MakeTranslationMatrix(float x, float y, float z);
 	const D3DXMATRIXA16* MakeRotationMatrix(float x, float y, float z);

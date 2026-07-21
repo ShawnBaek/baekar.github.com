@@ -1,4 +1,5 @@
 #include "cvFindExtrinsicCameraParams3.h"
+#include "../compat/opencv_compat.h"
 #include <stdio.h>
 
 bool

@@ -17,7 +17,7 @@
 //    You should have received a copy of the GNU General Public License
 //    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "../stdint.h"
+#include <cstdint>
 #include <stdlib.h>
 #include "cvWrapper.h"
 #include "agast5_8.h"

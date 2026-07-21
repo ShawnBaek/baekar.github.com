@@ -30,8 +30,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef _MSC_VER // [
-#error "Use this header only with Microsoft Visual C++ compilers!"
-#endif // _MSC_VER ]
+// On non-MSVC compilers, system <stdint.h> / <cstdint> provides these types.
+// This header is only needed for old MSVC versions that lacked stdint.h.
+#else // _MSC_VER
 
 #ifndef _MSC_STDINT_H_ // [
 #define _MSC_STDINT_H_
@@ -245,4 +246,6 @@ typedef uint64_t  uintmax_t;
 
 
 #endif // _MSC_STDINT_H_ ]
+
+#endif // _MSC_VER
 

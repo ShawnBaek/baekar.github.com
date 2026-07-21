@@ -4,7 +4,7 @@
 #include <string>
 #include <time.h>
 #include <vector>
-#include <atlstr.h>
+// <atlstr.h> removed â€” MSVC ATL string library not available on macOS
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -12,7 +12,13 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/video/tracking.hpp>
-#include <opencv2/gpu/gpu.hpp>
+// <opencv2/gpu/gpu.hpp> removed â€” OpenCV CUDA module not available on macOS
+// OpenCV C API backward compatibility headers
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/imgproc/types_c.h>
+#include <opencv2/highgui/highgui_c.h>
 
 
 using std::string;
@@ -23,7 +29,6 @@ using std::ostream;
 
 using namespace cv;
 using namespace std;
-using namespace cv::gpu;
 
 const static unsigned int IMAGE_WIDTH = 640;
 const static unsigned int IMAGE_HEIGHT = 480;
@@ -75,14 +80,14 @@ struct strTracking_
 /*
 typedef struct 
 {
-	int					ID;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	int					dir;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	bool				cf;				// Detector::readID()¿¡¼­ °è»ê							/  Detector::doDetecting()¿¡¼­ ÀúÀå
+	int					ID;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	int					dir;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	bool				cf;				// Detector::readID()ì—ì„œ ê³„ì‚°							/  Detector::doDetecting()ì—ì„œ ì €ì¥
 
-	CvPoint		vertex[4];	// Detector::MSL_arGetLine2()¿¡¼­ °è»ê		/  Detector::MSL_arGetLine2()¿¡¼­ ÀúÀå
-	CvPoint		center;		// Detector::GetLocationInfo()¿¡¼­ °è»ê		/  Detector::GetLocationInfo()¿¡¼­ ÀúÀå
-	double				area;			// Detector::doDetecting()¿¡¼­ °è»ê				/  Detector::doDetecting()¿¡¼­ ÀúÀå
-	double				line[4][3];	// Detector::MSL_arGetLine2()¿¡¼­ °è»ê		/  Detector::MSL_arGetLine2()¿¡¼­ ÀúÀå
+	CvPoint		vertex[4];	// Detector::MSL_arGetLine2()ì—ì„œ ê³„ì‚°		/  Detector::MSL_arGetLine2()ì—ì„œ ì €ì¥
+	CvPoint		center;		// Detector::GetLocationInfo()ì—ì„œ ê³„ì‚°		/  Detector::GetLocationInfo()ì—ì„œ ì €ì¥
+	double				area;			// Detector::doDetecting()ì—ì„œ ê³„ì‚°				/  Detector::doDetecting()ì—ì„œ ì €ì¥
+	double				line[4][3];	// Detector::MSL_arGetLine2()ì—ì„œ ê³„ì‚°		/  Detector::MSL_arGetLine2()ì—ì„œ ì €ì¥
 	double				Tcm[3][4];	// 
 } Results;
 */
@@ -127,10 +132,10 @@ static const int max_match_distance = 32;
 // having scales  [0.5, 1]  of the original  template will be  used to
 // generate new templates. Scales are determined in a logarithm base.
 
-static const float SMALLEST_SCALE_CHANGE = 0.2; //<-- 0.5 * 0.2 = 1.0 ÀÌ´Ï±ñ... ±× Â÷ÀÌ°ªÀ» ÀÇ¹ÌÇÏ´Â µí
+static const float SMALLEST_SCALE_CHANGE = 0.2; //<-- 0.5 * 0.2 = 1.0 ì´ë‹ˆê¹... ê·¸ ì°¨ì´ê°’ì„ ì˜ë¯¸í•˜ëŠ” ë“¯
 
 // Number of different scales used to generate the templates.
-//¿µÇâÀ» ÁÖ´Â ºÎºĞ
+//ì˜í–¥ì„ ì£¼ëŠ” ë¶€ë¶„
 static const int NUMBER_OF_SCALE_STEPS = 3;
 //static const int NUMBER_OF_SCALE_STEPS = 3;
 
@@ -140,7 +145,7 @@ static const int NUMBER_OF_SCALE_STEPS = 3;
 static const int NUMBER_OF_ROTATION_STEPS = 20;
 //static const int NUMBER_OF_ROTATION_STEPS = 1;
 
-//[Image Set DB] ¿¡¼­ DB ÀÇ Å©±â
+//[Image Set DB] ì—ì„œ DB ì˜ í¬ê¸°
 static const int NUMBER_OF_IMAGE_SET = NUMBER_OF_SCALE_STEPS * NUMBER_OF_ROTATION_STEPS;
 
 #include <math.h>
@@ -149,16 +154,17 @@ static const int NUMBER_OF_IMAGE_SET = NUMBER_OF_SCALE_STEPS * NUMBER_OF_ROTATIO
 static const float ROT_ANGLE_INCREMENT = 360.0 / NUMBER_OF_ROTATION_STEPS;
 static const float k = exp(log(SMALLEST_SCALE_CHANGE) / (NUMBER_OF_SCALE_STEPS - 1));
  
-//[Multi Tracking] ¿¡¼­ °¢±â ´Ù¸¥ DB ¿µ»óÀÇ Á¾·ù
+//[Multi Tracking] ì—ì„œ ê°ê¸° ë‹¤ë¥¸ DB ì˜ìƒì˜ ì¢…ë¥˜
 static const int NUMBER_OF_TRAIN_IMAGES = 2;
 
 
 #endif
-unsigned __stdcall ThreadBRISKMatching(void *param);
-unsigned __stdcall ThreadMatching(void *param);
-unsigned __stdcall ThreadTracking(void *param);
+// Thread function declarations â€” __stdcall removed for macOS port
+unsigned int ThreadBRISKMatching(void *param);
+unsigned int ThreadMatching(void *param);
+unsigned int ThreadTracking(void *param);
 
-unsigned __stdcall ThreadDraw(void *param);
+unsigned int ThreadDraw(void *param);
 
 double *getModelViewMatrix(int index);
 double *getProjectionMatrix();

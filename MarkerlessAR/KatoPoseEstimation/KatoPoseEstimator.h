@@ -1,13 +1,12 @@
 /** \file KatoPoseEstimator.h
-\brief Kato & Billinghurst ¾Ë°í¸®Áò ±â¹İÀÇ ÀÚ¼¼ÃßÁ¤ Çì´õ ÆÄÀÏ
+\brief Kato & Billinghurst ì•Œê³ ë¦¬ì¦˜ ê¸°ë°˜ì˜ ìì„¸ì¶”ì • í—¤ë” íŒŒì¼
 */
 
+// EXPORTAPI macro â€” __declspec not available on macOS; define as empty
 #ifdef EXPORTAPI
 #undef	EXPORTAPI
-#define EXPORTAPI __declspec(dllexport)
-#else
-#define EXPORTAPI __declspec(dllimport)
 #endif
+#define EXPORTAPI
 
 #pragma once
 
@@ -17,9 +16,9 @@
 
 
 /** \class CKatoPoseEstimator
-* \brief Kato & Billinghurst ¾Ë°í¸®Áò ±â¹İ ÀÚ¼¼ÃßÁ¤ Å¬·¡½º
-* \remark  Ä«¸Ş¶ó·Î ÀÔ·Â¹ŞÀº ¸¶Ä¿ÀÇ ³× ²ÀÁöÁ¡ ÁÂÇ¥¿¡ ¿ÀºêÁ§Æ®¸¦ ¶ç¿ì´Âµ¥ ÇÊ¿äÇÑ ÁÂÇ¥·Î °è»ê
-* \param camera Ä«¸Ş¶ó
+* \brief Kato & Billinghurst ì•Œê³ ë¦¬ì¦˜ ê¸°ë°˜ ìì„¸ì¶”ì • í´ë˜ìŠ¤
+* \remark  ì¹´ë©”ë¼ë¡œ ì…ë ¥ë°›ì€ ë§ˆì»¤ì˜ ë„¤ ê¼­ì§€ì  ì¢Œí‘œì— ì˜¤ë¸Œì íŠ¸ë¥¼ ë„ìš°ëŠ”ë° í•„ìš”í•œ ì¢Œí‘œë¡œ ê³„ì‚°
+* \param camera ì¹´ë©”ë¼
 */
 class CKatoPoseEstimator :
 	public CPoseEstimator
@@ -67,26 +66,26 @@ protected:
 
 
 public:
-	CKatoPoseEstimator(void);		/**<»ı¼ºÀÚ*/
-	~CKatoPoseEstimator(void);		/**<¼Ò¸êÀÚ*/
+	CKatoPoseEstimator(void);		/**<ìƒì„±ì*/
+	~CKatoPoseEstimator(void);		/**<ì†Œë©¸ì*/
 
 	/**
 	* \fn ARTKFloat calculateTransformationMatrix(CCamera *camera, Results* aResult)
-	* \brief Kato & Billinghurst ¾Ë°í¸®Áò ±â¹İÀÇ ¿ÀºêÁ§Æ®¸¦ ¶ç¿ì´Âµ¥ ÇÊ¿äÇÑ ÁÂÇ¥¸¦ ±¸ÇÏ´Â ÇÔ¼ö
-	* \remark Ä«¸Ş¶ó·Î ÀÔ·Â¹ŞÀº ½Ì±Û ¸¶Ä¿ÀÇ ³× ²ÀÁöÁ¡ ÁÂÇ¥¸¦ ¿ÀºêÁ§Æ®¸¦ ¶ç¿ì´Âµ¥ ÇÊ¿äÇÑ  ÁÂÇ¥·Î °è»êÇÏ´Â ÇÔ¼öÀÌ´Ù.
-	* \param camera	ÀÔ·ÂµÈ Ä«¸Ş¶ó Å¬·¡½º
-	* \param aResult °è»êµÈ ÆÄ¶ó¹ÌÅÍ Å¬·¡½º
+	* \brief Kato & Billinghurst ì•Œê³ ë¦¬ì¦˜ ê¸°ë°˜ì˜ ì˜¤ë¸Œì íŠ¸ë¥¼ ë„ìš°ëŠ”ë° í•„ìš”í•œ ì¢Œí‘œë¥¼ êµ¬í•˜ëŠ” í•¨ìˆ˜
+	* \remark ì¹´ë©”ë¼ë¡œ ì…ë ¥ë°›ì€ ì‹±ê¸€ ë§ˆì»¤ì˜ ë„¤ ê¼­ì§€ì  ì¢Œí‘œë¥¼ ì˜¤ë¸Œì íŠ¸ë¥¼ ë„ìš°ëŠ”ë° í•„ìš”í•œ  ì¢Œí‘œë¡œ ê³„ì‚°í•˜ëŠ” í•¨ìˆ˜ì´ë‹¤.
+	* \param camera	ì…ë ¥ëœ ì¹´ë©”ë¼ í´ë˜ìŠ¤
+	* \param aResult ê³„ì‚°ëœ íŒŒë¼ë¯¸í„° í´ë˜ìŠ¤
 	*/
 	ARTKFloat calculateTransformationMatrix(CCamera *camera, Results* aResult);
 	//void setCamera(CCamera* camera);
 	/**
 	* \fn ARTKFloat calculateTranformationMatrixMulti(CCamera* camera, Results* results, int marker_num, MultiConfigure* config)
-	* \brief Kato & Billinghurst ¾Ë°í¸®Áò ±â¹İÀÇ ¿ÀºêÁ§Æ®¸¦ ¶ç¿ì´Âµ¥ ¸ÖÆ¼ ¸¶Ä¿ »ç¿ë½Ã ÇÊ¿äÇÑ ÁÂÇ¥¸¦ ±¸ÇÏ´Â ÇÔ¼ö
-	* \remark Ä«¸Ş¶ó·Î ÀÔ·Â¹ŞÀº ¸ÖÆ¼ ¸¶Ä¿ÀÇ ³× ²ÀÁöÁ¡ ÁÂÇ¥¸¦ ¿ÀºêÁ§Æ®¸¦ ¶ç¿ì´Âµ¥ ÇÊ¿äÇÑ  ÁÂÇ¥·Î °è»êÇÏ´Â ÇÔ¼öÀÌ´Ù.
-	* \param camera	ÀÔ·ÂµÈ Ä«¸Ş¶ó Å¬·¡½º
-	* \param results °è»êµÈ ÆÄ¶ó¹ÌÅÍ Å¬·¡½º
-	* \param marker_num ¸¶Ä¿ °³¼ö
-	* \param config ¸ÖÆ¼¸¶Ä¿ configure µ¥ÀÌÅÍ
+	* \brief Kato & Billinghurst ì•Œê³ ë¦¬ì¦˜ ê¸°ë°˜ì˜ ì˜¤ë¸Œì íŠ¸ë¥¼ ë„ìš°ëŠ”ë° ë©€í‹° ë§ˆì»¤ ì‚¬ìš©ì‹œ í•„ìš”í•œ ì¢Œí‘œë¥¼ êµ¬í•˜ëŠ” í•¨ìˆ˜
+	* \remark ì¹´ë©”ë¼ë¡œ ì…ë ¥ë°›ì€ ë©€í‹° ë§ˆì»¤ì˜ ë„¤ ê¼­ì§€ì  ì¢Œí‘œë¥¼ ì˜¤ë¸Œì íŠ¸ë¥¼ ë„ìš°ëŠ”ë° í•„ìš”í•œ  ì¢Œí‘œë¡œ ê³„ì‚°í•˜ëŠ” í•¨ìˆ˜ì´ë‹¤.
+	* \param camera	ì…ë ¥ëœ ì¹´ë©”ë¼ í´ë˜ìŠ¤
+	* \param results ê³„ì‚°ëœ íŒŒë¼ë¯¸í„° í´ë˜ìŠ¤
+	* \param marker_num ë§ˆì»¤ ê°œìˆ˜
+	* \param config ë©€í‹°ë§ˆì»¤ configure ë°ì´í„°
 	*/
 	ARTKFloat calculateTranformationMatrixMulti(CCamera* camera, Results* results, int marker_num, MultiConfigure* config);
 };

@@ -7,7 +7,7 @@
 #include "PoseEstimator/Camera.h"
 
 //==========================================================================================
-//======			ColorCode ½ÇÇà 
+//======			ColorCode ì‹¤í–‰ 
 bool mslGetMarkerLocation(	Point2D	points[4], Results	*result);
 
 

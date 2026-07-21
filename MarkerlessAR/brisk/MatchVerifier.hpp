@@ -29,7 +29,7 @@ Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 #define SQR(a) ((a)*(a))
 
-template< typename KeypointT, template <typename KeypointT> class GroundTruthT >
+template< typename KeypointT, template <typename> class GroundTruthT >
 struct MatchVerifier
 {
 	// Expects a path to ground truth data in GroundTruthT-style and a tolerance

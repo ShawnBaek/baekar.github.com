@@ -1,11 +1,18 @@
 #pragma once
 #define _STDINT
+
+// Platform headers
+#ifdef _WIN32
 #include <windows.h>
 #include <process.h>
+#else
+#include "compat/win32_stub.h"
+#endif
+
 #include <fstream>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
+// <opencv2/gpu/gpu.hpp> removed â€” OpenCV CUDA module not available on macOS
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -15,7 +22,12 @@
 #include <iostream>
 #include <list>
 
-#include "stdint.h"
+// stdint.h â€” system-provided on macOS; MSVC polyfill only needed for old VS
+#ifdef _MSC_VER
+#include "msc_stdint.h"
+#else
+#include <cstdint>
+#endif
 #include "brisk/brisk.h"
 //#include "projection.h"
 #include "brisk/Matcher.h"
@@ -25,7 +37,13 @@
 
 #include "HandyAR/HandyAR.h"
 
-#include <gl/glut.h>
+// OpenGL/GLUT headers â€” macOS paths
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
+
 #include "SungwookUtility.hpp"
 #include "SungwookFeature.hpp"
 #include "SungwookAR.hpp"
@@ -37,7 +55,7 @@
 class GLOBAL
 {
 public:
-	//OpenGL °ü·ÃµÈ º¯¼ö
+	//OpenGL ê´€ë ¨ëœ ë³€ìˆ˜
 	static bool OpenGLinit;
 	static CKatoPoseEstimator poseEstimator;
 	static CvSize	size;
@@ -61,7 +79,7 @@ public:
 	static double	mProjection[16];
 
 
-	// ¿µ»ó ÀÔ·Â ¹ŞÀ» CaptureÇü ¼±¾ğ
+	// ì˜ìƒ ì…ë ¥ ë°›ì„ Captureí˜• ì„ ì–¸
 	static VideoCapture	capture;
 	static VideoCapture	capture1;
 	static VideoCapture	capture2;
@@ -125,7 +143,7 @@ public:
 	static bool bThreadTracking1;
 	static bool bThreadTracking2;
 
-	// Thread Ã³¸®¸¦ À§ÇÑ HANDLE
+	// Thread ì²˜ë¦¬ë¥¼ ìœ„í•œ HANDLE
 	static HANDLE hMatchingThread[2];
 	static HANDLE hTrackingThread[2];
 	static HANDLE hDrawThread;
@@ -155,8 +173,9 @@ public:
 	static LPCSTR lpszClass;
 	static int InitializeEngineMain();
 	static int ReleaseEngineMain();
-	static unsigned __stdcall ThreadBRISKMatching(void *param);
-	static unsigned __stdcall ThreadTracking(void *param);
-	static unsigned __stdcall ThreadDraw(void *param);
+	// Thread function declarations â€” __stdcall removed for macOS port
+	static unsigned int ThreadBRISKMatching(void *param);
+	static unsigned int ThreadTracking(void *param);
+	static unsigned int ThreadDraw(void *param);
 };
 

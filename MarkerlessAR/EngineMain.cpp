@@ -1,20 +1,41 @@
 ﻿#define _STDINT
+
+// Platform headers
+#ifdef _WIN32
 #include <windows.h>
 #include <process.h>
+#else
+#include "compat/win32_stub.h"
+#endif
+
+#ifdef __APPLE__
+#include "compat/macos_camera_auth.h"
+#endif
+
 #include <fstream>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/gpu/gpu.hpp>
+// <opencv2/gpu/gpu.hpp> removed — OpenCV CUDA module not available on macOS
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio/videoio_c.h>
+#include <opencv2/videoio/legacy/constants_c.h>
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
 
 #include <iostream>
 #include <list>
 
-#include "stdint.h"
+// stdint.h — system-provided on macOS; MSVC polyfill only needed for old VS
+#ifdef _MSC_VER
+#include "msc_stdint.h"
+#else
+#include <cstdint>
+#endif
 #include "brisk/brisk.h"
 //#include "projection.h"
 #include "brisk/Matcher.h"
@@ -24,7 +45,13 @@
 
 #include "HandyAR/HandyAR.h"
 
-#include <gl/glut.h>
+// OpenGL/GLUT headers — macOS paths
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
+
 #include "SungwookUtility.hpp"
 #include "SungwookFeature.hpp"
 #include "SungwookAR.hpp"
@@ -32,6 +59,42 @@
 #include "KatoPoseEstimation/KatoPoseEstimator.h"
 #include "wonjo.h"
 //#include <boost/lexical_cast.hpp>
+
+// GLFW for macOS windowing
+#ifndef _WIN32
+#include <unistd.h>
+#include <GLFW/glfw3.h>
+static GLFWwindow* g_window = nullptr;
+static bool g_mouseDown = false;
+static bool g_mouseWasDown = false;
+static double g_mousePrevX = 0, g_mousePrevY = 0;
+#endif
+
+#ifdef __APPLE__
+#include <dirent.h>
+#include <algorithm>
+#include "compat/macos_window_capture.h"
+#include "compat/macos_camera_menu.h"
+#include "Contents.hpp"
+static int g_chosenCameraIndex = -1;
+
+// Forward decl: gCapture is defined in HandyAR/HandyAR.h (included via
+// EngineMain.cpp's existing includes). The menu callback fires on the
+// AppKit main thread; SwitchCamera mutex-free (just AVCap close+reopen).
+extern Capture gCapture;
+static void OnCameraMenuPicked(int newIdx) {
+    gCapture.SwitchCamera(newIdx);
+    g_chosenCameraIndex = newIdx;
+}
+static Contents  g_contents;
+static WCStream* g_winStream  = nullptr;
+static unsigned int g_winTexture = 0;
+static const int    kWinTexW    = 512;
+static const int    kWinTexH    = 512;
+static std::vector<uint8_t> g_winFrameBuf;
+static bool         g_winPlaneSpawned = false;
+#endif
+
 using namespace cv;
 
 
@@ -62,9 +125,39 @@ double	mProjection[16];
 
 
 // 영상 입력 받을 Capture형 선언
+// On macOS, only one VideoCapture can access a camera at a time (AVFoundation).
+// gCapture owns the camera; threads read from a shared frame buffer instead.
+#ifdef _WIN32
 VideoCapture	capture(0);
 VideoCapture	capture1(0);
 VideoCapture	capture2(0);
+#else
+// Shared frame buffer: mainLoop captures from gCapture and stores the latest
+// frame here.  Matching/tracking threads read from this shared buffer.
+#include <mutex>
+static std::mutex g_frameMutex;
+static Mat g_sharedFrame;
+
+static Mat getSharedFrame() {
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	return g_sharedFrame.clone();
+}
+static void setSharedFrame(const Mat& frame) {
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	frame.copyTo(g_sharedFrame);
+}
+// Dummy VideoCapture objects (never opened) to keep Windows code path compilable
+VideoCapture	capture;
+VideoCapture	capture1;
+VideoCapture	capture2;
+
+// Camera fallback: when camera is unavailable, use a dummy frame
+static bool g_cameraAvailable = false;
+static cv::Mat g_dummyFrameMat;
+static IplImage g_dummyIpl;
+static bool g_markerSimulationEnabled = false;
+static std::string g_markerSimulationPath;
+#endif
 
 char ch=0;
 const int MAX_CORNERS=200;
@@ -153,12 +246,65 @@ bool hamming = true;
 CRITICAL_SECTION   hCriticalSection[2];
 ofstream mslNFT_Log("mslNFT_Log.txt");
 
-strFilename Filename[20] = 
+strFilename Filename[20] =
 {
 	//파일명을 iu2에서 yejin으로 수정함
-    "../image/yejin.jpg",
-	"../image/yejin.jpg",
+    "image/yejin.jpg",
+	"image/yejin.jpg",
 };
+
+#ifdef __APPLE__
+// Lists feature-detectable photos in image/ and lets the user pick one as
+// the marker image (the BRISK reference). Empty input or a bad index
+// keeps the hardcoded default in Filename[0].
+static std::string PickMarkerImage()
+{
+	const char* dirpath = "image";
+	DIR* d = opendir(dirpath);
+	if (!d) {
+		fprintf(stderr, "MarkerPicker: cannot open '%s' (cwd-relative); keeping default\n", dirpath);
+		return "";
+	}
+	std::vector<std::string> images;
+	struct dirent* ent;
+	while ((ent = readdir(d)) != nullptr) {
+		std::string name = ent->d_name;
+		if (name.size() < 5) continue;
+		std::string lower = name;
+		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+		auto endsWith = [&](const char* ext) {
+			size_t L = strlen(ext);
+			return lower.size() >= L && lower.compare(lower.size()-L, L, ext) == 0;
+		};
+		if (endsWith(".jpg") || endsWith(".jpeg") || endsWith(".png"))
+			images.push_back(name);
+	}
+	closedir(d);
+	std::sort(images.begin(), images.end());
+
+	if (images.empty()) {
+		fprintf(stderr, "MarkerPicker: no images found in '%s'\n", dirpath);
+		return "";
+	}
+
+	fprintf(stderr, "\n=== Pick a feature-detectable marker image ===\n");
+	for (size_t i = 0; i < images.size(); ++i)
+		fprintf(stderr, "  [%2zu] %s\n", i, images[i].c_str());
+	fprintf(stderr, "Enter index (0-%zu), or anything else to keep default (yejin.jpg): ",
+	        images.size()-1);
+	fflush(stderr);
+
+	char line[64] = {0};
+	if (!fgets(line, sizeof(line), stdin)) return "";
+	int idx = -1;
+	if (sscanf(line, "%d", &idx) != 1 || idx < 0 || idx >= (int)images.size())
+		return "";
+
+	std::string path = std::string(dirpath) + "/" + images[idx];
+	fprintf(stderr, "MarkerPicker: chose [%d] %s\n", idx, path.c_str());
+	return path;
+}
+#endif
 
 //////////////////////////////HandyAR Display()////////////////////////////////////////////
 
@@ -375,12 +521,17 @@ void init()
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, 0 );
-    IplImage * tempImage = cvLoadImage( EARTH_TEXTURE_FILENAME, 1 );
-    // convert image R and B channel
-    cvConvertImage( tempImage, tempImage, CV_CVTIMG_SWAP_RB );
-    cvFlip( tempImage );
-    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, tempImage->width, tempImage->height, GL_RGB, GL_UNSIGNED_BYTE, tempImage->imageData );
-    cvReleaseImage( &tempImage );
+    cv::Mat tempMat = cv::imread( EARTH_TEXTURE_FILENAME, cv::IMREAD_COLOR );
+    if (!tempMat.empty()) {
+        cv::cvtColor( tempMat, tempMat, cv::COLOR_BGR2RGB );
+        IplImage tempImageHdr = cvIplImage(tempMat);
+        IplImage * tempImage = &tempImageHdr;
+        cvFlip( tempImage );
+        glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, tempImage->width, tempImage->height, GL_RGB, GL_UNSIGNED_BYTE, tempImage->imageData );
+    } else {
+        fprintf(stderr, "Warning: could not load texture '%s'\n", EARTH_TEXTURE_FILENAME);
+    }
+    // tempImage is stack-allocated wrapper, no release needed
 
     // Init bunny
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -449,8 +600,50 @@ namespace wonjo_dx
 
 IplImage		*img_input;
 
+int InitializeEngineMain();  // forward declaration
+
+#ifndef _WIN32
+#include <thread>
+#include <atomic>
+static bool g_engineInitialized = false;
+static std::atomic<bool> g_engineInitStarted{false};
+static std::atomic<bool> g_engineInitDone{false};
+static std::atomic<int>  g_engineInitResult{-1};
+
+static void engineInitThread() {
+	g_engineInitResult = InitializeEngineMain();
+	g_engineInitDone = true;
+}
+#endif
+
 static void mainLoop(void)
 {
+#ifndef _WIN32
+	// Run engine init synchronously on the main thread the first time mainLoop
+	// fires. Capture::open has its own 10s timeout and the AVFoundation auth
+	// request runs at startup, so the only way init blocks is a stuck camera
+	// daemon — which the timeout handles. Init must run on the main thread
+	// because FingertipPoseEstimation::Initialize calls glGenTextures, and on
+	// macOS GL calls only work on the thread that owns the context.
+	if (!g_engineInitialized) {
+		fprintf(stderr, "BaekAR: Starting engine initialization...\n");
+		fflush(stderr);
+		int rc = InitializeEngineMain();
+		if (rc != 0) {
+			fprintf(stderr, "BaekAR: Engine initialization failed (%d). Check camera permissions.\n", rc);
+			fprintf(stderr, "BaekAR: On macOS, grant camera access in:\n");
+			fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
+			fflush(stderr);
+			if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
+			return;
+		}
+		fprintf(stderr, "BaekAR: Engine initialized successfully.\n");
+		fflush(stderr);
+		g_engineInitialized = true;
+		return; // skip first frame to let things settle
+	}
+#endif
+#ifdef _WIN32
 	if( GetKeyState(VK_LBUTTON) & 0x8000 )
 	{
 		POINT pt;
@@ -458,6 +651,34 @@ static void mainLoop(void)
 		ScreenToClient(NULL, &pt);
 		wonjo_dx::Picking(pt);
 	}
+#else
+	if (g_window) {
+		double mx, my;
+		glfwGetCursorPos(g_window, &mx, &my);
+
+		if (g_mouseDown && !g_mouseWasDown) {
+			// Mouse-down edge: pick the AR content under the cursor.
+			POINT pt; pt.x = (LONG)mx; pt.y = (LONG)my;
+			D3DXVECTOR3 ro, rd;
+			wonjo_dx::PickingRay(pt, &ro, &rd);
+			int hit = g_contents.pick(ro, rd);
+			if (hit >= 0) {
+				g_contents.select(hit);
+				fprintf(stderr, "BaekAR: picked AR content #%d\n", hit);
+			} else {
+				g_contents.deselectAll();
+				// Preserve the original z=0 picking trace for the no-hit case.
+				wonjo_dx::Picking(pt);
+			}
+		} else if (g_mouseDown && g_mouseWasDown) {
+			// Drag: translate the selected item.
+			g_contents.dragSelected(mx - g_mousePrevX, my - g_mousePrevY);
+		}
+		g_mousePrevX = mx;
+		g_mousePrevY = my;
+		g_mouseWasDown = g_mouseDown;
+	}
+#endif
 	
 	IplImage		img_output;
 	//경민 여기서 img_input에 값이 들어오나 확인좀
@@ -540,20 +761,11 @@ static void mainLoop(void)
 
 
 	cvFlip(image);
-	if(bThreadTracking1==true)
-	{		
-		cvLine(image, dst_tracking_corners1[0], dst_tracking_corners1[1], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[1], dst_tracking_corners1[2], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[2], dst_tracking_corners1[3], Scalar( 0, 255, 255), 4);
-		cvLine(image, dst_tracking_corners1[3], dst_tracking_corners1[0], Scalar( 0, 255, 255), 4);
-	}
-	else if(bThreadDetection1==true)
-	{
-		cvLine(image, dst_matching_corners1[0], dst_matching_corners1[1], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[1], dst_matching_corners1[2], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[2], dst_matching_corners1[3], Scalar( 255, 255, 255), 4);
-		cvLine(image, dst_matching_corners1[3], dst_matching_corners1[0], Scalar( 255, 255, 255), 4);
-	}
+	// Don't draw the rectangle into the image here (the camera-preview
+	// quad does an H+V texture flip that puts cvLine output in the wrong
+	// place on screen). The rectangle is drawn later in OpenGL screen-
+	// space ortho, sharing the same coordinate convention as the AR
+	// overlay teapot — they always agree.
 	
 	
 	cvFlip(image, NULL, -1);
@@ -576,6 +788,7 @@ static void mainLoop(void)
 	{
 		wonjo_dx::BeginRender();
 		wonjo_dx::AAR3DDrawCameraPreview(image->imageData,640,480);
+
 		//D3DXMatrixPerspectiveFovLH(&matProj,Deg2Rad(73.0f),640/480,1.0f,100000.0f);
 		camera.D3DXMakeProjectionMatrix(&matProj);
 		wonjo_dx::SetProjectionMatrix(&matProj);
@@ -583,10 +796,112 @@ static void mainLoop(void)
 		if(bThreadDetection1 || bThreadTracking1)
 		{
 			camera.featurePoseEstimation();
-			
+
 			camera.D3DXMakeViewMatrix(&matView);
 			//D3DXMatrixLookAtLH(&matView,&D3DXVECTOR3(0,0,-200.0f),&D3DXVECTOR3(0,0,0),&D3DXVECTOR3(0,1,0));
 			wonjo_dx::SetModelViewMatrix(&matView);
+
+#ifdef __APPLE__
+			static int matLogTick = 0;
+			if (++matLogTick % 30 == 0) {
+				fprintf(stderr, "matProj:\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n",
+					matProj.m[0][0], matProj.m[0][1], matProj.m[0][2], matProj.m[0][3],
+					matProj.m[1][0], matProj.m[1][1], matProj.m[1][2], matProj.m[1][3],
+					matProj.m[2][0], matProj.m[2][1], matProj.m[2][2], matProj.m[2][3],
+					matProj.m[3][0], matProj.m[3][1], matProj.m[3][2], matProj.m[3][3]);
+				fprintf(stderr, "matView:\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n  %g %g %g %g\n",
+					matView.m[0][0], matView.m[0][1], matView.m[0][2], matView.m[0][3],
+					matView.m[1][0], matView.m[1][1], matView.m[1][2], matView.m[1][3],
+					matView.m[2][0], matView.m[2][1], matView.m[2][2], matView.m[2][3],
+					matView.m[3][0], matView.m[3][1], matView.m[3][2], matView.m[3][3]);
+				fflush(stderr);
+			}
+
+			// AR overlay anchored to the matching corners (screen-space).
+			// The marker pose matrices are D3D LH and don't translate cleanly
+			// to OpenGL's RH convention, so the world-space DrawMesh path
+			// projects the geometry off-screen. As a working alternative
+			// that still tracks the marker correctly: render a 3D mesh in an
+			// ortho overlay, positioned at the centroid of dst_matching_corners1
+			// and sized by the marker's diagonal in screen pixels. The mesh
+			// follows the marker as you move it because the screen-space
+			// corners do.
+			{
+				float cx = 0, cy = 0;
+				for (int k = 0; k < 4; ++k) {
+					cx += dst_matching_corners1[k].x;
+					cy += dst_matching_corners1[k].y;
+				}
+				cx *= 0.25f;
+				cy *= 0.25f;
+				float dx = dst_matching_corners1[0].x - dst_matching_corners1[2].x;
+				float dy = dst_matching_corners1[0].y - dst_matching_corners1[2].y;
+				float diag = sqrtf(dx*dx + dy*dy);
+				float meshScale = diag * 0.20f;  // teapot ~ 40% of marker diagonal
+
+				if (diag > 20.0f && diag < 1500.0f) {
+					glMatrixMode(GL_PROJECTION);
+					glPushMatrix();
+					glLoadIdentity();
+					glOrtho(0, 640, 480, 0, -1000, 1000);
+					glMatrixMode(GL_MODELVIEW);
+					glPushMatrix();
+					glLoadIdentity();
+
+					// Yellow tracking rectangle — same coord system as the
+					// teapot, so they always agree on where the marker is.
+					glDisable(GL_DEPTH_TEST);
+					glDisable(GL_TEXTURE_2D);
+					glDisable(GL_LIGHTING);
+					glColor3f(1.0f, 1.0f, 0.0f);
+					glLineWidth(4.0f);
+					glBegin(GL_LINE_LOOP);
+						for (int k = 0; k < 4; ++k)
+							glVertex2f(dst_matching_corners1[k].x,
+							           dst_matching_corners1[k].y);
+					glEnd();
+					glLineWidth(1.0f);
+
+					// Real .X mesh — Arrow3Axis.X loaded by Assimp in PR #14.
+					// Anchored at the marker centroid like the teapot was.
+					glTranslatef(cx, cy, 0);
+					// Spin slowly around screen-space Y so the user sees it's 3D.
+					static float spinDeg = 0;
+					spinDeg += 1.2f;
+					glRotatef(spinDeg, 0, 1, 0);
+					// Mesh native extents are ~1 unit; scale to marker size.
+					// Negative Y to align with screen-down convention.
+					glScalef(meshScale, -meshScale, meshScale);
+
+					glEnable(GL_DEPTH_TEST);
+					glEnable(GL_LIGHTING);
+					glEnable(GL_LIGHT0);
+					GLfloat lp[4] = { 0.5f, 0.5f, 1.0f, 0.0f };
+					GLfloat ld[4] = { 1, 1, 1, 1 };
+					GLfloat la[4] = { 0.3f, 0.3f, 0.3f, 1 };
+					glLightfv(GL_LIGHT0, GL_POSITION, lp);
+					glLightfv(GL_LIGHT0, GL_DIFFUSE,  ld);
+					glLightfv(GL_LIGHT0, GL_AMBIENT,  la);
+					glEnable(GL_COLOR_MATERIAL);
+					glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+
+					// Identity world matrix → DrawMesh draws at the current
+					// modelview position (where we just translated/scaled).
+					D3DXMATRIXA16 ident;
+					for (int r = 0; r < 4; ++r)
+						for (int c = 0; c < 4; ++c)
+							ident.m[r][c] = (r == c) ? 1.0f : 0.0f;
+					wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), &ident);
+
+					glDisable(GL_LIGHTING);
+
+					glPopMatrix();
+					glMatrixMode(GL_PROJECTION);
+					glPopMatrix();
+					glMatrixMode(GL_MODELVIEW);
+				}
+			}
+#endif
 
 // 			std::cout << "marker projection is ";
 // 			for(int i = 0 ; i < 16 ; ++i)
@@ -602,7 +917,11 @@ static void mainLoop(void)
 // 			std::cout << std::endl;
 			
 			//wonjo_dx::AAR3DDrawMesh("IEFrame",NULL,35.0f);
+#ifdef _WIN32
+			// AAR3DTexturing captures a target Win32 window's pixels via
+			// FindWindow/GetDC/PrintWindow as an AR texture — Windows-only.
 			wonjo_dx::AAR3DTexturing text("IEFrame",NULL);
+#endif
 
 			
 // 			if(camera.m_vecTrans)	//m_vecTrans : (= T)
@@ -655,8 +974,25 @@ static void mainLoop(void)
 			
  			wonjo_dx::DrawPlane(wonjo_dx::MakeScaleMatrix(35,35,35));
  			wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"),wonjo_dx::MakeScaleMatrix(10,10,10));			//드로우
-// 			
-		
+//
+
+#ifdef __APPLE__
+			// Window-as-AR-texture (thesis novelty): pull the latest frame from
+			// ScreenCaptureKit, upload to a GL texture, and render via Contents.
+			// The textured plane lives in marker-local space, so it locks to
+			// the tracked image and the user can pick/drag it.
+			if (g_winStream) {
+				if (WCStream_LatestFrame(g_winStream, g_winFrameBuf.data(), kWinTexW, kWinTexH)) {
+					wonjo_dx::UploadTexture(&g_winTexture, g_winFrameBuf.data(), kWinTexW, kWinTexH);
+				}
+				if (g_winTexture != 0 && !g_winPlaneSpawned) {
+					g_contents.addWindowPlane(g_winTexture, /*halfSize=*/50.0f);
+					g_winPlaneSpawned = true;
+				}
+				g_contents.render();
+			}
+#endif
+
 		}//end of processing marker
 	
 		
@@ -672,13 +1008,33 @@ static void mainLoop(void)
 	// capture
 	IplImage * frame = 0;
 
-	gCapture.CaptureFrame();
-	frame = gCapture.QueryFrame();
+#ifndef _WIN32
+	if (g_cameraAvailable) {
+#endif
+		gCapture.CaptureFrame();
+		frame = gCapture.QueryFrame();
+#ifndef _WIN32
+	}
+	if ( !frame )
+	{
+		// Use dummy frame when camera is unavailable
+		frame = &g_dummyIpl;
+	}
+#else
 	if ( !frame )
 	{
 		return;
 	}
+#endif
 	gFingertipPoseEstimation.OnCapture( frame, gCapture.QueryTickCount() );
+
+#ifndef _WIN32
+	// Publish camera frame to shared buffer for matching/tracking threads
+	if (g_cameraAvailable) {
+		cv::Mat frameMat = cv::cvarrToMat(frame, false);
+		setSharedFrame(frameMat);
+	}
+#endif
 
 	
 	// process fingertip pose estimation
@@ -716,8 +1072,10 @@ static void mainLoop(void)
 //		std::cout << std::endl;
 //		
 	//	D3DXMatrixLookAtLH(&matView,&D3DXVECTOR3(0,20000,20000),&D3DXVECTOR3(0,0,0),&D3DXVECTOR3(0,1,0));
+#ifdef _WIN32
 		wonjo_dx::GetDevice()->SetTransform(D3DTS_PROJECTION,&matProj);
-		wonjo_dx::GetDevice()->SetTransform(D3DTS_VIEW,&matView);	
+		wonjo_dx::GetDevice()->SetTransform(D3DTS_VIEW,&matView);
+#endif	
 		//wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), 1000000000.0f);
 		//wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("hand000.X"), 10000000);
 		wonjo_dx::DrawMesh(wonjo_dx::LoadMeshFromFile("Arrow3Axis.X"), wonjo_dx::MakeScaleMatrix(10.0f,10.0f,10.0f));
@@ -732,11 +1090,44 @@ static void mainLoop(void)
 
 		//wonjo_dx::AAR3DDrawMesh("IEFrame",NULL,35.0f);
 
+#ifdef __APPLE__
+		// Thesis interaction model: 5-finger gesture = point/click. Use the
+		// index finger's smoothed 2D position (in 320x240 HandyAR space)
+		// as a virtual cursor; on entering the gesture, run a pick against
+		// g_contents; while held, drag the selected item.
+		static bool         g_fingerActive = false;
+		static CvPoint2D32f g_fingerPrev   = {0, 0};
+#endif
 		if ( gFingertipPoseEstimation.QueryValidPose() )
 		{
 			std::cout << " Valid Fingertip!! " <<std::endl;
-		
+#ifdef __APPLE__
+			CvPoint2D32f tip = gFingertipPoseEstimation.QueryFingertip2D(1); // index finger
+			float curX = tip.x * 2.0f;  // 320x240 -> 640x480 GLFW window
+			float curY = tip.y * 2.0f;
+			if (!g_fingerActive) {
+				POINT pt; pt.x = (LONG)curX; pt.y = (LONG)curY;
+				D3DXVECTOR3 ro, rd;
+				wonjo_dx::PickingRay(pt, &ro, &rd);
+				int hit = g_contents.pick(ro, rd);
+				if (hit >= 0) {
+					g_contents.select(hit);
+					fprintf(stderr, "BaekAR: fingertip picked AR content #%d at (%g,%g)\n",
+					        hit, curX, curY);
+				}
+			} else {
+				g_contents.dragSelected(curX - g_fingerPrev.x, curY - g_fingerPrev.y);
+			}
+			g_fingerPrev.x = curX;
+			g_fingerPrev.y = curY;
+			g_fingerActive = true;
+#endif
 		}
+#ifdef __APPLE__
+		else {
+			g_fingerActive = false;  // gesture ended — release drag state
+		}
+#endif
 		gFingertipPoseEstimation.TickCountEnd();//(7) Rendering
 		gFingertipPoseEstimation.TickCountNewLine();
 	}
@@ -832,7 +1223,9 @@ void doTrack(void	*imgPtr){
 	
 }
 
+#ifdef _WIN32
 LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam);
+#endif
 LPCSTR lpszClass = "BaekAR Application : State of Art Argumented Reality Browser";
 //int main(int argc, char* argv[]) 
 //INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd )
@@ -854,46 +1247,75 @@ int InitializeEngineMain()
     }
 
     // initialize capture
+    bool cameraOk = false;
+#ifndef _WIN32
+    if ( g_markerSimulationEnabled )
+    {
+        fprintf( stderr, "BaekAR: starting marker simulation with %s\n",
+                 g_markerSimulationPath.c_str() );
+        cameraOk = gCapture.InitializeSynthetic( g_markerSimulationPath.c_str() );
+        if ( !cameraOk )
+            fprintf( stderr, "marker simulation initialization failed.\n" );
+    }
+    else
+#endif
     if ( fInputVideoFile )
     {
         // Capture From File
         if ( !gCapture.Initialize( fFlipFrame, -1, "record_debug.avi" ) )
         {
             fprintf( stderr, "capture initialization failed.\n" );
-            return -1;
         }
+        else
+            cameraOk = true;
     } else
     {
         // Live Capture From Camera
+#ifdef __APPLE__
+        // Use the user's chosen camera index (set by PickCameraIndex in main()).
+        // -1 means "use the default index 0".
+        int camIndex = (g_chosenCameraIndex >= 0) ? g_chosenCameraIndex : -1;
+        if ( !gCapture.Initialize( fFlipFrame, camIndex ) )
+#else
         if ( !gCapture.Initialize( fFlipFrame ) )
+#endif
         {
             fprintf( stderr, "capture initialization failed.\n" );
-            return -1;
         }
+        else
+            cameraOk = true;
     }
-
-
-	// OpenGL loop
-	//120325 cwj
-	//char *myargv [1];
-	//int myargc=1;
-	//myargv [0]=strdup ("Myappname");
-
-
-    //glutInit(&myargc, &myargv[0]);
-    //glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH );
-    //glutInitWindowPosition( 100, 100 );
-	//~120325 cwj
 
     // Init Capture
     IplImage * frame = 0;
-    gCapture.CaptureFrame();
-    frame = gCapture.QueryFrame();
+    if (cameraOk) {
+        gCapture.CaptureFrame();
+        frame = gCapture.QueryFrame();
+    }
     if ( !frame )
     {
+#ifndef _WIN32
+        // Camera unavailable — create a dummy frame so the app can still run
+        fprintf( stderr, "Camera unavailable — running with dummy frame.\n" );
+        fflush(stderr);
+        g_cameraAvailable = false;
+        g_dummyFrameMat = cv::Mat::zeros(480, 640, CV_8UC3);
+        cv::putText(g_dummyFrameMat, "Camera Unavailable", cv::Point(140, 220),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0, 0, 255), 2);
+        cv::putText(g_dummyFrameMat, "BaekAR Engine Running", cv::Point(130, 280),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
+        g_dummyIpl = cvIplImage(g_dummyFrameMat);
+        frame = &g_dummyIpl;
+#else
         fprintf( stderr, "failed to capture a frame...\n" );
         return -1;
+#endif
     }
+#ifndef _WIN32
+    else {
+        g_cameraAvailable = true;
+    }
+#endif
 
     // Create Glut Window
 	//120325 cwj
@@ -907,10 +1329,17 @@ int InitializeEngineMain()
 	//~120325 cwj
 
     // Init Fingertip Pose Estimation
-    if ( gFingertipPoseEstimation.Initialize( frame, "../calibration.txt" ) == false )
+    fprintf(stderr, "DBG: About to init FingertipPoseEstimation...\n"); fflush(stderr);
+    if ( gFingertipPoseEstimation.Initialize( frame, "calibration/calibration.txt" ) == false )
     {
+#ifndef _WIN32
+        fprintf(stderr, "Warning: FingertipPoseEstimation init failed (continuing anyway)\n");
+        fflush(stderr);
+#else
         return -1;
+#endif
     }
+    fprintf(stderr, "DBG: FingertipPoseEstimation init done\n"); fflush(stderr);
 
 	//120325 cwj
     // initialize video writer
@@ -944,8 +1373,21 @@ int InitializeEngineMain()
 	#endif
 	
 	
-	detector = new BriskFeatureDetector(60,2);
-	descriptorExtractor = new BriskDescriptorExtractor();
+	// Note: capture/capture1/capture2 are NOT opened on macOS — only one VideoCapture
+	// can access camera 0 at a time with AVFoundation. gCapture owns the camera.
+	// The matching/tracking threads will get empty frames and skip processing.
+
+	fprintf(stderr, "DBG: Creating BRISK detector...\n"); fflush(stderr);
+	// Use OpenCV's built-in BRISK (the bundled MarkerlessAR/brisk/ predates
+	// OpenCV's Feature2D interface and throws "not implemented" on detect()).
+	{
+		// Threshold 60 was too strict for screen-displayed markers (iPhone /
+		// MacBook screen — soft edges, no crisp print contrast). 30 is the
+		// OpenCV default and finds 5-10x more keypoints on the same scene.
+		cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(30, 3);
+		detector = brisk;
+		descriptorExtractor = brisk;
+	}
 	
 	//BFMatcher matcher(NORM_L2);
 	if(hamming){
@@ -956,8 +1398,8 @@ int InitializeEngineMain()
 		//descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
 
 		
-		descriptorMatcher1 = new BruteForceMatcher<HammingSse>(); 
-		descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
+		descriptorMatcher1 = new BFMatcher(NORM_HAMMING);
+		descriptorMatcher2 = new BFMatcher(NORM_HAMMING);
 		
 	}
 	else{
@@ -985,10 +1427,13 @@ int InitializeEngineMain()
 		img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
 	}
 	*/
+	fprintf(stderr, "DBG: Loading database images...\n"); fflush(stderr);
 	img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
+	fprintf(stderr, "DBG: img1 loaded: %dx%d\n", img_rgbdatabase1.cols, img_rgbdatabase1.rows); fflush(stderr);
 	//2번은 오버라이드하지않는다.
 	img_rgbdatabase2=imread(Filename[1]._strFilename.c_str(), 1);
-		
+	fprintf(stderr, "DBG: img2 loaded: %dx%d\n", img_rgbdatabase2.cols, img_rgbdatabase2.rows); fflush(stderr);
+
 	//Convert rgb to gray
 	cvtColor(img_rgbdatabase1,img_graydatabase1, CV_BGR2GRAY);
 
@@ -1004,6 +1449,7 @@ int InitializeEngineMain()
 	//Move obj_corners to center
 	swMoveCorners(img_graydatabase1, obj_corners1, obj_center_corners1, 0.0, 1.0);
 		
+	fprintf(stderr, "DBG: Detecting keypoints...\n"); fflush(stderr);
 	//Detect Keypoints from img_centerdatase using AGAST Feature Detector
 	detector->detect(img_centerdatabase1,kp_database1);
 	//detector->detect(img_centerdatabase2,kp_database2);
@@ -1014,40 +1460,44 @@ int InitializeEngineMain()
 	//descriptorExtractor->compute(img_centerdatabase2,kp_database2,desc_database2);
 	
 	
+#ifdef _WIN32
 	capture >> gDetectionResult1;
+#else
+	// On macOS, use gCapture's frame (capture is not opened separately)
+	{
+		IplImage* initFrame = gCapture.QueryFrame();
+		if (initFrame) {
+			gDetectionResult1 = cv::cvarrToMat(initFrame, true);
+		}
+	}
+#endif
+	if(gDetectionResult1.empty()) {
+		gDetectionResult1 = Mat::zeros(480, 640, CV_8UC3);
+	}
 	
 	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
 
+	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
 	hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
-	
 	//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
-	
 	hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
 
 	
 
 	//hDrawThread=(HANDLE)_beginthreadex( NULL, 0, &ThreadDraw, 0, 0, &uDrawThreadID);
 		
-	//경민 여기서 capture_C에 값이 들어오나 1차적으로 확인좀 해죠
-	capture_C = cvCaptureFromCAM(0);
-	cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_WIDTH, 640);
-	cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_HEIGHT, 480);
+	// Camera resolution is now set inside gCapture.Initialize() via cv::VideoCapture
+	// capture_C = cvCaptureFromCAM(0);  // removed — legacy C API, gCapture handles capture
+	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_WIDTH, 640);
+	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_HEIGHT, 480);
 
 
 	//remove opengl
 // 	glutInit(&argc, argv);
 // 	init();
- 	camera.load("../calibration/calibration.txt");
-// 	glViewport(0, 0, 640, 480);
-// 
-// 	glutDisplayFunc(mainLoop);				
-// 	glutIdleFunc( mainLoop );
-// 
-// 	//glutKeyboardFunc(keyEvent);
-// 
-// 	glutMainLoop();
-	
- 	//~remove opengl
+ 	fprintf(stderr, "DBG: Loading camera calibration...\n"); fflush(stderr);
+ 	camera.load("calibration/calibration.txt");
+ 	fprintf(stderr, "DBG: InitializeEngineMain complete!\n"); fflush(stderr);
 	return 0;
 }
 
@@ -1084,32 +1534,44 @@ int ReleaseEngineMain()
 	return 0;
 }
 
-unsigned __stdcall ThreadDraw(void *param)
+unsigned int ThreadDraw(void *param)
 {
 	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 	while(true){
-		
-		
+
+
+#ifdef _WIN32
 		capture1>>mInput;
-	
+#else
+		mInput = getSharedFrame();
+#endif
+
+		// Skip if no frame available yet
+		if(mInput.empty()) {
+#ifndef _WIN32
+			struct timespec ts = {0, 50000000}; // 50ms
+			nanosleep(&ts, NULL);
+#endif
+			continue;
+		}
 
 		//Detection or Tracking 체크
 
 		if(bThreadTracking1==true)
 		{
 			
-			line( mInput, dst_tracking_corners1[0], dst_tracking_corners1[1], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[1], dst_tracking_corners1[2], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[2], dst_tracking_corners1[3], Scalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[3], dst_tracking_corners1[0], Scalar( 0, 255, 255), 4 );	
+			line( mInput, dst_tracking_corners1[0], dst_tracking_corners1[1], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[1], dst_tracking_corners1[2], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[2], dst_tracking_corners1[3], cvScalar( 0, 255, 255), 4 );
+			line( mInput, dst_tracking_corners1[3], dst_tracking_corners1[0], cvScalar( 0, 255, 255), 4 );	
 
 		}else
 		{
 
-			line( mInput, dst_matching_corners1[0], dst_matching_corners1[1], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[1], dst_matching_corners1[2], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[2], dst_matching_corners1[3], Scalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[3], dst_matching_corners1[0], Scalar( 255, 255, 255), 4 );	
+			line( mInput, dst_matching_corners1[0], dst_matching_corners1[1], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[1], dst_matching_corners1[2], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[2], dst_matching_corners1[3], cvScalar( 255, 255, 255), 4 );
+			line( mInput, dst_matching_corners1[3], dst_matching_corners1[0], cvScalar( 255, 255, 255), 4 );	
 
 		}
 
@@ -1137,7 +1599,7 @@ unsigned __stdcall ThreadDraw(void *param)
 
 
 
-unsigned __stdcall ThreadBRISKMatching(void *param)
+unsigned int ThreadBRISKMatching(void *param)
 {
 	//namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
 
@@ -1185,17 +1647,31 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 	while(true){
 				
 		if(idxcount==1){
- 			
-			capture1>>matching_thread_rgbcamera;		
+#ifdef _WIN32
+			capture1>>matching_thread_rgbcamera;
+#else
+			matching_thread_rgbcamera = getSharedFrame();
+#endif
 			mbistracking=bThreadTracking1;
-						
+
 		}
 		else if(idxcount==2){
-			
-			capture2>>matching_thread_rgbcamera;		
+#ifdef _WIN32
+			capture2>>matching_thread_rgbcamera;
+#else
+			matching_thread_rgbcamera = getSharedFrame();
+#endif
 			mbistracking=bThreadTracking2;
 		}
-		
+
+		// Skip if no frame available yet
+		if(matching_thread_rgbcamera.empty()) {
+#ifndef _WIN32
+			struct timespec ts = {0, 50000000}; // 50ms
+			nanosleep(&ts, NULL);
+#endif
+			continue;
+		}
 
 		//Convert Camera Input with RGB to Camera Input with GRAY
 		cvtColor(matching_thread_rgbcamera, matching_thread_graycamera, CV_BGR2GRAY);
@@ -1205,6 +1681,16 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 //#endif
 		detector->detect(matching_thread_graycamera,kp_camera_matching_thread);
 		descriptorExtractor->compute(matching_thread_graycamera,kp_camera_matching_thread,desc_camera_matching_thread);
+
+		// Diagnostic after detect: how many keypoints did BRISK find this frame?
+		static int detectTick = 0;
+		if (++detectTick % 30 == 0) {
+			fprintf(stderr, "matching: frame=%dx%d kp_db=%lu kp_cam=%lu desc_cam=%dx%d\n",
+			        matching_thread_graycamera.cols, matching_thread_graycamera.rows,
+			        (unsigned long)kp_database.size(),
+			        (unsigned long)kp_camera_matching_thread.size(),
+			        desc_camera_matching_thread.rows, desc_camera_matching_thread.cols);
+		}
 		
 		matching_thread_result=matching_thread_rgbcamera;
 		std::vector<std::vector<DMatch> > matches;
@@ -1213,26 +1699,19 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		vector<DMatch> matches_popcount; 
 		//double pop_time = match(kpts_1, kpts_2, matcher_popcount, desc_1, desc_2, matches_popcount);
 		
-		if(idxcount==1){
- 			if(hamming){
-
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-			else{
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,0.21);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-
-		}
-		else if(idxcount==2){
-			if(hamming){
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
-			}
-			else{
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,0.21);
-				descriptorMatcher1->radiusMatch(desc_camera_matching_thread,desc_database,matches,100.0);
+		// knnMatch(k=2) + tight Lowe's ratio. Tightened to 0.65 (from 0.75)
+		// because BRISK keypoints on high-contrast UI/text in the camera frame
+		// produce many ambiguous matches; the stricter threshold drops them.
+		{
+			std::vector<std::vector<DMatch>> raw;
+			descriptorMatcher1->knnMatch(desc_camera_matching_thread, desc_database, raw, 2);
+			matches.clear();
+			matches.reserve(raw.size());
+			for (size_t k = 0; k < raw.size(); ++k) {
+				if (raw[k].size() == 2 &&
+				    raw[k][0].distance < 0.65f * raw[k][1].distance) {
+					matches.push_back({ raw[k][0] });
+				}
 			}
 		}
 		
@@ -1258,23 +1737,41 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		 if (computeHomography && (mpts_1.size() > 5))
          {
                 			
-			    if(bInitTracking==true){
-					g_mpts_1=mpts_1;
-					g_mpts_2=mpts_2;
-					
-					bInitTracking=false;
-				}else if(bThreadTracking1==false){
-
-					
-					g_mpts_1=mpts_1;
-					g_mpts_2=mpts_2;
-
-				}
+				// Always feed the latest matches to the tracking thread, even
+				// while bThreadTracking1==true. The original code only did so
+				// when tracking was inactive, which left tracking stuck on a
+				// stale (potentially wrong) initial homography — once tracking
+				// latched onto a wrong region it could never re-sync to fresh
+				// detections. With the always-update policy, every iteration
+				// of matching nudges tracking back toward ground truth.
+				g_mpts_1 = mpts_1;
+				g_mpts_2 = mpts_2;
+				if (bInitTracking) bInitTracking = false;
 				//Find Homography
-				if(mpts_1.size()<5 && mpts_2.size()<5)
+				// Original used `&&` (skip only when BOTH < 5) — wrong: findHomography
+				// requires both inputs to have ≥4 points and equal size. Use `||`.
+				if(mpts_1.size()<5 || mpts_2.size()<5 || mpts_1.size()!=mpts_2.size())
 					continue;
-				
-				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2);
+
+				cv::Mat inlierMask;
+				// Threshold tuned by trial: 1.5 px was too strict (no fits at all
+				// with screen-displayed markers); 3.0 was too loose (wobbly).
+				// 2.5 is the sweet spot. RHO (PROSAC) solver where available;
+				// fall back to RANSAC if RHO can't find a model.
+				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), cv::RHO, 2.5, inlierMask);
+				if (H.empty()) {
+					H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2.5, inlierMask);
+				}
+				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
+
+				static int logTick = 0;
+				if (++logTick % 30 == 0) {
+					fprintf(stderr, "matching: candidates=%lu, inliers=%d\n",
+					        (unsigned long)mpts_1.size(), inlierCount);
+				}
+
+				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 8)
+					continue;
 
 				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
 				perspectiveTransform( obj_matching_corners, dst_matching_corners, H);
@@ -1370,22 +1867,22 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 		
 			
 
-		matches.~vector<vector<DMatch>>();
-	
+		// Was: explicit ~vector / ~Mat on stack-local objects (UB — next
+		// iteration writes through freed storage and heap-corrupts).
+		matches.clear();
+
 		desc_camera_matching_thread.release();
-		kp_camera_matching_thread.~vector<KeyPoint>();
+		kp_camera_matching_thread.clear();
 
 		matching_thread_rgbcamera.release();
 		matching_thread_graycamera.release();
 		matching_thread_result.release();
 
 		dst_matching_corners.clear();
-		
+
 	}
 
-
-	kp_database.~vector<KeyPoint>();
-	desc_database.~Mat();
+	// kp_database / desc_database are auto-storage; let scope exit destruct them.
 	
 	_endthreadex(0);
 	return 0;
@@ -1394,7 +1891,7 @@ unsigned __stdcall ThreadBRISKMatching(void *param)
 
 
 
-unsigned __stdcall ThreadTracking(void *param)
+unsigned int ThreadTracking(void *param)
 {
 		
 	int idxcount=*((int*)param);
@@ -1422,8 +1919,15 @@ unsigned __stdcall ThreadTracking(void *param)
 	img_database_resize.rows = img_rgbdatabase1.rows/2;
 	resize(img_rgbdatabase1,img_database_resize,img_database_resize.size());
 
-	//경민 capture2>>tracking_thread_rgbcamera를 capture1으로 수정함... 왜냐하면 카메라 영상을 받는 변수가 너무 많아서 꼬인거 같아서 수정함
+	//경민 capture2>>tracking_thread_rgbcamera를 capture1으로 수정함
+#ifdef _WIN32
 	capture1>>tracking_thread_rgbcamera;
+#else
+	tracking_thread_rgbcamera = getSharedFrame();
+#endif
+	if(tracking_thread_rgbcamera.empty()) {
+		tracking_thread_rgbcamera = Mat::zeros(480, 640, CV_8UC3);
+	}
 
 	Mat tracking_thread_result(tracking_thread_rgbcamera.rows-img_database_resize.rows+1,tracking_thread_rgbcamera.cols-img_database_resize.cols,CV_32FC1);
 
@@ -1444,9 +1948,21 @@ unsigned __stdcall ThreadTracking(void *param)
 		{
 
 			//경민 capture2를 capture1으로 수정함
+#ifdef _WIN32
 			capture1>>tracking_thread_rgbcamera;
+#else
+			tracking_thread_rgbcamera = getSharedFrame();
+#endif
 
-			
+			// Skip if no frame available yet
+			if(tracking_thread_rgbcamera.empty()) {
+#ifndef _WIN32
+				struct timespec ts = {0, 50000000}; // 50ms
+				nanosleep(&ts, NULL);
+#endif
+				continue;
+			}
+
 			//minMaxLoc을 위한 함수
 			double minVal; double maxVal; Point minLoc; Point maxLoc; Point matchLoc;
 
@@ -1454,7 +1970,15 @@ unsigned __stdcall ThreadTracking(void *param)
 
 			//Homography & NCC
 			//Cam으로부터 받아오는 영상의 포인트 mpts_2, DB로부터 받아오는 포인트 mpts_1
-			if(g_mpts_2.size()<5 && g_mpts_1.size()<5)
+			// Snapshot the shared point sets to locals: PR #13 has matching
+			// thread overwriting g_mpts_1/g_mpts_2 every iteration with no
+			// lock, so size N can change between the size check and the
+			// findHomography call (findHomography then asserts
+			// src.checkVector(2) == dst.checkVector(2)). Copy first, validate
+			// after — local copies are immune to mid-iteration updates.
+			std::vector<cv::Point2f> local_mpts_1 = g_mpts_1;
+			std::vector<cv::Point2f> local_mpts_2 = g_mpts_2;
+			if(local_mpts_2.size()<5 || local_mpts_1.size()<5 || local_mpts_2.size()!=local_mpts_1.size())
 			{
 				//mbisDetecting=false;
 
@@ -1465,9 +1989,17 @@ unsigned __stdcall ThreadTracking(void *param)
 
 				continue;
 			}
-			Mat HH = findHomography(Mat(g_mpts_2), Mat(g_mpts_1), RANSAC, 2);						//Homography
-			Mat HH_inver;			
-				
+			Mat HH = findHomography(Mat(local_mpts_2), Mat(local_mpts_1), RANSAC, 2);						//Homography
+			// RANSAC can fail and return an empty Mat — guard before invert/perspectiveTransform.
+			if(HH.empty() || HH.cols != 3 || HH.rows != 3) {
+				bThreadTracking1=false;
+				//트랙킹을 실패했을 경우 정보를 지워줌
+				dst_tracking_corners.clear();
+				dst_tracking_corners1=dst_tracking_corners;
+				continue;
+			}
+			Mat HH_inver;
+
 
 			invert(HH, HH_inver,DECOMP_LU );//역행렬 계산
 			//bIsHomographyInvertMatrix = true;
@@ -1684,9 +2216,9 @@ unsigned __stdcall ThreadTracking(void *param)
 				
 				/*
 				line( tracking_thread_rgbcamera, dst_tracking_corners[0], dst_tracking_corners[1], Scalar(0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[1], dst_tracking_corners[2], Scalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[2], dst_tracking_corners[3], Scalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[3], dst_tracking_corners[0], Scalar( 0, 255, 255), 4 );	
+				line( tracking_thread_rgbcamera, dst_tracking_corners[1], dst_tracking_corners[2], cvScalar( 0, 255, 255), 4 );
+				line( tracking_thread_rgbcamera, dst_tracking_corners[2], dst_tracking_corners[3], cvScalar( 0, 255, 255), 4 );
+				line( tracking_thread_rgbcamera, dst_tracking_corners[3], dst_tracking_corners[0], cvScalar( 0, 255, 255), 4 );	
 				*/
 				
 				dst_tracking_corners1=dst_tracking_corners;
@@ -1832,11 +2364,12 @@ unsigned __stdcall ThreadTracking(void *param)
 
 
 
+#ifdef _WIN32
 INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd )
 {
 	//console
 	AllocConsole();
-	freopen("CONOUT$","wt",stdout);	
+	freopen("CONOUT$","wt",stdout);
 
 	//////////////////////////////////////////////////////////////////////////
 	//initialize directX
@@ -1863,15 +2396,15 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	ShowWindow(hWnd,nShowCmd);
 
 
-	//초기화
-	if(FAILED(wonjo_dx::AAR3DInitD3D(hWnd))) 
+	//초기화 (EN: Initialization)
+	if(FAILED(wonjo_dx::AAR3DInitD3D(hWnd)))
 	{
 		MessageBox(NULL,"DirectX Device Failed.\nthe application will be terminated.","BaekAR",MB_OK);
-		return 0;	//실패시 윈도우 끝내버림.
+		return 0;	//실패시 윈도우 끝내버림. (EN: Terminate window on failure)
 	}
 	//~initialize directX
 	//////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////// 
+	//////////////////////////////////////////////////////////////////////////
 
 
 	InitializeEngineMain();
@@ -1880,14 +2413,14 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE );
 	while(true) {	//main loop start
 
-		//윈도우 핸들링이 들어올 때 처리
+		//윈도우 핸들링이 들어올 때 처리 (EN: Handle window messages)
 		if( PeekMessage( &Message, NULL, 0U, 0U, PM_REMOVE ) )
 		{
 			TranslateMessage( &Message );
 			DispatchMessage( &Message );
 			continue;
 		}
-		//메시지가 들어오지 않았을 때 처리 (main loop)
+		//메시지가 들어오지 않았을 때 처리 (main loop) (EN: Process main loop when no messages)
 		else mainLoop();
 	}	//end of main loop
 	//~direct X code
@@ -1895,12 +2428,196 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	ReleaseEngineMain();
 	return 0;
 }
+#else
+// macOS entry point — GLFW windowing + OpenGL context
+
+static void glfwKeyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+static void glfwMouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/)
+{
+	if (button == GLFW_MOUSE_BUTTON_LEFT)
+		g_mouseDown = (action == GLFW_PRESS);
+}
+
+int main(int argc, char* argv[])
+{
+#ifndef _WIN32
+	// Change working directory to the executable's directory so that data files
+	// (skin.dis, calibration/, 3dobjects/, etc.) symlinked into the .app bundle
+	// are found relative to the binary.
+	{
+		std::string exePath(argv[0]);
+		auto lastSlash = exePath.rfind('/');
+		if (lastSlash != std::string::npos) {
+			std::string exeDir = exePath.substr(0, lastSlash);
+			chdir(exeDir.c_str());
+			fprintf(stderr, "BaekAR: Working directory set to %s\n", exeDir.c_str());
+			fflush(stderr);
+		}
+	}
+#endif
+
+#ifdef __APPLE__
+	for (int i = 1; i < argc; ++i) {
+		if (std::string(argv[i]) != "--simulate-marker")
+			continue;
+		if (i + 1 >= argc) {
+			fprintf(stderr, "BaekAR: --simulate-marker needs an image path or filename.\n");
+			return 2;
+		}
+
+		std::string markerPath = argv[++i];
+		if (access(markerPath.c_str(), R_OK) != 0 && markerPath.find('/') == std::string::npos)
+			markerPath = std::string("image/") + markerPath;
+		if (access(markerPath.c_str(), R_OK) != 0) {
+			fprintf(stderr, "BaekAR: simulation marker not found: %s\n", markerPath.c_str());
+			return 2;
+		}
+
+		g_markerSimulationEnabled = true;
+		g_markerSimulationPath = markerPath;
+		Filename[0]._strFilename = markerPath;
+		Filename[1]._strFilename = markerPath;
+	}
+#endif
+
+	// Tell OpenCV to skip its own AVFoundation authorization handling.
+	// The .app bundle's Info.plist triggers the macOS permission dialog instead.
+	// Without this, cv::VideoCapture::open() blocks waiting for auth that
+	// never completes (OpenCV issue #7519).
+	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
+
+#ifdef __APPLE__
+	if (!g_markerSimulationEnabled) {
+	{
+		fprintf(stderr, "BaekAR: requesting camera permission...\n");
+		fflush(stderr);
+		if (!RequestCameraPermission()) {
+			fprintf(stderr, "BaekAR: camera permission denied — engine will run with dummy frames.\n");
+			fprintf(stderr, "  Grant access in System Settings > Privacy & Security > Camera, then reset:\n");
+			fprintf(stderr, "  tccutil reset Camera com.baekar.engine\n");
+			fflush(stderr);
+		} else {
+			fprintf(stderr, "BaekAR: camera permission granted.\n");
+			fflush(stderr);
+		}
+	}
+
+	// Camera picker: enumerate AVFoundation video devices (built-in,
+	// external USB, iPhone Continuity Camera) so the user can choose
+	// which one BaekAR captures from. Empty/invalid input keeps default.
+	g_chosenCameraIndex = PickCameraIndex();
+
+	// Marker-image picker: thesis "select a feature-detectable photo, render
+	// the 3D scene anchored to it" workflow. Pick any image from image/ as
+	// the BRISK reference; skipping keeps the hardcoded default.
+	{
+		std::string chosen = PickMarkerImage();
+		if (!chosen.empty()) {
+			Filename[0]._strFilename = chosen;
+			Filename[1]._strFilename = chosen;
+			fprintf(stderr, "BaekAR: marker = %s\n", chosen.c_str());
+		} else {
+			fprintf(stderr, "BaekAR: marker = %s (default)\n",
+			        Filename[0]._strFilename.c_str());
+		}
+		fflush(stderr);
+	}
+
+	// Window-as-AR-texture (thesis novelty): present a stdin picker so the
+	// user chooses any on-screen window; ScreenCaptureKit streams its pixels
+	// into g_winFrameBuf. Skipping the picker leaves AR running marker-only.
+	{
+		uint32_t winId = WCPicker_PickWindowID();
+		if (winId != 0) {
+			g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
+			if (g_winStream) {
+				g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
+				fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
+			}
+		} else {
+			fprintf(stderr, "BaekAR: no window chosen — running marker-only mode.\n");
+		}
+		fflush(stderr);
+	}
+	} else {
+		fprintf(stderr,
+		        "BaekAR: synthetic camera enabled — marker=%s; camera and window pickers skipped.\n",
+		        g_markerSimulationPath.c_str());
+		fflush(stderr);
+	}
+#endif
+
+	// Initialize GLFW
+	if (!glfwInit()) {
+		fprintf(stderr, "Failed to initialize GLFW\n");
+		return -1;
+	}
+
+	// Create window with OpenGL context (legacy profile for fixed-function pipeline)
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	g_window = glfwCreateWindow(640, 480, "BaekAR - Markerless AR Engine", nullptr, nullptr);
+	if (!g_window) {
+		fprintf(stderr, "Failed to create GLFW window\n");
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(g_window);
+	glfwSwapInterval(1); // vsync
+
+	// Set up input callbacks
+	glfwSetKeyCallback(g_window, glfwKeyCallback);
+	glfwSetMouseButtonCallback(g_window, glfwMouseButtonCallback);
+
+#ifdef __APPLE__
+	// Install macOS menu-bar "Camera" menu listing every AVFoundation device
+	// (built-in, USB, iPhone via Continuity). Selecting one hot-swaps the
+	// AVCap session — capture continues against the chosen device without
+	// needing to relaunch.
+	if (!g_markerSimulationEnabled) {
+		InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
+		                  &OnCameraMenuPicked);
+	}
+#endif
+
+	// Initialize GLUT (needed for glutSolidCone etc. used in init())
+	glutInit(&argc, argv);
+
+	// Initialize D3D stub (allocates static gpDevice so GetDevice() is non-null)
+	wonjo_dx::AAR3DInitD3D(nullptr);
+
+	// Initialize OpenGL state
+	init();
+
+	fprintf(stderr, "BaekAR: OpenGL init done. Press ESC to quit.\n");
+	fprintf(stderr, "BaekAR: Camera will initialize when event loop starts...\n");
+	fflush(stderr);
+
+	// Main loop
+	while (!glfwWindowShouldClose(g_window)) {
+		mainLoop();
+		glfwSwapBuffers(g_window);
+		glfwPollEvents();
+	}
+
+	ReleaseEngineMain();
+	glfwDestroyWindow(g_window);
+	glfwTerminate();
+	return 0;
+}
+#endif
 
 
 
 
 
 
+#ifdef _WIN32
 //Message Loop
 LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam)
 {
@@ -1949,3 +2666,4 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT iMessage,WPARAM wParam,LPARAM lParam)
 	}
 	return(DefWindowProc(hWnd,iMessage,wParam,lParam));
 }
+#endif // _WIN32

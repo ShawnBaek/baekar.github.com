@@ -4,8 +4,12 @@
 //#pragma comment(lib,"d3dx9.lib")
 
 //legacy opengl include
-#include "gl/glut.h"
-#pragma comment(lib,"glut32.lib")
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
+#include <GL/glut.h>
+#endif
+// #pragma comment(lib,"glut32.lib") removed ‚Äî not needed on macOS
 
 
 namespace wonjo_dx
@@ -150,37 +154,37 @@ namespace wonjo_dx
 	{
 		glBegin(GL_QUADS);
 
-		//¡¬
+		//Ï¢å
 		glTexCoord2i(0, 0); glVertex3f(-1*size, -1*size, -1*size);
 		glTexCoord2i(0, 1); glVertex3f(-1*size, -1*size,  1*size);
 		glTexCoord2i(1, 1); glVertex3f(-1*size,  1*size,  1*size);
 		glTexCoord2i(1, 0); glVertex3f(-1*size,  1*size, -1*size);
 
-		//øÏ
+		//Ïö∞
 		glTexCoord2i(0, 0); glVertex3f( 1*size, -1*size, -1*size); 
 		glTexCoord2i(0, 1); glVertex3f( 1*size, -1*size,  1*size);
 		glTexCoord2i(1, 1); glVertex3f( 1*size,  1*size,  1*size);
 		glTexCoord2i(1, 0); glVertex3f( 1*size,  1*size, -1*size);
 
-		//«œ
+		//Ìïò
 		glTexCoord2i(0, 0); glVertex3f(-1*size, -1*size, -1*size);
 		glTexCoord2i(0, 1); glVertex3f(-1*size, -1*size,  1*size);
 		glTexCoord2i(1, 1); glVertex3f( 1*size, -1*size,  1*size);
 		glTexCoord2i(1, 0); glVertex3f( 1*size, -1*size, -1*size);
 
-		//ªÛ
+		//ÏÉÅ
 		glTexCoord2i(0, 0); glVertex3f(-1*size,  1*size, -1*size);
 		glTexCoord2i(0, 1); glVertex3f(-1*size,  1*size,  1*size);
 		glTexCoord2i(1, 1); glVertex3f( 1*size,  1*size,  1*size);
 		glTexCoord2i(1, 0); glVertex3f( 1*size,  1*size, -1*size);
 
-		//»ƒ
+		//ÌõÑ
 		glTexCoord2i(0, 0); glVertex3f(-1*size, -1*size, -1*size);
 		glTexCoord2i(0, 1); glVertex3f(-1*size,  1*size, -1*size);
 		glTexCoord2i(1, 1); glVertex3f( 1*size,  1*size, -1*size);
 		glTexCoord2i(1, 0); glVertex3f( 1*size, -1*size, -1*size);
 
-		//¿¸
+		//Ï†Ñ
 		glTexCoord2i(0, 0); glVertex3f(-1*size, -1*size,  1*size);
 		glTexCoord2i(0, 1); glVertex3f(-1*size,  1*size,  1*size);
 		glTexCoord2i(1, 1); glVertex3f( 1*size,  1*size,  1*size);
@@ -356,7 +360,7 @@ namespace wonjo_dx
 // 
 // 					vec/=30.0f;	//plane's size
 // 					
-// 					//∏∏æ‡ µŒ∞≥∞° 1.0f∂Û∏È «»µ 
+// 					//ÎßåÏïΩ ÎëêÍ∞úÍ∞Ä 1.0fÎùºÎ©¥ ÌîΩÎê®
 // 					if(fabs(vec.x) <= 1.0f 	&& fabs(vec.y) <= 1.0f  )
 // 					{
 // 						std::cout << "sendmessage with pre_mousepos" << vec.x << "/" << vec.y << std::endl;
@@ -404,11 +408,11 @@ namespace wonjo_dx
 // 
 // 				return;
 // 				/*
-// 				//±∏ ƒ⁄µÂ. ø©¿¸»˜ ¿ﬂ µø¿€«œ¡ˆ∏∏ VGMø°º≠ µ˚ø¬ ƒ⁄µÂ∏¶ ªÁøÎ«œ¿⁄.
+// 				//Íµ¨ ÏΩîÎìú. Ïó¨Ï†ÑÌûà Ïûò ÎèôÏûëÌïòÏßÄÎßå VGMÏóêÏÑú Îî∞Ïò® ÏΩîÎìúÎ•º ÏÇ¨Ïö©ÌïòÏûê.
 // 				D3DXVECTOR2 pick_pos = D3DXVECTOR2(x - 320 , 240 - y);
 // 				pick_pos.x /= 320;
 // 				pick_pos.y /= 240;
-// 				//opengl projection ¡¬«•∑Œ ∫Ø∞Êµ  
+// 				//opengl projection Ï¢åÌëúÎ°ú Î≥ÄÍ≤ΩÎê® 
 // 				
 // 				//std::cout << "------------------------------------------------------" << std::endl;
 // 				//std::cout << "picked pos regulared pos = " << pick_pos.x << "/" << pick_pos.y << std::endl;
@@ -437,12 +441,12 @@ namespace wonjo_dx
 // 				//std::cout << "picked pos 1 = " << pickedInWorld1.x << "\t/" << pickedInWorld1.y << "\t/" << pickedInWorld1.z << std::endl;
 // 				
 // 
-// 				//src-dest ¿« ¡˜º±¿Ã z=0 ∆Ú∏È∞˙ ¿Ã∑Á¥¬ ±≥¡°¿ª √£¿Ω.
+// 				//src-dest Ïùò ÏßÅÏÑ†Ïù¥ z=0 ÌèâÎ©¥Í≥º Ïù¥Î£®Îäî ÍµêÏ†êÏùÑ Ï∞æÏùå.
 // 				// x-x0   y-y0   z-z0
 // 				// ---- = ---- = ----
 // 				// x1-x0  y1-y0  z1-z0
 // 				
-// 				//z=0¿« z∞™
+// 				//z=0Ïùò zÍ∞í
 // 				float z_constant = (0-pickedInWorld0.z) / (pickedInWorld1.z-pickedInWorld0.z);
 // 				// y = zc * (y1-y0)+y0
 // 				// x = zc * (z1-z0)+z0
@@ -508,10 +512,10 @@ namespace wonjo_dx
 				GetClientRect(NULL,&rt);
 				::PrintWindow(hSrc, dcTarget, 0);
 				//		memcpy(temp,t,width*height*4);
-				//1 ∞°∑Œºº∑Œ µ⁄¡˝»˚
+				//1 Í∞ÄÎ°úÏÑ∏Î°ú Îí§ÏßëÌûò
 				//memcpy(lr.pBits,t,sizeof(int)*width*height);
 	//#pragma omp parallel for
-				//2 ºº∑Œ∞° µ⁄¡˝»˚
+				//2 ÏÑ∏Î°úÍ∞Ä Îí§ÏßëÌûò
 				for(int i = 0 ; i < width*height ; ++i)
 					((int*)lr.pBits)[width*height-i-1] = t[i];
 				ptxt->UnlockRect(0);

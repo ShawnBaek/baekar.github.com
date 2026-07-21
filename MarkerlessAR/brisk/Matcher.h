@@ -1,14 +1,28 @@
 #pragma once
 #include <opencv2/opencv.hpp>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#include <emmintrin.h>
+#include <tmmintrin.h>
+#else
+#include <arm_neon.h>
+typedef int32x4_t __m128i;
+#endif
 using namespace cv;
 
 namespace BDHamming{
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if defined(__GNUC__) || defined(__clang__)
+	static const char __attribute__((aligned(16))) MASK_4bit[16] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf};
+	static const uint8_t __attribute__((aligned(16))) POPCOUNT_4bit[16] = { 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
+	static const __m128i shiftval = _mm_set_epi32 (0,0,0,4);
+#endif
 #ifdef _MSC_VER
 	__declspec(align(16)) static const char MASK_4bit[16] = {0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf, 0xf};
 	__declspec(align(16)) static const uint8_t POPCOUNT_4bit[16] = { 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
 	static const __m128i shiftval = _mm_set_epi32 (0,0,0,4);
 #endif
+#endif // x86
 
 	//type definition
 	//typedef int ResultType;
@@ -33,6 +47,7 @@ namespace BDHamming{
 		};
 	};
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 	// - SSSE3 - better alorithm, minimized psadbw usage - adapted from http://wm.ite.pl/articles/sse-popcount.html
 	__inline__ uint32_t ssse3_popcntofXORed(const __m128i* signature1, const __m128i* signature2, const int numberOf128BitWords)
 	{
@@ -48,73 +63,48 @@ namespace BDHamming{
 		register __m128i xmm6;
 		register __m128i xmm7;
 
-		//__asm__ volatile ("movdqa (%0), %%xmm7" : : "a" (POPCOUNT_4bit) : "xmm7");
 		xmm7 = _mm_load_si128 ((__m128i *)POPCOUNT_4bit);
-		//__asm__ volatile ("movdqa (%0), %%xmm6" : : "a" (MASK_4bit) : "xmm6");
 		xmm6 = _mm_load_si128 ((__m128i *)MASK_4bit);
-		//__asm__ volatile ("pxor    %%xmm5, %%xmm5" : : : "xmm5"); // xmm5 -- global accumulator
 		xmm5 = _mm_setzero_si128();
 
 		const size_t end=(size_t)(signature1+numberOf128BitWords);
 
-		//__asm__ volatile ("movdqa %xmm5, %xmm4"); // xmm4 -- local accumulator
-		xmm4 = xmm5;//_mm_load_si128(&xmm5);
+		xmm4 = xmm5;
 
-		//for (n=0; n < numberOf128BitWords; n++) {
 		do{
-			//__asm__ volatile ("movdqa (%0), %%xmm0" : : "a" (signature1++) : "xmm0"); //slynen load data for XOR
-			//		__asm__ volatile(
-			//				"movdqa	  (%0), %%xmm0	\n"
-			//"pxor      (%0), %%xmm0   \n" //slynen do XOR
-			xmm0 = _mm_xor_si128 ( (__m128i)*signature1++, (__m128i)*signature2++); //slynen load data for XOR and do XOR
-			//				"movdqu    %%xmm0, %%xmm1	\n"
-			xmm1 = xmm0;//_mm_loadu_si128(&xmm0);
-			//				"psrlw         $4, %%xmm1	\n"
+			xmm0 = _mm_xor_si128 ( (__m128i)*signature1++, (__m128i)*signature2++);
+			xmm1 = xmm0;
 			xmm1 = _mm_srl_epi16 (xmm1, shiftval);
-			//				"pand      %%xmm6, %%xmm0	\n"	// xmm0 := lower nibbles
 			xmm0 = _mm_and_si128 (xmm0, xmm6);
-			//				"pand      %%xmm6, %%xmm1	\n"	// xmm1 := higher nibbles
 			xmm1 = _mm_and_si128 (xmm1, xmm6);
-			//				"movdqu    %%xmm7, %%xmm2	\n"
-			xmm2 = xmm7;//_mm_loadu_si128(&xmm7);
-			//				"movdqu    %%xmm7, %%xmm3	\n"	// get popcount
-			xmm3 = xmm7;//_mm_loadu_si128(&xmm7);
-			//				"pshufb    %%xmm0, %%xmm2	\n"	// for all nibbles
+			xmm2 = xmm7;
+			xmm3 = xmm7;
 			xmm2 = _mm_shuffle_epi8(xmm2, xmm0);
-			//				"pshufb    %%xmm1, %%xmm3	\n"	// using PSHUFB
 			xmm3 = _mm_shuffle_epi8(xmm3, xmm1);
-			//				"paddb     %%xmm2, %%xmm4	\n"	// update local
 			xmm4 = _mm_add_epi8(xmm4, xmm2);
-			//				"paddb     %%xmm3, %%xmm4	\n"	// accumulator
 			xmm4 = _mm_add_epi8(xmm4, xmm3);
-			//				:
-			//				: "a" (buffer++)
-			//				: "xmm0","xmm1","xmm2","xmm3","xmm4"
-			//		);
 		}while((size_t)signature1<end);
-		// update global accumulator (two 32-bits counters)
-		//	__asm__ volatile (
-		//			/*"pxor	%xmm0, %xmm0		\n"*/
-		//			"psadbw	%%xmm5, %%xmm4		\n"
+
 		xmm4 = _mm_sad_epu8(xmm4, xmm5);
-		//			"paddd	%%xmm4, %%xmm5		\n"
 		xmm5 = _mm_add_epi32(xmm5, xmm4);
-		//			:
-		//			:
-		//			: "xmm4","xmm5"
-		//	);
-		// finally add together 32-bits counters stored in global accumulator
-		//	__asm__ volatile (
-		//			"movhlps   %%xmm5, %%xmm0	\n"
-		xmm0 = _mm_cvtps_epi32(_mm_movehl_ps(_mm_cvtepi32_ps(xmm0), _mm_cvtepi32_ps(xmm5))); //TODO fix with appropriate intrinsic
-		//			"paddd     %%xmm5, %%xmm0	\n"
+		xmm0 = _mm_cvtps_epi32(_mm_movehl_ps(_mm_cvtepi32_ps(xmm0), _mm_cvtepi32_ps(xmm5)));
 		xmm0 = _mm_add_epi32(xmm0, xmm5);
-		//			"movd      %%xmm0, %%eax	\n"
 		result = _mm_cvtsi128_si32 (xmm0);
-		//			: "=a" (result) : : "xmm5","xmm0"
-		//	);
 		return result;
 	}
+#else
+	// ARM/other: scalar fallback for Hamming distance
+	__inline__ uint32_t ssse3_popcntofXORed(const __m128i* signature1, const __m128i* signature2, const int numberOf128BitWords)
+	{
+		const uint8_t* a = reinterpret_cast<const uint8_t*>(signature1);
+		const uint8_t* b = reinterpret_cast<const uint8_t*>(signature2);
+		uint32_t result = 0;
+		for (int i = 0; i < numberOf128BitWords * 16; i++) {
+			result += __builtin_popcount(a[i] ^ b[i]);
+		}
+		return result;
+	}
+#endif // x86 vs ARM
 
 	unsigned char byteBitsLookUp(unsigned char b)
 	{

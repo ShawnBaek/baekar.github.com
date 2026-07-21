@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>BaekAR</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.baekar.engine</string>
+	<key>CFBundleName</key>
+	<string>BaekAR</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>NSCameraUsageDescription</key>
+	<string>BaekAR needs camera access for markerless augmented reality tracking.</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key>
+	<true/>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>BaekAR captures a chosen application's window pixels and renders them as an interactive 3D plane in AR.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

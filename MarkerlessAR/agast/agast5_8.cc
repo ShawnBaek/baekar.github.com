@@ -25,7 +25,7 @@
 //              same line=1
 //              memory=4
 
-#include "../stdint.h"																	
+#include <cstdint>																	
 #include "cvWrapper.h"
 #include "agast5_8.h"
 

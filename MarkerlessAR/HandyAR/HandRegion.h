@@ -1,8 +1,10 @@
 #ifndef _HAND_REGION_H_
 #define _HAND_REGION_H_
 
-#include "cv.h"
-#include "highgui.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/highgui/highgui_c.h>
+#include "../compat/opencv_compat.h"
 #include "MixGaussian.h"
 #include "ColorHistogram.h"
 

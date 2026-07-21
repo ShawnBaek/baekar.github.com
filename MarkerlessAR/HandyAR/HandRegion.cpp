@@ -41,9 +41,9 @@ HandRegion::~HandRegion(void)
 
 bool HandRegion::LoadSkinColorProbTable()
 {
-	if ( _SkinColor.LoadLookUpTable( "../skin.dis" ) == false )
+	if ( _SkinColor.LoadLookUpTable( "skin.dis" ) == false )
 	{
-		if ( _SkinColor.LoadFile( "../skin.mgm" ) == false )
+		if ( _SkinColor.LoadFile( "skin.mgm" ) == false )
 		{
 			fprintf( stderr, "skin color distribution load error.\n" );
 			return false;
@@ -51,15 +51,15 @@ bool HandRegion::LoadSkinColorProbTable()
 		printf("making a lookup table for skin color distribution ");
 		_SkinColor.MakeLookUpTable();
 		printf("done\n");
-		if ( _SkinColor.SaveLookUpTable( "../skin.dis" ) == false )
+		if ( _SkinColor.SaveLookUpTable( "skin.dis" ) == false )
 		{
 			fprintf( stderr, "skin color distribution look up table save error.\n" );
 			return false;
 		}
 	}
-	if ( _NonSkinColor.LoadLookUpTable( "../nonskin.dis" ) == false )
+	if ( _NonSkinColor.LoadLookUpTable( "nonskin.dis" ) == false )
 	{
-		if ( _NonSkinColor.LoadFile( "../nonskin.mgm" ) == false )
+		if ( _NonSkinColor.LoadFile( "nonskin.mgm" ) == false )
 		{
 			fprintf( stderr, "non-skin color distribution load error.\n" );
 			return false;
@@ -67,7 +67,7 @@ bool HandRegion::LoadSkinColorProbTable()
 		printf("making a lookup table for non-skin color distribution ");
 		_NonSkinColor.MakeLookUpTable();
 		printf("done\n");
-		if ( _NonSkinColor.SaveLookUpTable( "../nonskin.dis" ) == false )
+		if ( _NonSkinColor.SaveLookUpTable( "nonskin.dis" ) == false )
 		{
 			fprintf( stderr, "non-skin color distribution look up table save error.\n" );
 			return false;
@@ -151,7 +151,7 @@ IplImage * HandRegion::GetHandRegion( IplImage * srcImage, IplImage * srcGrayIma
     // Segmentation by Color Distribution
     //
     int nHandRegion = 0;
-	//ÇÑ ÇÈ¼¿¾¿ °Ë»ç¸¦ ¼öÇàÇØ ³½´Ù.
+	//í•œ í”½ì…€ì”© ê²€ì‚¬ë¥¼ ìˆ˜í–‰í•´ ë‚¸ë‹¤.
     for ( int i = 0 ; i < srcImage->height ; i ++ )
     {
         for ( int j = 0 ; j < srcImage->width ; j ++ )

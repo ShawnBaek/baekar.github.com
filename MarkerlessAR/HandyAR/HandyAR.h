@@ -36,11 +36,18 @@ bool fInputVideoFile = false;
 char gszInputVideoFilename[255];
 //bool fFlipFrame = CAPTURE_DONT_FLIP;
 //CAPTURE_FLIP
+#ifdef __APPLE__
+// AVFoundation (built-in FaceTime, USB, Continuity Camera/iPhone) delivers
+// frames in the orientation we want; the cvFlip(.., 0, 0) inside
+// Capture::CaptureFrame would flip them upside-down. Disable on macOS.
+bool fFlipFrame = CAPTURE_DONT_FLIP;
+#else
 bool fFlipFrame = CAPTURE_FLIP;
+#endif
 
 // Earth Texture
 GLuint  gnEarthTexID;
-#define EARTH_TEXTURE_FILENAME  "../3dobjects/earthTexture.jpg"
+#define EARTH_TEXTURE_FILENAME  "3dobjects/earthTexture.jpg"
 
 // Render Model
 #define MODEL_BUNNY 1
@@ -54,9 +61,9 @@ int gnModel = MODEL_COORDINATE_AXES;
 #endif
 
 #ifdef PROCESS_320x240
-#define FINGERTIP_COORDINATE_FILENAME   "../calibration/fingertip_320x240.dat"
+#define FINGERTIP_COORDINATE_FILENAME   "calibration/fingertip_320x240.dat"
 #else
-#define FINGERTIP_COORDINATE_FILENAME   "../calibration/fingertip_640x480.dat"
+#define FINGERTIP_COORDINATE_FILENAME   "calibration/fingertip_640x480.dat"
 #endif
 char gszFingertipFilename[255] = FINGERTIP_COORDINATE_FILENAME;
 

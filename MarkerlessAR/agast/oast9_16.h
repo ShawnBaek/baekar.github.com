@@ -20,7 +20,7 @@
 #ifndef OAST9_16_H
 #define OAST9_16_H
 
-#include "../stdint.h"
+#include <cstdint>
 #include <stdio.h>
 #include "AstDetector.h"
 

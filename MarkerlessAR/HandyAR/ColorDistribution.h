@@ -1,7 +1,8 @@
 #ifndef _COLOR_DISTRIBUTION_H_
 #define _COLOR_DISTRIBUTION_H_
 
-#include "cv.h"
+#include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc_c.h>
 
 #define DYNAMIC_PIXELS      true
 #define STATIONARY_PIXELS   false

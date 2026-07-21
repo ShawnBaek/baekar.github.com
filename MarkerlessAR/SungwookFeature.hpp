@@ -1,6 +1,8 @@
 #pragma	once
 
 #include "SungwookAR.hpp"
+#include <opencv2/core/core_c.h>
+#include <opencv2/core/types_c.h>
 
 
 /*Function///////////////////////////////////////////////////////////////
@@ -8,11 +10,11 @@
 
 Name:       makeDescriptors			for query
 
-Purpose:    ÁÖ¾îÁø ÀÌ¹ÌÁö¿¡¼­ keypoints¸¦ Ã£°í °¢ keypointsµéÀÇ descriptor¸¦ ¸¸µê
+Purpose:    ì£¼ì–´ì§„ ì´ë¯¸ì§€ì—ì„œ keypointsë¥¼ ì°¾ê³  ê° keypointsë“¤ì˜ descriptorë¥¼ ë§Œë“¦
 
-Parameters: Mat		&img_input:					keypoints¸¦ Ã£°í descriptor¸¦ »ı¼ºÇÒ ÀÌ¹ÌÁö 
-			vector<KeyPoint>	&keypoints:		°ËÃâµÈ keypointsµéÀÇ ¸ñ·Ï
-			Mat		&descriptors:				°ËÃâµÈ keypointsµé¿¡ ´ëÀÀµÇ´Â descriptorµé
+Parameters: Mat		&img_input:					keypointsë¥¼ ì°¾ê³  descriptorë¥¼ ìƒì„±í•  ì´ë¯¸ì§€ 
+			vector<KeyPoint>	&keypoints:		ê²€ì¶œëœ keypointsë“¤ì˜ ëª©ë¡
+			Mat		&descriptors:				ê²€ì¶œëœ keypointsë“¤ì— ëŒ€ì‘ë˜ëŠ” descriptorë“¤
 							
 Language:   C++
 
@@ -23,11 +25,11 @@ void	makeDescriptors(const Mat &img_input, vector<KeyPoint> &keypoints, Mat &des
 
 Name:       makeDescriptors			for DB
 
-Purpose:    ÁÖ¾îÁø ÀÌ¹ÌÁö¿¡¼­ keypoints¸¦ Ã£°í °¢ keypointsµéÀÇ descriptor¸¦ ¸¸µê
+Purpose:    ì£¼ì–´ì§„ ì´ë¯¸ì§€ì—ì„œ keypointsë¥¼ ì°¾ê³  ê° keypointsë“¤ì˜ descriptorë¥¼ ë§Œë“¦
 
-Parameters: Mat		&img_input:					keypoints¸¦ Ã£°í descriptor¸¦ »ı¼ºÇÒ ÀÌ¹ÌÁö 
-			vector<KeyPoint>	&keypoints:		°ËÃâµÈ keypointsµéÀÇ ¸ñ·Ï
-			Mat		&descriptors:				°ËÃâµÈ keypointsµé¿¡ ´ëÀÀµÇ´Â descriptorµé
+Parameters: Mat		&img_input:					keypointsë¥¼ ì°¾ê³  descriptorë¥¼ ìƒì„±í•  ì´ë¯¸ì§€ 
+			vector<KeyPoint>	&keypoints:		ê²€ì¶œëœ keypointsë“¤ì˜ ëª©ë¡
+			Mat		&descriptors:				ê²€ì¶œëœ keypointsë“¤ì— ëŒ€ì‘ë˜ëŠ” descriptorë“¤
 							
 Language:   C++
 
@@ -66,6 +68,6 @@ void mslOriginKeypoint(vector<KeyPoint>	src, vector<KeyPoint>	&dst,
 //void mslTransformImage(Mat originalImage, Mat *tranformedImage, double rotation, double scale){
 Mat mslTransformImage(Mat originalImage, Mat *tranformedImage, int idxRotation, int idxScale);
 
-//½ÇÁ¦ »ç¿ëÇÏÁö ¾Ê´Â ÇÔ¼ö´Ù
+//ì‹¤ì œ ì‚¬ìš©í•˜ì§€ ì•ŠëŠ” í•¨ìˆ˜ë‹¤
 void mslTransformPoint(	const vector<Point>	src, vector<Point2f>	&dst,
 	 int	idxRotation,	 int	idxScale) ;

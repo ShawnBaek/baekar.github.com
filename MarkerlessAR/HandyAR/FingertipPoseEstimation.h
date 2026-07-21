@@ -30,6 +30,15 @@ public:
     bool  QueryValidPose();
     CvMat QueryRotationMat();
     CvMat QueryTranslationMat();
+
+    // Smoothed 2D position of fingertip `index` in the HandyAR processing
+    // frame. Index 0 is conventionally the thumb; 1 is the index finger
+    // (the natural pointing one). Coords are in the FingertipTracker's
+    // own image space (typically 320x240 â€” call QueryHandImageSize for the
+    // exact resolution if needed). Wraps FingertipTracker::QueryFingertipKalman.
+    CvPoint2D32f QueryFingertip2D(int index) {
+        return _FingertipTracker.QueryFingertipKalman(index);
+    }
     float * QueryModelViewMat();
     float QueryR( int i, int j ) { return _FingerRotation3by3[i][j]; }
     float QueryT( int i ) { return _FingerTranslation[i]; }
@@ -57,7 +66,7 @@ public:
     void TickCountNewLine();
     void TickCountDummy();
 
-	//120325 cwj DirectX¸¦ ÀÌ¿ëÇÑ ÇÁ·ÎÁ§¼Ç/ºä Çà·Ä °è»êÆÄÀÏ
+	//120325 cwj DirectXë¥¼ ì´ìš©í•œ í”„ë¡œì ì…˜/ë·° í–‰ë ¬ ê³„ì‚°íŒŒì¼
 	D3DXMATRIXA16* D3DXMakeProjectionMatrix(D3DXMATRIXA16* pOut);
 	D3DXMATRIXA16* D3DXMakeViewMatrix(D3DXMATRIXA16* pOut);
 	//~120325 cwj

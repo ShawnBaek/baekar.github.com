@@ -108,7 +108,7 @@ void readDescriptors(string file1, string file2,
 
 void patchWarp(const Mat& imgSrc, std::vector<Mat> cont_imgDst, KeyPoint key, int numView)
 {
-	//! image¿¡¼­ keypointÀÇ patch¸¦ patchsize¸¸Å­ warpingÇÑ´Ù
+	//! imageì—ì„œ keypointì˜ patchë¥¼ patchsizeë§Œí¼ warpingí•œë‹¤
 	PatchGenerator generater;
 
 	Mat matM(2, 3, CV_64F);
@@ -185,7 +185,7 @@ void descriptorTest(int type_desc, int brisk_type,
 	LARGE_INTEGER ticksPerSec;
 	double timeSec;
 	if (!QueryPerformanceFrequency(&ticksPerSec)){ 
-		// °íÇØ»óµµ Å¸ÀÌ¸Ó¸¦ Áö¿øÇÏÁö ¾ÊÀ½ 
+		// ê³ í•´ìƒë„ íƒ€ì´ë¨¸ë¥¼ ì§€ì›í•˜ì§€ ì•ŠìŒ 
 		return;
 	} 
 
@@ -347,7 +347,7 @@ void descriptorCamTest(int type_desc, int brisk_type,
 	LARGE_INTEGER ticksPerSec;
 	double timeSec;
 	if (!QueryPerformanceFrequency(&ticksPerSec)){ 
-		// °íÇØ»óµµ Å¸ÀÌ¸Ó¸¦ Áö¿øÇÏÁö ¾ÊÀ½ 
+		// ê³ í•´ìƒë„ íƒ€ì´ë¨¸ë¥¼ ì§€ì›í•˜ì§€ ì•ŠìŒ 
 		return;
 	} 
 
