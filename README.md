@@ -14,9 +14,9 @@ This is my original research project. I want to preserve its originality and Git
 
 The original project was built with Visual Studio 2010, OpenCV 2.3.1, DirectX 9, BRISK, and AGAST.
 
-The macOS version is on the [`001-macos-port`](https://github.com/ShawnBaek/baekar.github.com/tree/001-macos-port) branch. The original 2012 `master` is saved in [`snapshot/2012-original`](https://github.com/ShawnBaek/baekar.github.com/tree/snapshot/2012-original).
+The macOS version is now merged into `master`. The original 2012 `master` is saved in [`snapshot/2012-original`](https://github.com/ShawnBaek/baekar.github.com/tree/snapshot/2012-original).
 
-The goal is to merge the macOS version into `master` without squashing or rewriting the original Git history. After that, every new PR will merge into `master`.
+Every new PR will merge into `master` without rewriting the original Git history.
 
 ## Build on macOS
 
@@ -39,11 +39,24 @@ open -n build/BaekAR.app --args --simulate-marker yejin.jpg
 
 The virtual camera moves, changes depth and direction, tilts, and rotates. It uses the same marker detection, tracking, pose, and rendering pipeline as the real camera.
 
+To simulate multiple markers:
+
+```bash
+open -n build/BaekAR.app --args \
+  --simulate-marker yejin.jpg \
+  --simulate-marker fish.jpg \
+  --simulate-marker cola.jpg
+```
+
+Each marker moves independently and has its own worker. BRISK finds it, optical flow tracks it, and BRISK runs again if tracking is lost. The simulator was verified with ten markers.
+
+Use distinct marker images. Visually similar images are rejected because their identity is ambiguous.
+
 ## Plan
 
 ### Step 1 — Foundation and refactoring
 
-Start from the current macOS version. Verify the current behavior first, merge it into `master`, and then refactor it with smaller PRs.
+Continue from the merged macOS version. Verify the current behavior first, and then refactor it with smaller PRs.
 
 - Folder structure
 - Modern C++ and RAII

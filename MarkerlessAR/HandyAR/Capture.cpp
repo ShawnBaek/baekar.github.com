@@ -29,11 +29,19 @@ Capture::Capture(void)
 
 bool Capture::InitializeSynthetic( const char * markerFilename )
 {
-    if ( _fInitialized || !markerFilename )
+    if ( !markerFilename )
+        return false;
+
+    return InitializeSynthetic( std::vector<std::string>( 1, markerFilename ) );
+}
+
+bool Capture::InitializeSynthetic( const std::vector<std::string>& markerFilenames )
+{
+    if ( _fInitialized || markerFilenames.empty() )
         return false;
 
     _pSynthetic = new SyntheticMarkerSource();
-    if ( !_pSynthetic->Initialize( markerFilename, 640, 480 ) )
+    if ( !_pSynthetic->Initialize( markerFilenames, 640, 480 ) )
     {
         delete _pSynthetic;
         _pSynthetic = 0;

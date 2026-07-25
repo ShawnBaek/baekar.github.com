@@ -6,6 +6,7 @@
 #include <process.h>
 #else
 #include "compat/win32_stub.h"
+#include "compat/multi_marker_detector.h"
 #endif
 
 #ifdef __APPLE__
@@ -157,6 +158,71 @@ static cv::Mat g_dummyFrameMat;
 static IplImage g_dummyIpl;
 static bool g_markerSimulationEnabled = false;
 static std::string g_markerSimulationPath;
+static std::vector<std::string> g_markerSimulationPaths;
+static bool g_multiMarkerSimulationEnabled = false;
+static MultiMarkerDetector g_multiMarkerDetector;
+
+#ifdef __APPLE__
+static void DrawMultiMarkerDetections()
+{
+	if (!g_multiMarkerSimulationEnabled)
+		return;
+
+	const std::vector<MultiMarkerDetection> detections =
+		g_multiMarkerDetector.LatestDetections();
+	static const float colors[][3] = {
+		{0.10f, 0.95f, 1.00f},
+		{1.00f, 0.25f, 0.75f},
+		{1.00f, 0.90f, 0.15f},
+		{0.25f, 1.00f, 0.35f},
+		{1.00f, 0.50f, 0.10f},
+		{0.55f, 0.45f, 1.00f}
+	};
+
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, 640, 480, 0, -1, 1);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+	glPushAttrib(GL_ENABLE_BIT | GL_LINE_BIT | GL_CURRENT_BIT);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_LIGHTING);
+	glLineWidth(4.0f);
+
+	for (const MultiMarkerDetection& detection : detections) {
+		if (!detection.found || detection.corners.size() != 4)
+			continue;
+
+		const float* color = colors[detection.markerIndex %
+			(sizeof(colors) / sizeof(colors[0]))];
+		glColor3f(color[0], color[1], color[2]);
+		glBegin(GL_LINE_LOOP);
+		for (const cv::Point2f& corner : detection.corners)
+			glVertex2f(corner.x, corner.y);
+		glEnd();
+
+		const std::string status = detection.usingOpticalFlow
+			? std::to_string(detection.trackedPointCount) + " tracked"
+			: std::to_string(detection.inlierCount) + " inliers";
+		const std::string label = std::to_string(detection.markerIndex + 1) +
+			"  " + detection.markerName + "  " + status;
+		const float labelX = detection.corners[0].x;
+		const float labelY = std::max(14.0f, detection.corners[0].y - 8.0f);
+		glRasterPos2f(labelX, labelY);
+		for (char character : label)
+			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, character);
+	}
+
+	glPopAttrib();
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+}
+#endif
 #endif
 
 char ch=0;
@@ -630,9 +696,13 @@ static void mainLoop(void)
 		fflush(stderr);
 		int rc = InitializeEngineMain();
 		if (rc != 0) {
-			fprintf(stderr, "BaekAR: Engine initialization failed (%d). Check camera permissions.\n", rc);
-			fprintf(stderr, "BaekAR: On macOS, grant camera access in:\n");
-			fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
+			fprintf(stderr, "BaekAR: Engine initialization failed (%d).\n", rc);
+			if (g_markerSimulationEnabled) {
+				fprintf(stderr, "BaekAR: Check marker paths and use visually distinct marker images.\n");
+			} else {
+				fprintf(stderr, "BaekAR: On macOS, grant camera access in:\n");
+				fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
+			}
 			fflush(stderr);
 			if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
 			return;
@@ -788,6 +858,9 @@ static void mainLoop(void)
 	{
 		wonjo_dx::BeginRender();
 		wonjo_dx::AAR3DDrawCameraPreview(image->imageData,640,480);
+#ifdef __APPLE__
+		DrawMultiMarkerDetections();
+#endif
 
 		//D3DXMatrixPerspectiveFovLH(&matProj,Deg2Rad(73.0f),640/480,1.0f,100000.0f);
 		camera.D3DXMakeProjectionMatrix(&matProj);
@@ -1033,6 +1106,8 @@ static void mainLoop(void)
 	if (g_cameraAvailable) {
 		cv::Mat frameMat = cv::cvarrToMat(frame, false);
 		setSharedFrame(frameMat);
+		if (g_multiMarkerSimulationEnabled)
+			g_multiMarkerDetector.SubmitFrame(frameMat);
 	}
 #endif
 
@@ -1251,9 +1326,11 @@ int InitializeEngineMain()
 #ifndef _WIN32
     if ( g_markerSimulationEnabled )
     {
-        fprintf( stderr, "BaekAR: starting marker simulation with %s\n",
-                 g_markerSimulationPath.c_str() );
-        cameraOk = gCapture.InitializeSynthetic( g_markerSimulationPath.c_str() );
+        fprintf( stderr, "BaekAR: starting marker simulation with %zu marker(s)\n",
+                 g_markerSimulationPaths.size() );
+        for (const std::string& markerPath : g_markerSimulationPaths)
+            fprintf( stderr, "  %s\n", markerPath.c_str() );
+        cameraOk = gCapture.InitializeSynthetic( g_markerSimulationPaths );
         if ( !cameraOk )
             fprintf( stderr, "marker simulation initialization failed.\n" );
     }
@@ -1314,6 +1391,17 @@ int InitializeEngineMain()
 #ifndef _WIN32
     else {
         g_cameraAvailable = true;
+    }
+
+    if (g_multiMarkerSimulationEnabled) {
+        if (!g_multiMarkerDetector.Initialize(g_markerSimulationPaths)) {
+            fprintf(stderr, "BaekAR: multi-marker detector initialization failed.\n");
+            return -1;
+        }
+        g_multiMarkerDetector.SubmitFrame(cv::cvarrToMat(frame, false));
+        fprintf(stderr, "BaekAR: %zu marker detector workers ready.\n",
+                g_multiMarkerDetector.WorkerCount());
+        fflush(stderr);
     }
 #endif
 
@@ -1478,9 +1566,15 @@ int InitializeEngineMain()
 	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
 
 	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
-	hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
-	//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
-	hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
+#ifndef _WIN32
+	if (!g_multiMarkerSimulationEnabled) {
+#endif
+		hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
+		//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
+		hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
+#ifndef _WIN32
+	}
+#endif
 
 	
 
@@ -1523,6 +1617,9 @@ int ReleaseEngineMain()
 	//cout << "TOTAL : " << time_total_consuming << " ms\t";
 	cout << "FPS : " << time_matching << " frames" << endl;
 	
+#ifndef _WIN32
+	g_multiMarkerDetector.Stop();
+#endif
 	
 	//CloseHandle( hDrawThread);
 	CloseHandle( hMatchingThread[0] );	
@@ -2478,10 +2575,14 @@ int main(int argc, char* argv[])
 			return 2;
 		}
 
+		g_markerSimulationPaths.push_back(markerPath);
+	}
+	if (!g_markerSimulationPaths.empty()) {
 		g_markerSimulationEnabled = true;
-		g_markerSimulationPath = markerPath;
-		Filename[0]._strFilename = markerPath;
-		Filename[1]._strFilename = markerPath;
+		g_markerSimulationPath = g_markerSimulationPaths.front();
+		g_multiMarkerSimulationEnabled = g_markerSimulationPaths.size() > 1;
+		Filename[0]._strFilename = g_markerSimulationPath;
+		Filename[1]._strFilename = g_markerSimulationPath;
 	}
 #endif
 
@@ -2545,9 +2646,11 @@ int main(int argc, char* argv[])
 		fflush(stderr);
 	}
 	} else {
-		fprintf(stderr,
-		        "BaekAR: synthetic camera enabled — marker=%s; camera and window pickers skipped.\n",
-		        g_markerSimulationPath.c_str());
+		fprintf(stderr, "BaekAR: synthetic camera enabled — %zu marker(s); "
+		                "camera and window pickers skipped.\n",
+		        g_markerSimulationPaths.size());
+		for (const std::string& markerPath : g_markerSimulationPaths)
+			fprintf(stderr, "  %s\n", markerPath.c_str());
 		fflush(stderr);
 	}
 #endif
