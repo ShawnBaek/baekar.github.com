@@ -21,7 +21,7 @@ struct MultiMarkerDetection {
     bool found = false;
 };
 
-// Runs one persistent, isolated BRISK matching worker for each marker.
+// Tracks every marker on one synchronized background frame timeline.
 class MultiMarkerDetector {
 public:
     MultiMarkerDetector();

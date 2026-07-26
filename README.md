@@ -48,7 +48,7 @@ open -n build/BaekAR.app --args \
   --simulate-marker cola.jpg
 ```
 
-Each marker moves independently and has its own worker. BRISK finds it, optical flow tracks it, and BRISK runs again if tracking is lost. The simulator was verified with ten markers.
+Each marker moves independently. BRISK finds them from one shared frame, and batched optical flow tracks them on the same frame timeline. The simulator was verified with ten markers.
 
 Use distinct marker images. Visually similar images are rejected because their identity is ambiguous.
 

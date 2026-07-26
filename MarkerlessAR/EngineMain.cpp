@@ -1399,8 +1399,8 @@ int InitializeEngineMain()
             return -1;
         }
         g_multiMarkerDetector.SubmitFrame(cv::cvarrToMat(frame, false));
-        fprintf(stderr, "BaekAR: %zu marker detector workers ready.\n",
-                g_multiMarkerDetector.WorkerCount());
+		fprintf(stderr, "BaekAR: synchronized tracker ready for %zu marker(s).\n",
+		        g_multiMarkerDetector.WorkerCount());
         fflush(stderr);
     }
 #endif

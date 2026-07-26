@@ -17,7 +17,8 @@
 namespace {
 
 const int kMinimumMatches = 8;
-const int kTrackingRefreshInterval = 20;
+const int kTrackingRefreshInterval = 45;
+const unsigned int kRecoveryIntervalFrames = 6;
 const float kRatioThreshold = 0.65f;
 const float kMaximumOpticalFlowError = 30.0f;
 const float kMaximumForwardBackwardError = 1.5f;
@@ -57,13 +58,8 @@ struct MultiMarkerDetector::Implementation {
         std::vector<cv::KeyPoint> referenceKeypoints;
         cv::Mat referenceDescriptors;
         std::vector<cv::Point2f> referenceCorners;
-        cv::Ptr<cv::BRISK> brisk;
         cv::BFMatcher matcher{cv::NORM_HAMMING};
-        std::thread thread;
-        mutable std::mutex detectionMutex;
         MultiMarkerDetection detection;
-        std::uint64_t lastFrameSequence = 0;
-        std::vector<cv::Mat> previousFramePyramid;
         std::vector<cv::Point2f> trackedReferencePoints;
         std::vector<cv::Point2f> trackedFramePoints;
         unsigned int trackingFramesSinceDetection = 0;
@@ -73,11 +69,19 @@ struct MultiMarkerDetector::Implementation {
         std::uint64_t smoothedFrameSequence = 0;
     };
 
+    struct TrackSlice {
+        std::size_t workerIndex = 0;
+        std::size_t pointOffset = 0;
+        std::size_t pointCount = 0;
+    };
+
     mutable std::mutex frameMutex;
+    mutable std::mutex detectionMutex;
     std::condition_variable frameAvailable;
     cv::Mat latestFrame;
-    std::vector<cv::Mat> latestFramePyramid;
     std::uint64_t latestFrameSequence = 0;
+    cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(30, 3);
+    std::thread processingThread;
     bool running = false;
     std::vector<std::unique_ptr<Worker>> workers;
 
@@ -117,7 +121,6 @@ struct MultiMarkerDetector::Implementation {
 
     void ResetTracking(Worker& worker)
     {
-        worker.previousFramePyramid.clear();
         worker.trackedReferencePoints.clear();
         worker.trackedFramePoints.clear();
         worker.trackingFramesSinceDetection = 0;
@@ -147,8 +150,6 @@ struct MultiMarkerDetector::Implementation {
         }
         averageDistance /= static_cast<float>(result.corners.size());
 
-        // Small changes are mostly homography noise, so smooth them strongly.
-        // Large real movements receive a higher alpha and do not feel delayed.
         const float movementFactor = std::min(1.0f, averageDistance / 60.0f);
         const float baseAlpha = 0.18f + movementFactor * 0.52f;
         const std::uint64_t frameGap = std::min<std::uint64_t>(
@@ -233,15 +234,12 @@ struct MultiMarkerDetector::Implementation {
 
     bool DetectMarker(Worker& worker,
                       const cv::Mat& frameGray,
-                      const std::vector<cv::Mat>& framePyramid,
+                      const std::vector<cv::KeyPoint>& frameKeypoints,
+                      const cv::Mat& frameDescriptors,
                       std::uint64_t frameSequence,
                       MultiMarkerDetection& result,
                       const std::vector<cv::Point2f>* expectedCorners)
     {
-        std::vector<cv::KeyPoint> frameKeypoints;
-        cv::Mat frameDescriptors;
-        worker.brisk->detectAndCompute(frameGray, cv::noArray(),
-                                       frameKeypoints, frameDescriptors);
         if (worker.referenceDescriptors.empty() || frameDescriptors.empty()) {
             return false;
         }
@@ -311,7 +309,6 @@ struct MultiMarkerDetector::Implementation {
             trackedFramePoints = std::move(seededFramePoints);
         }
 
-        worker.previousFramePyramid = framePyramid;
         worker.trackedReferencePoints = std::move(trackedReferencePoints);
         worker.trackedFramePoints = std::move(trackedFramePoints);
         worker.trackingFramesSinceDetection = 0;
@@ -324,197 +321,328 @@ struct MultiMarkerDetector::Implementation {
         return true;
     }
 
-    bool TrackMarker(Worker& worker,
-                     const cv::Mat& frameGray,
-                     const std::vector<cv::Mat>& framePyramid,
-                     std::uint64_t frameSequence,
-                     MultiMarkerDetection& result)
+    void TrackMarkers(const cv::Mat& frameGray,
+                      const std::vector<cv::Mat>& previousFramePyramid,
+                      const std::vector<cv::Mat>& framePyramid,
+                      std::uint64_t previousFrameSequence,
+                      std::uint64_t frameSequence,
+                      std::vector<MultiMarkerDetection>& results,
+                      std::vector<unsigned char>& trackedWorkers)
     {
-        if (worker.previousFramePyramid.empty() || framePyramid.empty() ||
-            worker.trackedFramePoints.size() < kMinimumMatches ||
-            worker.trackedReferencePoints.size() != worker.trackedFramePoints.size() ||
-            worker.lastAcceptedFrameSequence == 0 ||
-            frameSequence <= worker.lastAcceptedFrameSequence ||
-            frameSequence - worker.lastAcceptedFrameSequence > 12) {
-            return false;
+        if (previousFramePyramid.empty() || framePyramid.empty() ||
+            previousFrameSequence == 0 || frameSequence <= previousFrameSequence ||
+            frameSequence - previousFrameSequence > 12) {
+            return;
         }
 
-        std::vector<cv::Point2f> nextFramePoints;
-        std::vector<unsigned char> opticalFlowStatus;
-        std::vector<float> opticalFlowErrors;
+        std::vector<TrackSlice> slices;
+        std::vector<cv::Point2f> previousPoints;
+        for (std::size_t workerIndex = 0; workerIndex < workers.size(); ++workerIndex) {
+            Worker& worker = *workers[workerIndex];
+            if (worker.trackedFramePoints.size() < kMinimumMatches ||
+                worker.trackedReferencePoints.size() != worker.trackedFramePoints.size() ||
+                worker.lastAcceptedFrameSequence != previousFrameSequence) {
+                continue;
+            }
+
+            TrackSlice slice;
+            slice.workerIndex = workerIndex;
+            slice.pointOffset = previousPoints.size();
+            slice.pointCount = worker.trackedFramePoints.size();
+            slices.push_back(slice);
+            previousPoints.insert(previousPoints.end(),
+                                  worker.trackedFramePoints.begin(),
+                                  worker.trackedFramePoints.end());
+        }
+        if (previousPoints.empty()) {
+            return;
+        }
+
+        std::vector<cv::Point2f> nextPoints;
+        std::vector<unsigned char> forwardStatus;
+        std::vector<float> forwardErrors;
         cv::calcOpticalFlowPyrLK(
-            worker.previousFramePyramid, framePyramid,
-            worker.trackedFramePoints, nextFramePoints,
-            opticalFlowStatus, opticalFlowErrors,
+            previousFramePyramid, framePyramid,
+            previousPoints, nextPoints, forwardStatus, forwardErrors,
             cv::Size(21, 21), 3,
             cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS,
                              20, 0.03));
 
-        std::vector<cv::Point2f> backwardFramePoints;
+        std::vector<cv::Point2f> backwardPoints;
         std::vector<unsigned char> backwardStatus;
         std::vector<float> backwardErrors;
         cv::calcOpticalFlowPyrLK(
-            framePyramid, worker.previousFramePyramid,
-            nextFramePoints, backwardFramePoints,
-            backwardStatus, backwardErrors,
+            framePyramid, previousFramePyramid,
+            nextPoints, backwardPoints, backwardStatus, backwardErrors,
             cv::Size(21, 21), 3,
             cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS,
                              20, 0.03));
 
-        std::vector<cv::Point2f> referencePoints;
-        std::vector<cv::Point2f> framePoints;
-        for (std::size_t index = 0; index < opticalFlowStatus.size(); ++index) {
-            if (!opticalFlowStatus[index] || !backwardStatus[index] ||
-                opticalFlowErrors[index] > kMaximumOpticalFlowError ||
-                backwardErrors[index] > kMaximumOpticalFlowError ||
-                cv::norm(backwardFramePoints[index] -
-                         worker.trackedFramePoints[index]) >
-                    kMaximumForwardBackwardError ||
-                nextFramePoints[index].x < 0 ||
-                nextFramePoints[index].x >= frameGray.cols ||
-                nextFramePoints[index].y < 0 ||
-                nextFramePoints[index].y >= frameGray.rows) {
+        for (const TrackSlice& slice : slices) {
+            Worker& worker = *workers[slice.workerIndex];
+            MultiMarkerDetection& result = results[slice.workerIndex];
+            std::vector<cv::Point2f> referencePoints;
+            std::vector<cv::Point2f> framePoints;
+            referencePoints.reserve(slice.pointCount);
+            framePoints.reserve(slice.pointCount);
+
+            for (std::size_t localIndex = 0;
+                 localIndex < slice.pointCount; ++localIndex) {
+                const std::size_t index = slice.pointOffset + localIndex;
+                if (!forwardStatus[index] || !backwardStatus[index] ||
+                    forwardErrors[index] > kMaximumOpticalFlowError ||
+                    backwardErrors[index] > kMaximumOpticalFlowError ||
+                    cv::norm(backwardPoints[index] - previousPoints[index]) >
+                        kMaximumForwardBackwardError ||
+                    nextPoints[index].x < 0 ||
+                    nextPoints[index].x >= frameGray.cols ||
+                    nextPoints[index].y < 0 ||
+                    nextPoints[index].y >= frameGray.rows) {
+                    continue;
+                }
+                referencePoints.push_back(worker.trackedReferencePoints[localIndex]);
+                framePoints.push_back(nextPoints[index]);
+            }
+
+            result.candidateCount = static_cast<int>(framePoints.size());
+            if (framePoints.size() < kMinimumMatches) {
                 continue;
             }
-            referencePoints.push_back(worker.trackedReferencePoints[index]);
-            framePoints.push_back(nextFramePoints[index]);
-        }
 
-        result.candidateCount = static_cast<int>(framePoints.size());
-        if (framePoints.size() < kMinimumMatches) {
-            return false;
-        }
-
-        cv::Mat inlierMask;
-        const cv::Mat homography = cv::findHomography(
-            referencePoints, framePoints, cv::RANSAC, 1.75, inlierMask);
-        result.inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
-        const int requiredInliers = std::max(
-            kMinimumMatches,
-            static_cast<int>(std::ceil(framePoints.size() * 0.65)));
-        if (homography.empty() || result.inlierCount < requiredInliers) {
-            return false;
-        }
-
-        cv::perspectiveTransform(worker.referenceCorners,
-                                 result.corners, homography);
-        if (!IsUsableQuadrilateral(result.corners,
-                                   frameGray.cols, frameGray.rows)) {
-            result.corners.clear();
-            return false;
-        }
-        const std::uint64_t frameGap = frameSequence -
-                                       worker.lastAcceptedFrameSequence;
-        if (!QuadsAgree(worker.lastAcceptedCorners, result.corners,
-                        10.0f + 8.0f * static_cast<float>(frameGap))) {
-            result.corners.clear();
-            return false;
-        }
-
-        std::vector<cv::Point2f> inlierReferencePoints;
-        std::vector<cv::Point2f> inlierFramePoints;
-        inlierReferencePoints.reserve(result.inlierCount);
-        inlierFramePoints.reserve(result.inlierCount);
-        const unsigned char* trackingInliers = inlierMask.ptr<unsigned char>();
-        for (std::size_t index = 0; index < inlierMask.total(); ++index) {
-            if (trackingInliers[index] == 0) {
+            cv::Mat inlierMask;
+            const cv::Mat homography = cv::findHomography(
+                referencePoints, framePoints, cv::RANSAC, 1.75, inlierMask);
+            result.inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
+            const int requiredInliers = std::max(
+                kMinimumMatches,
+                static_cast<int>(std::ceil(framePoints.size() * 0.65)));
+            if (homography.empty() || result.inlierCount < requiredInliers) {
                 continue;
             }
-            inlierReferencePoints.push_back(referencePoints[index]);
-            inlierFramePoints.push_back(framePoints[index]);
-        }
 
-        worker.previousFramePyramid = framePyramid;
-        worker.trackedReferencePoints = std::move(inlierReferencePoints);
-        worker.trackedFramePoints = std::move(inlierFramePoints);
-        ++worker.trackingFramesSinceDetection;
-        worker.lastAcceptedCorners = result.corners;
-        worker.lastAcceptedFrameSequence = frameSequence;
-        result.frameSequence = frameSequence;
-        result.trackedPointCount = static_cast<int>(worker.trackedFramePoints.size());
-        result.usingOpticalFlow = true;
-        result.found = true;
-        return true;
+            cv::perspectiveTransform(worker.referenceCorners,
+                                     result.corners, homography);
+            if (!IsUsableQuadrilateral(result.corners,
+                                       frameGray.cols, frameGray.rows)) {
+                result.corners.clear();
+                continue;
+            }
+            const std::uint64_t frameGap = frameSequence -
+                                           worker.lastAcceptedFrameSequence;
+            if (!QuadsAgree(worker.lastAcceptedCorners, result.corners,
+                            10.0f + 8.0f * static_cast<float>(frameGap))) {
+                result.corners.clear();
+                continue;
+            }
+
+            std::vector<cv::Point2f> inlierReferencePoints;
+            std::vector<cv::Point2f> inlierFramePoints;
+            inlierReferencePoints.reserve(result.inlierCount);
+            inlierFramePoints.reserve(result.inlierCount);
+            const unsigned char* trackingInliers = inlierMask.ptr<unsigned char>();
+            for (std::size_t index = 0; index < inlierMask.total(); ++index) {
+                if (trackingInliers[index] == 0) {
+                    continue;
+                }
+                inlierReferencePoints.push_back(referencePoints[index]);
+                inlierFramePoints.push_back(framePoints[index]);
+            }
+
+            worker.trackedReferencePoints = std::move(inlierReferencePoints);
+            worker.trackedFramePoints = std::move(inlierFramePoints);
+            ++worker.trackingFramesSinceDetection;
+            worker.lastAcceptedCorners = result.corners;
+            worker.lastAcceptedFrameSequence = frameSequence;
+            result.frameSequence = frameSequence;
+            result.trackedPointCount = static_cast<int>(worker.trackedFramePoints.size());
+            result.usingOpticalFlow = true;
+            result.found = true;
+            trackedWorkers[slice.workerIndex] = 1;
+        }
     }
 
-    void WorkerLoop(Worker& worker)
+    void ProcessFrame(const cv::Mat& frameGray,
+                      const std::vector<cv::Mat>& previousFramePyramid,
+                      const std::vector<cv::Mat>& framePyramid,
+                      std::uint64_t previousFrameSequence,
+                      std::uint64_t frameSequence,
+                      unsigned int& recoveryCooldown,
+                      std::vector<MultiMarkerDetection>& results)
     {
-        std::fprintf(stderr, "BaekAR: detector worker %zu started for %s\n",
-                     worker.markerIndex + 1, worker.markerName.c_str());
+        results.resize(workers.size());
+        for (std::size_t index = 0; index < workers.size(); ++index) {
+            results[index].markerIndex = workers[index]->markerIndex;
+            results[index].markerName = workers[index]->markerName;
+            results[index].frameSequence = frameSequence;
+        }
+
+        std::vector<unsigned char> trackedWorkers(workers.size(), 0);
+        TrackMarkers(frameGray, previousFramePyramid, framePyramid,
+                     previousFrameSequence, frameSequence,
+                     results, trackedWorkers);
+
+        bool hasLostWorker = false;
+        bool needsRefresh = false;
+        for (std::size_t index = 0; index < workers.size(); ++index) {
+            Worker& worker = *workers[index];
+            if (!trackedWorkers[index]) {
+                ResetTracking(worker);
+                hasLostWorker = true;
+            } else if (worker.trackingFramesSinceDetection >=
+                           kTrackingRefreshInterval ||
+                       worker.trackedFramePoints.size() < kMinimumMatches + 2) {
+                needsRefresh = true;
+            }
+        }
+
+        if (!hasLostWorker) {
+            recoveryCooldown = 0;
+        } else if (recoveryCooldown > 0) {
+            --recoveryCooldown;
+        }
+        const bool recoveryDue = hasLostWorker && recoveryCooldown == 0;
+        const bool recoverLostWorkers = hasLostWorker &&
+            (recoveryDue || needsRefresh);
+        if (!needsRefresh && !recoveryDue) {
+            return;
+        }
+
+        std::vector<cv::KeyPoint> frameKeypoints;
+        cv::Mat frameDescriptors;
+        brisk->detectAndCompute(frameGray, cv::noArray(),
+                                frameKeypoints, frameDescriptors);
+        if (recoverLostWorkers) {
+            recoveryCooldown = kRecoveryIntervalFrames;
+        }
+
+        std::vector<std::size_t> detectionIndexes;
+        for (std::size_t index = 0; index < workers.size(); ++index) {
+            Worker& worker = *workers[index];
+            const bool refreshWorker = trackedWorkers[index] &&
+                (worker.trackingFramesSinceDetection >= kTrackingRefreshInterval ||
+                 worker.trackedFramePoints.size() < kMinimumMatches + 2);
+            if (refreshWorker ||
+                (recoverLostWorkers && !trackedWorkers[index])) {
+                detectionIndexes.push_back(index);
+            }
+        }
+
+        std::vector<MultiMarkerDetection> detectionResults(workers.size());
+        std::vector<unsigned char> detectionSucceeded(workers.size(), 0);
+        cv::parallel_for_(cv::Range(0, static_cast<int>(detectionIndexes.size())),
+                          [&](const cv::Range& range) {
+            for (int detectionIndex = range.start;
+                 detectionIndex < range.end; ++detectionIndex) {
+                const std::size_t workerIndex =
+                    detectionIndexes[static_cast<std::size_t>(detectionIndex)];
+                Worker& worker = *workers[workerIndex];
+                MultiMarkerDetection& detectionResult =
+                    detectionResults[workerIndex];
+                detectionResult.markerIndex = worker.markerIndex;
+                detectionResult.markerName = worker.markerName;
+                detectionResult.frameSequence = frameSequence;
+                const std::vector<cv::Point2f>* expectedCorners =
+                    trackedWorkers[workerIndex]
+                    ? &results[workerIndex].corners : nullptr;
+                detectionSucceeded[workerIndex] = DetectMarker(
+                    worker, frameGray, frameKeypoints, frameDescriptors,
+                    frameSequence, detectionResult, expectedCorners) ? 1 : 0;
+            }
+        });
+
+        for (const std::size_t workerIndex : detectionIndexes) {
+            Worker& worker = *workers[workerIndex];
+            if (!detectionSucceeded[workerIndex]) {
+                if (trackedWorkers[workerIndex]) {
+                    worker.trackingFramesSinceDetection =
+                        kTrackingRefreshInterval / 2;
+                }
+                continue;
+            }
+
+            if (trackedWorkers[workerIndex]) {
+                // Refresh feature points without replacing the displayed pose.
+                // This avoids a periodic BRISK-to-LK corner jump.
+                worker.lastAcceptedCorners = results[workerIndex].corners;
+                worker.lastAcceptedFrameSequence = frameSequence;
+            } else {
+                results[workerIndex] = std::move(detectionResults[workerIndex]);
+            }
+        }
+    }
+
+    void ProcessingLoop()
+    {
+        std::fprintf(stderr,
+                     "BaekAR: synchronized detector started for %zu marker(s)\n",
+                     workers.size());
         std::fflush(stderr);
 
+        std::uint64_t processedFrameSequence = 0;
+        std::uint64_t previousFrameSequence = 0;
+        unsigned int recoveryCooldown = 0;
         unsigned int processedFrames = 0;
+        std::vector<cv::Mat> previousFramePyramid;
+
         while (true) {
             cv::Mat frame;
-            std::vector<cv::Mat> framePyramid;
             std::uint64_t frameSequence = 0;
             {
                 std::unique_lock<std::mutex> lock(frameMutex);
                 frameAvailable.wait(lock, [&] {
-                    return !running || latestFrameSequence > worker.lastFrameSequence;
+                    return !running || latestFrameSequence > processedFrameSequence;
                 });
                 if (!running) {
                     break;
                 }
-
-                // The main thread replaces latestFrame with a new allocation on
-                // every submission. This shallow copy stays immutable and valid
-                // while each worker processes the same camera frame concurrently.
                 frame = latestFrame;
-                framePyramid = latestFramePyramid;
                 frameSequence = latestFrameSequence;
-                worker.lastFrameSequence = frameSequence;
+                processedFrameSequence = frameSequence;
             }
 
-            MultiMarkerDetection result;
-            result.markerIndex = worker.markerIndex;
-            result.markerName = worker.markerName;
-            result.frameSequence = frameSequence;
+            std::vector<cv::Mat> framePyramid;
+            cv::buildOpticalFlowPyramid(frame, framePyramid,
+                                        cv::Size(21, 21), 3, true,
+                                        cv::BORDER_REFLECT_101,
+                                        cv::BORDER_CONSTANT, true);
 
-            const bool tracked = TrackMarker(worker, frame, framePyramid,
-                                             frameSequence, result);
-            const bool needsRefresh = tracked &&
-                (worker.trackingFramesSinceDetection >= kTrackingRefreshInterval ||
-                 worker.trackedFramePoints.size() < kMinimumMatches + 2);
+            std::vector<MultiMarkerDetection> results;
+            ProcessFrame(frame, previousFramePyramid, framePyramid,
+                         previousFrameSequence, frameSequence,
+                         recoveryCooldown, results);
 
-            if (!tracked) {
-                ResetTracking(worker);
-                DetectMarker(worker, frame, framePyramid,
-                             frameSequence, result, nullptr);
-            } else if (needsRefresh) {
-                MultiMarkerDetection refreshedResult;
-                refreshedResult.markerIndex = worker.markerIndex;
-                refreshedResult.markerName = worker.markerName;
-                refreshedResult.frameSequence = frameSequence;
-                if (DetectMarker(worker, frame, framePyramid, frameSequence,
-                                 refreshedResult, &result.corners)) {
-                    result = std::move(refreshedResult);
+            for (std::size_t index = 0; index < workers.size(); ++index) {
+                StabilizeCorners(*workers[index], results[index]);
+            }
+            {
+                std::lock_guard<std::mutex> lock(detectionMutex);
+                for (std::size_t index = 0; index < workers.size(); ++index) {
+                    workers[index]->detection = std::move(results[index]);
                 }
             }
 
-            StabilizeCorners(worker, result);
-
-            {
-                std::lock_guard<std::mutex> lock(worker.detectionMutex);
-                worker.detection = std::move(result);
-            }
+            previousFramePyramid = std::move(framePyramid);
+            previousFrameSequence = frameSequence;
 
             if (++processedFrames % 60 == 0) {
-                std::lock_guard<std::mutex> lock(worker.detectionMutex);
+                std::lock_guard<std::mutex> lock(detectionMutex);
                 std::fprintf(stderr,
-                             "BaekAR: detector %s frame=%llu mode=%s points=%d inliers=%d found=%s\n",
-                             worker.markerName.c_str(),
-                             static_cast<unsigned long long>(worker.detection.frameSequence),
-                             worker.detection.usingOpticalFlow ? "track" : "detect",
-                             worker.detection.trackedPointCount,
-                             worker.detection.inlierCount,
-                             worker.detection.found ? "yes" : "no");
+                             "BaekAR: synchronized tracking frame=%llu\n",
+                             static_cast<unsigned long long>(frameSequence));
+                for (const std::unique_ptr<Worker>& worker : workers) {
+                    std::fprintf(stderr,
+                                 "  %s mode=%s points=%d inliers=%d found=%s\n",
+                                 worker->markerName.c_str(),
+                                 worker->detection.usingOpticalFlow ? "track" : "detect",
+                                 worker->detection.trackedPointCount,
+                                 worker->detection.inlierCount,
+                                 worker->detection.found ? "yes" : "no");
+                }
                 std::fflush(stderr);
             }
         }
 
-        std::fprintf(stderr, "BaekAR: detector worker %zu stopped for %s\n",
-                     worker.markerIndex + 1, worker.markerName.c_str());
+        std::fprintf(stderr, "BaekAR: synchronized detector stopped\n");
         std::fflush(stderr);
     }
 };
@@ -548,10 +676,9 @@ bool MultiMarkerDetector::Initialize(const std::vector<std::string>& markerPaths
             return false;
         }
 
-        worker->brisk = cv::BRISK::create(30, 3);
-        worker->brisk->detectAndCompute(worker->referenceGray, cv::noArray(),
-                                        worker->referenceKeypoints,
-                                        worker->referenceDescriptors);
+        implementation_->brisk->detectAndCompute(
+            worker->referenceGray, cv::noArray(),
+            worker->referenceKeypoints, worker->referenceDescriptors);
         if (worker->referenceDescriptors.empty()) {
             std::fprintf(stderr, "BaekAR: detector found no BRISK features in %s\n",
                          markerPaths[index].c_str());
@@ -592,14 +719,11 @@ bool MultiMarkerDetector::Initialize(const std::vector<std::string>& markerPaths
     {
         std::lock_guard<std::mutex> lock(implementation_->frameMutex);
         implementation_->latestFrame.release();
-        implementation_->latestFramePyramid.clear();
         implementation_->latestFrameSequence = 0;
         implementation_->running = true;
     }
-    for (const std::unique_ptr<Implementation::Worker>& worker : implementation_->workers) {
-        worker->thread = std::thread(&Implementation::WorkerLoop,
-                                     implementation_.get(), std::ref(*worker));
-    }
+    implementation_->processingThread = std::thread(
+        &Implementation::ProcessingLoop, implementation_.get());
     return true;
 }
 
@@ -615,34 +739,25 @@ void MultiMarkerDetector::SubmitFrame(const cv::Mat& bgrFrame)
     } else {
         cv::cvtColor(bgrFrame, frameGray, cv::COLOR_BGR2GRAY);
     }
-
     cv::Mat immutableFrame = frameGray.clone();
-    std::vector<cv::Mat> framePyramid;
-    cv::buildOpticalFlowPyramid(immutableFrame, framePyramid,
-                                cv::Size(21, 21), 3, true,
-                                cv::BORDER_REFLECT_101,
-                                cv::BORDER_CONSTANT, true);
 
     {
         std::lock_guard<std::mutex> lock(implementation_->frameMutex);
         if (!implementation_->running) {
             return;
         }
-        // Convert and build the optical-flow pyramid once before fan-out. All
-        // marker workers share these immutable allocations.
-        implementation_->latestFrame = immutableFrame;
-        implementation_->latestFramePyramid = std::move(framePyramid);
+        implementation_->latestFrame = std::move(immutableFrame);
         ++implementation_->latestFrameSequence;
     }
-    implementation_->frameAvailable.notify_all();
+    implementation_->frameAvailable.notify_one();
 }
 
 std::vector<MultiMarkerDetection> MultiMarkerDetector::LatestDetections() const
 {
+    std::lock_guard<std::mutex> lock(implementation_->detectionMutex);
     std::vector<MultiMarkerDetection> detections;
     detections.reserve(implementation_->workers.size());
     for (const std::unique_ptr<Implementation::Worker>& worker : implementation_->workers) {
-        std::lock_guard<std::mutex> lock(worker->detectionMutex);
         detections.push_back(worker->detection);
     }
     return detections;
@@ -661,13 +776,10 @@ void MultiMarkerDetector::Stop()
     }
     implementation_->frameAvailable.notify_all();
 
-    for (const std::unique_ptr<Implementation::Worker>& worker : implementation_->workers) {
-        if (worker->thread.joinable()) {
-            worker->thread.join();
-        }
+    if (implementation_->processingThread.joinable()) {
+        implementation_->processingThread.join();
     }
     implementation_->workers.clear();
     implementation_->latestFrame.release();
-    implementation_->latestFramePyramid.clear();
     implementation_->latestFrameSequence = 0;
 }
