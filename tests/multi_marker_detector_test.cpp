@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <thread>
 #include <vector>
@@ -26,18 +27,44 @@ bool CornersArePlausible(const std::vector<cv::Point2f>& corners)
     return true;
 }
 
+int MarkerCountFromArguments(int argc, char* argv[], std::size_t maximumCount)
+{
+    if (argc == 1) {
+        return static_cast<int>(maximumCount);
+    }
+    if (argc != 3 || std::string(argv[1]) != "--marker-count") {
+        return 0;
+    }
+
+    char* end = nullptr;
+    const long markerCount = std::strtol(argv[2], &end, 10);
+    if (end == nullptr || *end != '\0' || markerCount < 1 ||
+        markerCount > static_cast<long>(maximumCount)) {
+        return 0;
+    }
+    return static_cast<int>(markerCount);
+}
+
 }  // namespace
 
-int main()
+int main(int argc, char* argv[])
 {
     const std::vector<std::string> markerNames = {
         "yejin.jpg", "fish.jpg", "cola.jpg", "grafi.jpg", "suji.jpg",
         "hyojoo.jpg", "iu1.jpg", "mina1.jpg", "minjung1.jpg", "minjung4.jpg"
     };
+    const int markerCount = MarkerCountFromArguments(argc, argv, markerNames.size());
+    if (markerCount == 0) {
+        std::fprintf(stderr, "Usage: %s [--marker-count 1..%zu]\n",
+                     argv[0], markerNames.size());
+        return 1;
+    }
+
     std::vector<std::string> markerPaths;
-    for (const std::string& markerName : markerNames) {
+    markerPaths.reserve(static_cast<std::size_t>(markerCount));
+    for (int markerIndex = 0; markerIndex < markerCount; ++markerIndex) {
         markerPaths.push_back(std::string(BAEKAR_SOURCE_DIR) +
-                              "/MarkerlessAR/image/" + markerName);
+                              "/MarkerlessAR/image/" + markerNames[markerIndex]);
     }
 
     {
@@ -55,7 +82,8 @@ int main()
     SyntheticMarkerSource source;
     MultiMarkerDetector detector;
     if (!source.Initialize(markerPaths) || !detector.Initialize(markerPaths)) {
-        std::fprintf(stderr, "Could not initialize ten-marker tracking test.\n");
+        std::fprintf(stderr, "Could not initialize %d-marker tracking test.\n",
+                     markerCount);
         return 1;
     }
 
@@ -160,7 +188,7 @@ int main()
     }
 
     std::fprintf(stderr,
-                 "BaekAR tracking test passed: %d/%d synchronized snapshots found all markers; occlusion recovery passed.\n",
-                 allFoundSnapshots, observedSnapshots);
+                 "BaekAR %d-marker tracking test passed: %d/%d synchronized snapshots found all markers; occlusion recovery passed.\n",
+                 markerCount, allFoundSnapshots, observedSnapshots);
     return 0;
 }

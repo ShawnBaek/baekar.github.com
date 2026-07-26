@@ -5,15 +5,21 @@ else()
     project(BaekAR LANGUAGES CXX)
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_library(baekar_build_options INTERFACE)
+target_compile_definitions(baekar_build_options INTERFACE
+    GL_SILENCE_DEPRECATION
+    # Enable HandyAR fingertip pipeline (gates wonjo_dx::bDrawHand=TRUE in wonjo.cpp).
+    # Without this, OnProcess never runs and the gesture subsystem stays dormant.
+    _DRAW_HAND
+)
 
-# Suppress macOS OpenGL deprecation warnings
-add_definitions(-DGL_SILENCE_DEPRECATION)
-
-# Enable HandyAR fingertip pipeline (gates wonjo_dx::bDrawHand=TRUE in wonjo.cpp).
-# Without this, OnProcess never runs and the gesture subsystem stays dormant.
-add_definitions(-D_DRAW_HAND)
+function(baekar_use_legacy_cpp target_name)
+    set_target_properties(${target_name} PROPERTIES
+        CXX_STANDARD 14
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS YES
+    )
+endfunction()
 
 # Find dependencies
 find_package(OpenCV 4 REQUIRED)
@@ -35,26 +41,6 @@ if(NOT GLM_INCLUDE_DIR)
 endif()
 
 include(CTest)
-if(BUILD_TESTING)
-    add_executable(BaekARTrackingTests
-        tests/multi_marker_detector_test.cpp
-        MarkerlessAR/compat/multi_marker_detector.cpp
-        MarkerlessAR/compat/synthetic_marker_source.cpp
-    )
-    target_include_directories(BaekARTrackingTests PRIVATE
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/compat
-        ${OpenCV_INCLUDE_DIRS}
-    )
-    target_compile_definitions(BaekARTrackingTests PRIVATE
-        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
-    )
-    target_link_libraries(BaekARTrackingTests PRIVATE
-        ${OpenCV_LIBS}
-        Threads::Threads
-    )
-    add_test(NAME multi_marker_tracking COMMAND BaekARTrackingTests)
-    set_tests_properties(multi_marker_tracking PROPERTIES TIMEOUT 45)
-endif()
 
 # Source files - main engine
 set(ENGINE_SOURCES
@@ -70,8 +56,6 @@ set(ENGINE_SOURCES
     MarkerlessAR/SungwookUtility.cpp
     MarkerlessAR/stdafx.cpp
 )
-
-list(APPEND ENGINE_SOURCES MarkerlessAR/Contents.cpp)
 
 if(APPLE)
     list(APPEND ENGINE_SOURCES
@@ -137,9 +121,46 @@ set(HANDYAR_SOURCES
     MarkerlessAR/HandyAR/HandRegion.cpp
     MarkerlessAR/HandyAR/MixGaussian.cpp
     MarkerlessAR/HandyAR/PoseEstimation.cpp
+)
+
+# First extracted architecture boundary. Both the application and its
+# characterization tests use the same tracking implementation.
+add_library(baekar_tracking STATIC
     MarkerlessAR/compat/multi_marker_detector.cpp
     MarkerlessAR/compat/synthetic_marker_source.cpp
 )
+baekar_use_legacy_cpp(baekar_tracking)
+target_include_directories(baekar_tracking PUBLIC
+    ${CMAKE_SOURCE_DIR}/MarkerlessAR/compat
+    ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(baekar_tracking PUBLIC
+    baekar_build_options
+    ${OpenCV_LIBS}
+    Threads::Threads
+)
+
+if(BUILD_TESTING)
+    add_executable(BaekARTrackingTests
+        tests/multi_marker_detector_test.cpp
+    )
+    baekar_use_legacy_cpp(BaekARTrackingTests)
+    target_compile_definitions(BaekARTrackingTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    )
+    target_link_libraries(BaekARTrackingTests PRIVATE baekar_tracking)
+
+    foreach(marker_count IN ITEMS 1 3 10)
+        add_test(
+            NAME multi_marker_tracking_${marker_count}
+            COMMAND BaekARTrackingTests --marker-count ${marker_count}
+        )
+        set_tests_properties(multi_marker_tracking_${marker_count} PROPERTIES
+            LABELS "characterization;tracking"
+            TIMEOUT 45
+        )
+    endforeach()
+endif()
 
 # Combine all sources
 set(ALL_SOURCES
@@ -152,6 +173,7 @@ set(ALL_SOURCES
 )
 
 add_executable(BaekAR ${ALL_SOURCES})
+baekar_use_legacy_cpp(BaekAR)
 
 target_include_directories(BaekAR PRIVATE
     ${CMAKE_SOURCE_DIR}/MarkerlessAR
@@ -167,6 +189,8 @@ target_include_directories(BaekAR PRIVATE
 )
 
 target_link_libraries(BaekAR PRIVATE
+    baekar_build_options
+    baekar_tracking
     ${OpenCV_LIBS}
     glfw
     ${OPENGL_LIBRARIES}

@@ -67,6 +67,8 @@ Continue from the merged macOS version. Verify the current behavior first, and t
 
 The original 2012 pipeline will stay available for comparison.
 
+Architecture decisions and the folder migration are tracked in [`docs/architecture`](docs/architecture/README.md).
+
 ### Step 2 — Verify on macOS
 
 Verify real and simulated camera input, marker detection and tracking, 3D object overlay, hand and fingertip tracking, ScreenCaptureKit, permissions, relaunch, and Debug and Release builds.
