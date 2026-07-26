@@ -17,6 +17,7 @@ add_definitions(-D_DRAW_HAND)
 
 # Find dependencies
 find_package(OpenCV 4 REQUIRED)
+find_package(Threads REQUIRED)
 find_package(glfw3 3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
@@ -31,6 +32,28 @@ find_path(GLM_INCLUDE_DIR glm/glm.hpp
 )
 if(NOT GLM_INCLUDE_DIR)
     message(FATAL_ERROR "GLM not found. Install with: brew install glm")
+endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(BaekARTrackingTests
+        tests/multi_marker_detector_test.cpp
+        MarkerlessAR/compat/multi_marker_detector.cpp
+        MarkerlessAR/compat/synthetic_marker_source.cpp
+    )
+    target_include_directories(BaekARTrackingTests PRIVATE
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR/compat
+        ${OpenCV_INCLUDE_DIRS}
+    )
+    target_compile_definitions(BaekARTrackingTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    )
+    target_link_libraries(BaekARTrackingTests PRIVATE
+        ${OpenCV_LIBS}
+        Threads::Threads
+    )
+    add_test(NAME multi_marker_tracking COMMAND BaekARTrackingTests)
+    set_tests_properties(multi_marker_tracking PROPERTIES TIMEOUT 45)
 endif()
 
 # Source files - main engine
