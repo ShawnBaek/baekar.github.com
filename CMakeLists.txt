@@ -60,12 +60,15 @@ endif()
 
 include(CTest)
 
-# 2012 engine sources. EngineMain.cpp now exposes legacy_engine.h entry
-# points; main() lives in apps/baekar/main.cpp.
+# 2012 engine sources. EngineMain.cpp was split into the legacy_* wrappers
+# below (tracking, pose, hand, renderer, scene); main() lives in
+# apps/baekar/main.cpp.
 set(ENGINE_SOURCES
-    MarkerlessAR/EngineMain.cpp
     MarkerlessAR/legacy_marker_tracker.cpp
     MarkerlessAR/legacy_pose.cpp
+    MarkerlessAR/legacy_hand.cpp
+    MarkerlessAR/legacy_renderer.cpp
+    MarkerlessAR/legacy_scene.cpp
     MarkerlessAR/d3d.cpp
     MarkerlessAR/wonjo.cpp
     MarkerlessAR/cam.cpp
@@ -87,6 +90,7 @@ if(APPLE)
         MarkerlessAR/compat/macos_av_capture.mm
         MarkerlessAR/compat/macos_camera_menu.mm
         src/platform/macos/AvFoundationFrameSource.cpp
+        src/platform/macos/ScreenCaptureWindowSource.cpp
     )
     # These .mm files capture Obj-C objects via __block; without ARC the
     # captures don't auto-retain and the autorelease pool drains them
@@ -251,8 +255,7 @@ if(assimp_FOUND)
 endif()
 
 if(APPLE)
-    # The 2012 engine still reaches ScreenCaptureKit window capture directly
-    # (moves behind a scene port in stage 6).
+    # HandyAR/Capture.cpp (kept for reference) still references AVCap.
     target_link_libraries(baekar_legacy PUBLIC baekar_platform_macos)
 endif()
 
@@ -270,6 +273,7 @@ target_link_libraries(baekar_core INTERFACE ${OpenCV_LIBS})
 add_library(baekar_application STATIC
     src/application/AppConfig.cpp
     src/application/Application.cpp
+    src/application/InteractionController.cpp
 )
 baekar_use_modern_cpp(baekar_application)
 target_compile_options(baekar_application PRIVATE -Werror)
@@ -277,10 +281,12 @@ target_link_libraries(baekar_application PUBLIC baekar_core)
 
 add_library(baekar_adapters STATIC
     src/adapters/window/GlfwWindow.cpp
-    src/adapters/legacy/LegacyEnginePipeline.cpp
     src/adapters/frame_source/FrameSources.cpp
     src/adapters/tracking/MarkerTrackers.cpp
     src/adapters/pose/LegacyCameraPoseEstimator.cpp
+    src/adapters/hand/HandTrackers.cpp
+    src/adapters/render/LegacyGlRenderer.cpp
+    src/adapters/scene/ContentsScene.cpp
 )
 baekar_use_modern_cpp(baekar_adapters)
 target_include_directories(baekar_adapters PRIVATE ${CMAKE_SOURCE_DIR}/MarkerlessAR)
@@ -302,6 +308,12 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARUnitTests PRIVATE baekar_application)
     add_test(NAME app_config COMMAND BaekARUnitTests)
     set_tests_properties(app_config PROPERTIES LABELS "unit")
+
+    add_executable(BaekARInteractionTests tests/unit/interaction_controller_test.cpp)
+    baekar_use_modern_cpp(BaekARInteractionTests)
+    target_link_libraries(BaekARInteractionTests PRIVATE baekar_application)
+    add_test(NAME interaction_controller COMMAND BaekARInteractionTests)
+    set_tests_properties(interaction_controller PROPERTIES LABELS "unit")
 
     add_executable(BaekARFrameSourceTests tests/integration/frame_source_test.cpp)
     baekar_use_modern_cpp(BaekARFrameSourceTests)

@@ -1,8 +1,10 @@
 // Composition root: the only place that names concrete adapter types.
 
 #include "adapters/frame_source/FrameSources.h"
-#include "adapters/legacy/LegacyEnginePipeline.h"
+#include "adapters/hand/HandTrackers.h"
 #include "adapters/pose/LegacyCameraPoseEstimator.h"
+#include "adapters/render/LegacyGlRenderer.h"
+#include "adapters/scene/ContentsScene.h"
 #include "adapters/tracking/MarkerTrackers.h"
 #include "adapters/window/GlfwWindow.h"
 #include "application/AppConfig.h"
@@ -10,6 +12,7 @@
 
 #ifdef __APPLE__
 #include "platform/macos/AvFoundationFrameSource.h"
+#include "platform/macos/ScreenCaptureWindowSource.h"
 #endif
 
 #include <algorithm>
@@ -195,9 +198,34 @@ int main(int argc, char* argv[]) {
     }
     std::unique_ptr<baekar::IMarkerTracker> tracker = makeMarkerTracker(parsed.config.tracker, markers.size());
     baekar::LegacyCameraPoseEstimator poseEstimator;
-    baekar::LegacyEnginePipeline pipeline(argc, argv);
+    std::unique_ptr<baekar::IHandTracker> handTracker;
+    if (parsed.config.handTracking)
+        handTracker = std::make_unique<baekar::HandyArHandTracker>("calibration/calibration.txt",
+                                                                   "calibration/fingertip_320x240.dat");
+    else
+        handTracker = std::make_unique<baekar::DisabledHandTracker>();
+    baekar::LegacyGlRenderer renderer(argc, argv);
+    baekar::ContentsScene scene;
 
-    baekar::Dependencies dependencies{*window, *frames.source, *tracker, poseEstimator, pipeline};
-    baekar::Application application(parsed.config, markers, "calibration/calibration.txt", dependencies);
+    // Window-as-AR-texture (thesis novelty) needs ScreenCaptureKit.
+    std::unique_ptr<baekar::IWindowTextureSource> windowTexture;
+    const bool cameraInput = !parsed.config.usesSimulation() && parsed.config.replayDirectory.empty();
+    if (parsed.config.windowCapture && cameraInput) {
+#ifdef __APPLE__
+        windowTexture = std::make_unique<baekar::ScreenCaptureWindowSource>();
+        if (!windowTexture->open()) windowTexture.reset();
+#else
+        std::fprintf(stderr, "BaekAR: --window-capture needs macOS ScreenCaptureKit; ignored.\n");
+#endif
+    }
+
+    baekar::RunSettings settings;
+    settings.markerImages = markers;
+    settings.calibrationPath = "calibration/calibration.txt";
+    settings.maxFrames = parsed.config.maxFrames;
+    settings.screenshotPath = parsed.config.screenshotPath;
+    baekar::Dependencies dependencies{*window, *frames.source, *tracker, poseEstimator,
+                                      *handTracker, renderer, scene, windowTexture.get()};
+    baekar::Application application(settings, dependencies);
     return application.run();
 }
