@@ -13,7 +13,8 @@ public:
     bool prepare(const AppConfig& config) override;
     bool initializeRenderer() override;
     bool start(const Frame& firstFrame) override;
-    void renderFrame(const Frame& frame, const PointerState& pointer) override;
+    void renderFrame(const Frame& frame, const TrackingResult& tracking,
+                     const PointerState& pointer) override;
     void shutdown() override;
 
 private:

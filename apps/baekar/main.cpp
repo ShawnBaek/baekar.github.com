@@ -2,6 +2,8 @@
 
 #include "adapters/frame_source/FrameSources.h"
 #include "adapters/legacy/LegacyEnginePipeline.h"
+#include "adapters/pose/LegacyCameraPoseEstimator.h"
+#include "adapters/tracking/MarkerTrackers.h"
 #include "adapters/window/GlfwWindow.h"
 #include "application/AppConfig.h"
 #include "application/Application.h"
@@ -10,7 +12,10 @@
 #include "platform/macos/AvFoundationFrameSource.h"
 #endif
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -45,6 +50,61 @@ std::string resolveMarkerPath(const std::string& path) {
     }
 #endif
     return path;
+}
+
+// Marker-image picker (--interactive): the thesis "select a feature-
+// detectable photo" workflow. Returns an empty string to keep the default.
+std::string pickMarkerImage() {
+    namespace fs = std::filesystem;
+    std::vector<std::string> images;
+    std::error_code error;
+    for (const fs::directory_entry& entry : fs::directory_iterator("image", error)) {
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (ext == ".jpg" || ext == ".jpeg" || ext == ".png")
+            images.push_back(entry.path().filename().string());
+    }
+    std::sort(images.begin(), images.end());
+    if (images.empty()) {
+        std::fprintf(stderr, "MarkerPicker: no images found in 'image'\n");
+        return "";
+    }
+    std::fprintf(stderr, "\n=== Pick a feature-detectable marker image ===\n");
+    for (std::size_t i = 0; i < images.size(); ++i)
+        std::fprintf(stderr, "  [%2zu] %s\n", i, images[i].c_str());
+    std::fprintf(stderr, "Enter index (0-%zu), or anything else to keep default (yejin.jpg): ",
+                 images.size() - 1);
+    char line[64] = {0};
+    if (!std::fgets(line, sizeof(line), stdin)) return "";
+    int index = -1;
+    if (std::sscanf(line, "%d", &index) != 1 || index < 0 || index >= static_cast<int>(images.size()))
+        return "";
+    return "image/" + images[static_cast<std::size_t>(index)];
+}
+
+// Marker images for the tracker: the simulated markers, --marker, the
+// interactive picker, or the 2012 default.
+std::vector<std::string> chooseMarkerImages(const baekar::AppConfig& config) {
+    std::vector<std::string> markers;
+    if (config.usesSimulation()) {
+        for (const std::string& marker : config.simulatedMarkers) markers.push_back(resolveMarkerPath(marker));
+        return markers;
+    }
+    std::string marker = config.markerImage;
+    if (marker.empty() && config.interactive) marker = pickMarkerImage();
+    markers.push_back(resolveMarkerPath(marker.empty() ? "image/yejin.jpg" : marker));
+    std::fprintf(stderr, "BaekAR: marker = %s\n", markers.front().c_str());
+    return markers;
+}
+
+// Simple factory: --tracker (auto picks the 2012 pipeline for one marker
+// and the synchronized tracker for several).
+std::unique_ptr<baekar::IMarkerTracker> makeMarkerTracker(baekar::TrackerKind kind, std::size_t markerCount) {
+    const bool multi = kind == baekar::TrackerKind::Multi ||
+                       (kind == baekar::TrackerKind::Auto && markerCount > 1);
+    if (multi) return std::make_unique<baekar::MultiMarkerTracker>();
+    return std::make_unique<baekar::LegacySingleMarkerTracker>();
 }
 
 struct FrameSourceSetup {
@@ -128,7 +188,16 @@ int main(int argc, char* argv[]) {
     if (frames.camera) baekar::installCameraMenu(*frames.camera, parsed.config.cameraIndex);
 #endif
 
+    const std::vector<std::string> markers = chooseMarkerImages(parsed.config);
+    if (parsed.config.tracker == baekar::TrackerKind::Legacy && markers.size() != 1) {
+        std::fprintf(stderr, "BaekAR: --tracker legacy follows exactly one marker.\n");
+        return 2;
+    }
+    std::unique_ptr<baekar::IMarkerTracker> tracker = makeMarkerTracker(parsed.config.tracker, markers.size());
+    baekar::LegacyCameraPoseEstimator poseEstimator;
     baekar::LegacyEnginePipeline pipeline(argc, argv);
-    baekar::Application application(parsed.config, *window, *frames.source, pipeline);
+
+    baekar::Dependencies dependencies{*window, *frames.source, *tracker, poseEstimator, pipeline};
+    baekar::Application application(parsed.config, markers, "calibration/calibration.txt", dependencies);
     return application.run();
 }

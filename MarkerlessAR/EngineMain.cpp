@@ -6,7 +6,6 @@
 #include <process.h>
 #else
 #include "compat/win32_stub.h"
-#include "compat/multi_marker_detector.h"
 #endif
 
 #ifdef __APPLE__
@@ -79,7 +78,6 @@ static double g_mousePrevX = 0, g_mousePrevY = 0;
 #include "compat/macos_camera_menu.h"
 #endif
 #include "Contents.hpp"
-static int g_chosenCameraIndex = -1;
 
 static Contents  g_contents;
 #ifdef __APPLE__
@@ -132,44 +130,12 @@ VideoCapture	capture2(0);
 // Shared frame buffer: mainLoop publishes the application's frames here and
 // the matching/tracking threads read from it.
 #include <mutex>
-#include <condition_variable>
 #include <atomic>
 #include <thread>
 #include <chrono>
-static std::mutex g_frameMutex;
-static std::condition_variable g_frameChanged;
-static Mat g_sharedFrame;
-static uint64_t g_sharedFrameSequence = 0;
-
-// Workers stop when this is set; Shutdown() sets it and joins them.
-static std::atomic<bool> g_stopWorkers{false};
-static bool WorkersShouldStop() { return g_stopWorkers.load(); }
-static void StartWorkerThreads();  // defined with the legacy_engine entry points
-
-static Mat getSharedFrame() {
-	std::lock_guard<std::mutex> lock(g_frameMutex);
-	return g_sharedFrame.clone();
-}
-// Returns the shared frame only if it is newer than lastSequence, waiting up
-// to 50 ms for one. Workers used to re-process the same frame in a busy loop.
-static Mat getSharedFrameIfNewer(uint64_t& lastSequence) {
-	std::unique_lock<std::mutex> lock(g_frameMutex);
-	g_frameChanged.wait_for(lock, std::chrono::milliseconds(50), [&] {
-		return g_sharedFrameSequence != lastSequence || g_stopWorkers.load();
-	});
-	if (g_sharedFrameSequence == lastSequence || g_sharedFrame.empty())
-		return Mat();
-	lastSequence = g_sharedFrameSequence;
-	return g_sharedFrame.clone();
-}
-static void setSharedFrame(const Mat& frame) {
-	{
-		std::lock_guard<std::mutex> lock(g_frameMutex);
-		frame.copyTo(g_sharedFrame);
-		++g_sharedFrameSequence;
-	}
-	g_frameChanged.notify_all();
-}
+// The shared frame buffer and the matching/tracking threads moved to
+// legacy_marker_tracker.cpp, which the application drives through
+// IMarkerTracker.
 // Dummy VideoCapture objects (never opened) to keep Windows code path compilable
 VideoCapture	capture;
 VideoCapture	capture1;
@@ -182,28 +148,22 @@ static cv::Mat  g_inputFrame;
 static uint64_t g_inputSequence = 0;
 static int64    g_inputTick = 0;
 static bool     g_inputLive = false;
-static uint64_t g_lastPublishedSequence = 0;
 
 // Camera fallback: when camera is unavailable, use a dummy frame
 static bool g_cameraAvailable = false;
 static cv::Mat g_dummyFrameMat;
 static IplImage g_dummyIpl;
-static bool g_markerSimulationEnabled = false;
-static std::string g_markerSimulationPath;
-static std::vector<std::string> g_markerSimulationPaths;
-// MultiMarkerDetector replaces the two 2012 threads when enabled.
-static bool g_multiMarkerSimulationEnabled = false;
-static std::vector<std::string> g_multiMarkerPaths;
-static MultiMarkerDetector g_multiMarkerDetector;
+// Tracking results handed in by the application for the current frame.
+static legacy_engine::TrackingInput g_tracking;
 
 #ifndef _WIN32
 static void DrawMultiMarkerDetections()
 {
-	if (!g_multiMarkerSimulationEnabled)
+	// Outlines for the multi-marker tracker; the 2012 single-marker pipeline
+	// draws its own rectangle with the 3D overlay below.
+	if (g_tracking.drivesPose)
 		return;
 
-	const std::vector<MultiMarkerDetection> detections =
-		g_multiMarkerDetector.LatestDetections();
 	static const float colors[][3] = {
 		{0.10f, 0.95f, 1.00f},
 		{1.00f, 0.25f, 0.75f},
@@ -226,25 +186,25 @@ static void DrawMultiMarkerDetections()
 	glDisable(GL_LIGHTING);
 	glLineWidth(4.0f);
 
-	for (const MultiMarkerDetection& detection : detections) {
-		if (!detection.found || detection.corners.size() != 4)
+	for (const legacy_engine::TrackedMarker& marker : g_tracking.markers) {
+		if (!marker.found)
 			continue;
 
-		const float* color = colors[detection.markerIndex %
+		const float* color = colors[marker.index %
 			(sizeof(colors) / sizeof(colors[0]))];
 		glColor3f(color[0], color[1], color[2]);
 		glBegin(GL_LINE_LOOP);
-		for (const cv::Point2f& corner : detection.corners)
+		for (const cv::Point2f& corner : marker.outline)
 			glVertex2f(corner.x, corner.y);
 		glEnd();
 
-		const std::string status = detection.usingOpticalFlow
-			? std::to_string(detection.trackedPointCount) + " tracked"
-			: std::to_string(detection.inlierCount) + " inliers";
-		const std::string label = std::to_string(detection.markerIndex + 1) +
-			"  " + detection.markerName + "  " + status;
-		const float labelX = detection.corners[0].x;
-		const float labelY = std::max(14.0f, detection.corners[0].y - 8.0f);
+		const std::string status = marker.tracking
+			? std::to_string(marker.trackedPoints) + " tracked"
+			: std::to_string(marker.inliers) + " inliers";
+		const std::string label = std::to_string(marker.index + 1) +
+			"  " + marker.name + "  " + status;
+		const float labelX = marker.outline[0].x;
+		const float labelY = std::max(14.0f, marker.outline[0].y - 8.0f);
 		glRasterPos2f(labelX, labelY);
 		for (char character : label)
 			glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, character);
@@ -353,58 +313,6 @@ strFilename Filename[20] =
 	"image/yejin.jpg",
 };
 
-#ifndef _WIN32
-// Lists feature-detectable photos in image/ and lets the user pick one as
-// the marker image (the BRISK reference). Empty input or a bad index
-// keeps the hardcoded default in Filename[0].
-static std::string PickMarkerImage()
-{
-	const char* dirpath = "image";
-	DIR* d = opendir(dirpath);
-	if (!d) {
-		fprintf(stderr, "MarkerPicker: cannot open '%s' (cwd-relative); keeping default\n", dirpath);
-		return "";
-	}
-	std::vector<std::string> images;
-	struct dirent* ent;
-	while ((ent = readdir(d)) != nullptr) {
-		std::string name = ent->d_name;
-		if (name.size() < 5) continue;
-		std::string lower = name;
-		std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-		auto endsWith = [&](const char* ext) {
-			size_t L = strlen(ext);
-			return lower.size() >= L && lower.compare(lower.size()-L, L, ext) == 0;
-		};
-		if (endsWith(".jpg") || endsWith(".jpeg") || endsWith(".png"))
-			images.push_back(name);
-	}
-	closedir(d);
-	std::sort(images.begin(), images.end());
-
-	if (images.empty()) {
-		fprintf(stderr, "MarkerPicker: no images found in '%s'\n", dirpath);
-		return "";
-	}
-
-	fprintf(stderr, "\n=== Pick a feature-detectable marker image ===\n");
-	for (size_t i = 0; i < images.size(); ++i)
-		fprintf(stderr, "  [%2zu] %s\n", i, images[i].c_str());
-	fprintf(stderr, "Enter index (0-%zu), or anything else to keep default (yejin.jpg): ",
-	        images.size()-1);
-	fflush(stderr);
-
-	char line[64] = {0};
-	if (!fgets(line, sizeof(line), stdin)) return "";
-	int idx = -1;
-	if (sscanf(line, "%d", &idx) != 1 || idx < 0 || idx >= (int)images.size())
-		return "";
-
-	std::string path = std::string(dirpath) + "/" + images[idx];
-	fprintf(stderr, "MarkerPicker: chose [%d] %s\n", idx, path.c_str());
-	return path;
-}
-#endif
 
 //////////////////////////////HandyAR Display()////////////////////////////////////////////
 
@@ -851,20 +759,17 @@ static void mainLoop(void)
 	{
 		wonjo_dx::BeginRender();
 		wonjo_dx::AAR3DDrawCameraPreview(image->imageData,640,480);
-#ifndef _WIN32
 		DrawMultiMarkerDetections();
-#endif
 
-		//D3DXMatrixPerspectiveFovLH(&matProj,Deg2Rad(73.0f),640/480,1.0f,100000.0f);
-		camera.D3DXMakeProjectionMatrix(&matProj);
+		// Projection and view come from the application's IPoseEstimator
+		// (the 2012 CCamera, now in legacy_pose.cpp).
+		for (int i = 0; i < 16; ++i) matProj[i] = g_tracking.projection[i];
 		wonjo_dx::SetProjectionMatrix(&matProj);
 
-		if(bThreadDetection1 || bThreadTracking1)
+		if(g_tracking.drivesPose && g_tracking.poseValid && !g_tracking.markers.empty())
 		{
-			camera.featurePoseEstimation();
-
-			camera.D3DXMakeViewMatrix(&matView);
-			//D3DXMatrixLookAtLH(&matView,&D3DXVECTOR3(0,0,-200.0f),&D3DXVECTOR3(0,0,0),&D3DXVECTOR3(0,1,0));
+			const std::array<cv::Point2f, 4>& markerCorners = g_tracking.markers.front().outline;
+			for (int i = 0; i < 16; ++i) matView[i] = g_tracking.view[i];
 			wonjo_dx::SetModelViewMatrix(&matView);
 
 #ifndef _WIN32
@@ -895,13 +800,13 @@ static void mainLoop(void)
 			{
 				float cx = 0, cy = 0;
 				for (int k = 0; k < 4; ++k) {
-					cx += dst_matching_corners1[k].x;
-					cy += dst_matching_corners1[k].y;
+					cx += markerCorners[k].x;
+					cy += markerCorners[k].y;
 				}
 				cx *= 0.25f;
 				cy *= 0.25f;
-				float dx = dst_matching_corners1[0].x - dst_matching_corners1[2].x;
-				float dy = dst_matching_corners1[0].y - dst_matching_corners1[2].y;
+				float dx = markerCorners[0].x - markerCorners[2].x;
+				float dy = markerCorners[0].y - markerCorners[2].y;
 				float diag = sqrtf(dx*dx + dy*dy);
 				float meshScale = diag * 0.20f;  // teapot ~ 40% of marker diagonal
 
@@ -923,8 +828,8 @@ static void mainLoop(void)
 					glLineWidth(4.0f);
 					glBegin(GL_LINE_LOOP);
 						for (int k = 0; k < 4; ++k)
-							glVertex2f(dst_matching_corners1[k].x,
-							           dst_matching_corners1[k].y);
+							glVertex2f(markerCorners[k].x,
+							           markerCorners[k].y);
 					glEnd();
 					glLineWidth(1.0f);
 
@@ -1088,14 +993,7 @@ static void mainLoop(void)
 	frame = &frameHeader;
 	gFingertipPoseEstimation.OnCapture( frame, g_inputTick );
 
-	// Publish new camera frames to the matching/tracking workers. A source
-	// can repeat a frame (same sequence); workers only need new ones.
-	if (g_cameraAvailable && g_inputSequence != g_lastPublishedSequence) {
-		setSharedFrame(g_inputFrame);
-		if (g_multiMarkerSimulationEnabled)
-			g_multiMarkerDetector.SubmitFrame(g_inputFrame);
-		g_lastPublishedSequence = g_inputSequence;
-	}
+	// Marker tracking is fed by the application (IMarkerTracker::submit).
 #endif
 
 	
@@ -1308,76 +1206,7 @@ int InitializeEngineMain()
         printf("fingertip coordinate '%s' file was loaded.\n", gszFingertipFilename );
     }
 
-    // initialize capture
-#ifdef _WIN32
-    bool cameraOk = false;
-#ifndef _WIN32
-    if ( g_markerSimulationEnabled )
-    {
-        fprintf( stderr, "BaekAR: starting marker simulation with %zu marker(s)\n",
-                 g_markerSimulationPaths.size() );
-        for (const std::string& markerPath : g_markerSimulationPaths)
-            fprintf( stderr, "  %s\n", markerPath.c_str() );
-        cameraOk = gCapture.InitializeSynthetic( g_markerSimulationPaths );
-        if ( !cameraOk )
-            fprintf( stderr, "marker simulation initialization failed.\n" );
-    }
-    else
-#endif
-    if ( fInputVideoFile )
-    {
-        // Capture From File
-        if ( !gCapture.Initialize( fFlipFrame, -1, "record_debug.avi" ) )
-        {
-            fprintf( stderr, "capture initialization failed.\n" );
-        }
-        else
-            cameraOk = true;
-    } else
-    {
-        // Live Capture From Camera
-#ifdef __APPLE__
-        // Use the user's chosen camera index (set by PickCameraIndex in main()).
-        // -1 means "use the default index 0".
-        int camIndex = (g_chosenCameraIndex >= 0) ? g_chosenCameraIndex : -1;
-        if ( !gCapture.Initialize( fFlipFrame, camIndex ) )
-#else
-        if ( !gCapture.Initialize( fFlipFrame ) )
-#endif
-        {
-            fprintf( stderr, "capture initialization failed.\n" );
-        }
-        else
-            cameraOk = true;
-    }
-
-    // Init Capture
-    IplImage * frame = 0;
-    if (cameraOk) {
-        gCapture.CaptureFrame();
-        frame = gCapture.QueryFrame();
-    }
-    if ( !frame )
-    {
-#ifndef _WIN32
-        // Camera unavailable — create a dummy frame so the app can still run
-        fprintf( stderr, "Camera unavailable — running with dummy frame.\n" );
-        fflush(stderr);
-        g_cameraAvailable = false;
-        g_dummyFrameMat = cv::Mat::zeros(480, 640, CV_8UC3);
-        cv::putText(g_dummyFrameMat, "Camera Unavailable", cv::Point(140, 220),
-                    cv::FONT_HERSHEY_SIMPLEX, 1.2, cv::Scalar(0, 0, 255), 2);
-        cv::putText(g_dummyFrameMat, "BaekAR Engine Running", cv::Point(130, 280),
-                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 2);
-        g_dummyIpl = cvIplImage(g_dummyFrameMat);
-        frame = &g_dummyIpl;
-#else
-        fprintf( stderr, "failed to capture a frame...\n" );
-        return -1;
-#endif
-    }
-#else
-    // Frame input now comes from the application's IFrameSource (camera,
+    // Frame input comes from the application's IFrameSource (camera,
     // synthetic, replay or placeholder); see legacy_engine::Start.
     IplImage firstFrameHeader = cvIplImage(g_inputFrame);
     IplImage * frame = &firstFrameHeader;
@@ -1387,20 +1216,6 @@ int InitializeEngineMain()
         fprintf( stderr, "Camera unavailable — running with dummy frame.\n" );
         fflush(stderr);
     }
-#endif
-#ifndef _WIN32
-
-    if (g_multiMarkerSimulationEnabled) {
-        if (!g_multiMarkerDetector.Initialize(g_multiMarkerPaths)) {
-            fprintf(stderr, "BaekAR: multi-marker detector initialization failed.\n");
-            return -1;
-        }
-        g_multiMarkerDetector.SubmitFrame(cv::cvarrToMat(frame, false));
-		fprintf(stderr, "BaekAR: synchronized tracker ready for %zu marker(s).\n",
-		        g_multiMarkerDetector.WorkerCount());
-        fflush(stderr);
-    }
-#endif
 
     // Create Glut Window
 	//120325 cwj
@@ -1458,131 +1273,10 @@ int InitializeEngineMain()
 	#endif
 	
 	
-	// Note: capture/capture1/capture2 are NOT opened on macOS — only one VideoCapture
-	// can access camera 0 at a time with AVFoundation. gCapture owns the camera.
-	// The matching/tracking threads will get empty frames and skip processing.
-
-	fprintf(stderr, "DBG: Creating BRISK detector...\n"); fflush(stderr);
-	// Use OpenCV's built-in BRISK (the bundled MarkerlessAR/brisk/ predates
-	// OpenCV's Feature2D interface and throws "not implemented" on detect()).
-	{
-		// Threshold 60 was too strict for screen-displayed markers (iPhone /
-		// MacBook screen — soft edges, no crisp print contrast). 30 is the
-		// OpenCV default and finds 5-10x more keypoints on the same scene.
-		cv::Ptr<cv::BRISK> brisk = cv::BRISK::create(30, 3);
-		detector = brisk;
-		descriptorExtractor = brisk;
-	}
-	
-	//BFMatcher matcher(NORM_L2);
-	if(hamming){
-		//descriptorMatcher1 = new BFMatcher(NORM_L1);
-		//descriptorMatcher2 = new BFMatcher(NORM_L1);
-		
-		
-		//descriptorMatcher2 = new BruteForceMatcher<HammingSse>(); 
-
-		
-		descriptorMatcher1 = new BFMatcher(NORM_HAMMING);
-		descriptorMatcher2 = new BFMatcher(NORM_HAMMING);
-		
-	}
-	else{
-		//descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
-		//descriptorMatcher1 = new BruteForceMatcher<L2<float> >();
-	}
-
-	//Create BRISK Database
-
-	//Read from Filename Structure 
-	//temporaly filename override
-	/*
-	FILE* overridefile;
-	overridefile=fopen("markerfile.txt","rt");
-	if(overridefile)
-	{
-		char ch[256];
-		memset(ch,0,sizeof(ch));
-		fgets(ch,255,overridefile);
-		fclose(overridefile);
-		img_rgbdatabase1=imread(ch, 1);
-	}
-	else
-	{
-		img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
-	}
-	*/
-	fprintf(stderr, "DBG: Loading database images...\n"); fflush(stderr);
-	img_rgbdatabase1=imread(Filename[0]._strFilename.c_str(), 1);
-	fprintf(stderr, "DBG: img1 loaded: %dx%d\n", img_rgbdatabase1.cols, img_rgbdatabase1.rows); fflush(stderr);
-	//2번은 오버라이드하지않는다.
-	img_rgbdatabase2=imread(Filename[1]._strFilename.c_str(), 1);
-	fprintf(stderr, "DBG: img2 loaded: %dx%d\n", img_rgbdatabase2.cols, img_rgbdatabase2.rows); fflush(stderr);
-
-	//Convert rgb to gray
-	cvtColor(img_rgbdatabase1,img_graydatabase1, CV_BGR2GRAY);
-
-	//For NCC Patch Tracking Move img_graydatabase1 to img_centerdatabase1
-	img_centerdatabase1=swMoveImage(img_graydatabase1, &img_centerdatabase1, 0.5);
-				
-	//Extract Image Coners 
-	obj_corners1[0] = cvPoint(0,0); 
-	obj_corners1[1] = cvPoint( img_rgbdatabase1.cols, 0 );
-	obj_corners1[2] = cvPoint( img_rgbdatabase1.cols, img_rgbdatabase1.rows ); 
-	obj_corners1[3] = cvPoint( 0, img_rgbdatabase1.rows );
-
-	//Move obj_corners to center
-	swMoveCorners(img_graydatabase1, obj_corners1, obj_center_corners1, 0.0, 1.0);
-		
-	fprintf(stderr, "DBG: Detecting keypoints...\n"); fflush(stderr);
-	//Detect Keypoints from img_centerdatase using AGAST Feature Detector
-	detector->detect(img_centerdatabase1,kp_database1);
-	//detector->detect(img_centerdatabase2,kp_database2);
-	
-
-	//Create Description from img_centerdatabase1 using BRISK Feature Descriptor
-	descriptorExtractor->compute(img_centerdatabase1,kp_database1,desc_database1);
-	//descriptorExtractor->compute(img_centerdatabase2,kp_database2,desc_database2);
-	
-	
-#ifdef _WIN32
-	capture >> gDetectionResult1;
-#else
-	// The first frame from the application's IFrameSource.
-	gDetectionResult1 = g_inputFrame.clone();
-#endif
-	if(gDetectionResult1.empty()) {
-		gDetectionResult1 = Mat::zeros(480, 640, CV_8UC3);
-	}
-	
-	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
-
-	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
-#ifdef _WIN32
-		hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
-		//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
-		hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
-#else
-	if (!g_multiMarkerSimulationEnabled)
-		StartWorkerThreads();
-#endif
-
-	
-
-	//hDrawThread=(HANDLE)_beginthreadex( NULL, 0, &ThreadDraw, 0, 0, &uDrawThreadID);
-		
-	// Camera resolution is now set inside gCapture.Initialize() via cv::VideoCapture
-	// capture_C = cvCaptureFromCAM(0);  // removed — legacy C API, gCapture handles capture
-	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_WIDTH, 640);
-	// cvSetCaptureProperty(capture_C , CV_CAP_PROP_FRAME_HEIGHT, 480);
-
-
-	//remove opengl
-// 	glutInit(&argc, argv);
-// 	init();
- 	fprintf(stderr, "DBG: Loading camera calibration...\n"); fflush(stderr);
- 	camera.load("calibration/calibration.txt");
- 	fprintf(stderr, "DBG: InitializeEngineMain complete!\n"); fflush(stderr);
+	// The BRISK marker database and the matching/tracking threads moved to
+	// legacy_marker_tracker.cpp (IMarkerTracker); the marker pose moved to
+	// legacy_pose.cpp (IPoseEstimator).
+	fprintf(stderr, "DBG: InitializeEngineMain complete!\n"); fflush(stderr);
 	return 0;
 }
 
@@ -1608,9 +1302,6 @@ int ReleaseEngineMain()
 	//cout << "TOTAL : " << time_total_consuming << " ms\t";
 	cout << "FPS : " << time_matching << " frames" << endl;
 	
-#ifndef _WIN32
-	g_multiMarkerDetector.Stop();
-#endif
 	
 	//CloseHandle( hDrawThread);
 	CloseHandle( hMatchingThread[0] );	
@@ -1622,836 +1313,8 @@ int ReleaseEngineMain()
 	return 0;
 }
 
-unsigned int ThreadDraw(void *param)
-{
-	namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
-	while(true){
-
-
-#ifdef _WIN32
-		capture1>>mInput;
-#else
-		mInput = getSharedFrame();
-#endif
-
-		// Skip if no frame available yet
-		if(mInput.empty()) {
-#ifndef _WIN32
-			struct timespec ts = {0, 50000000}; // 50ms
-			nanosleep(&ts, NULL);
-#endif
-			continue;
-		}
-
-		//Detection or Tracking 체크
-
-		if(bThreadTracking1==true)
-		{
-			
-			line( mInput, dst_tracking_corners1[0], dst_tracking_corners1[1], cvScalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[1], dst_tracking_corners1[2], cvScalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[2], dst_tracking_corners1[3], cvScalar( 0, 255, 255), 4 );
-			line( mInput, dst_tracking_corners1[3], dst_tracking_corners1[0], cvScalar( 0, 255, 255), 4 );	
-
-		}else
-		{
-
-			line( mInput, dst_matching_corners1[0], dst_matching_corners1[1], cvScalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[1], dst_matching_corners1[2], cvScalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[2], dst_matching_corners1[3], cvScalar( 255, 255, 255), 4 );
-			line( mInput, dst_matching_corners1[3], dst_matching_corners1[0], cvScalar( 255, 255, 255), 4 );	
-
-		}
-
-		/*
-		if(bThreadDetection2==true)
-		{
-			for(int i=0; i<4; ++i) {
-			line(mInput,
-				dst_matching_corners2[i],		dst_matching_corners2[(i+1)%4],	Scalar(0, 255, 0),	3);
-			}
-		}*/
-		
-		imshow("BaekAR", mInput);
-		
-		cvWaitKey(1);
-
-	
-
-	}	
-	destroyWindow("BaekAR");
-	_endthreadex(0);
-	return 0;
-
-}
-
-
-
-unsigned int ThreadBRISKMatching(void *param)
-{
-	//namedWindow("BaekAR", CV_WINDOW_AUTOSIZE|CV_GUI_NORMAL);
-
-	int idxcount=*((int*)param);
-	Mat outimg;
-	
-	bool mbistracking=false;
-
-	bool mbisDetecting=false;
-
-	vector<KeyPoint>	kp_camera_matching_thread;
-	Mat					desc_camera_matching_thread;
-
-	Mat matching_thread_rgbcamera, matching_thread_graycamera, matching_thread_result;
-		
-	vector<KeyPoint>			kp_database;
-	Mat							desc_database;
-	Mat							img_database;
-	vector<Point2f>				obj_matching_corners(4);
-	vector<Point2f>				dst_matching_corners(4);
-
-
-	//namedWindow("Matches");
-	if(idxcount==1){
-			img_database=img_centerdatabase1;
- 			kp_database=kp_database1;
-			desc_database=desc_database1;
-			obj_matching_corners=obj_center_corners1;
-			mbisDetecting=bThreadDetection1;
-			mbistracking=bThreadTracking1;
-
-	}
-	else if(idxcount==2){
-			img_database=img_centerdatabase2;
-			kp_database=kp_database2;
-			desc_database=desc_database2;
-			//mbistracking=bIsTracking[1];
-			mbisDetecting=bThreadDetection2;
-			mbistracking=bThreadTracking2;
-
-
-
-	}
-
-	uint64_t lastFrameSequence = 0;
-	while(!WorkersShouldStop()){
-				
-		if(idxcount==1){
-#ifdef _WIN32
-			capture1>>matching_thread_rgbcamera;
-#else
-			matching_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
-#endif
-			mbistracking=bThreadTracking1;
-
-		}
-		else if(idxcount==2){
-#ifdef _WIN32
-			capture2>>matching_thread_rgbcamera;
-#else
-			matching_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
-#endif
-			mbistracking=bThreadTracking2;
-		}
-
-		// Skip if no frame available yet
-		if(matching_thread_rgbcamera.empty()) {
-			// getSharedFrameIfNewer already waited up to 50 ms for a new frame.
-			continue;
-		}
-
-		//Convert Camera Input with RGB to Camera Input with GRAY
-		cvtColor(matching_thread_rgbcamera, matching_thread_graycamera, CV_BGR2GRAY);
-		
-//#ifdef _DEBUG
-//		return 0;
-//#endif
-		detector->detect(matching_thread_graycamera,kp_camera_matching_thread);
-		descriptorExtractor->compute(matching_thread_graycamera,kp_camera_matching_thread,desc_camera_matching_thread);
-
-		// Diagnostic after detect: how many keypoints did BRISK find this frame?
-		static int detectTick = 0;
-		if (++detectTick % 30 == 0) {
-			fprintf(stderr, "matching: frame=%dx%d kp_db=%lu kp_cam=%lu desc_cam=%dx%d\n",
-			        matching_thread_graycamera.cols, matching_thread_graycamera.rows,
-			        (unsigned long)kp_database.size(),
-			        (unsigned long)kp_camera_matching_thread.size(),
-			        desc_camera_matching_thread.rows, desc_camera_matching_thread.cols);
-		}
-		
-		matching_thread_result=matching_thread_rgbcamera;
-		std::vector<std::vector<DMatch> > matches;
-		
-		//Matching /
-		vector<DMatch> matches_popcount; 
-		//double pop_time = match(kpts_1, kpts_2, matcher_popcount, desc_1, desc_2, matches_popcount);
-		
-		// knnMatch(k=2) + tight Lowe's ratio. Tightened to 0.65 (from 0.75)
-		// because BRISK keypoints on high-contrast UI/text in the camera frame
-		// produce many ambiguous matches; the stricter threshold drops them.
-		{
-			std::vector<std::vector<DMatch>> raw;
-			descriptorMatcher1->knnMatch(desc_camera_matching_thread, desc_database, raw, 2);
-			matches.clear();
-			matches.reserve(raw.size());
-			for (size_t k = 0; k < raw.size(); ++k) {
-				if (raw[k].size() == 2 &&
-				    raw[k][0].distance < 0.65f * raw[k][1].distance) {
-					matches.push_back({ raw[k][0] });
-				}
-			}
-		}
-		
-			
-		//Compute Homography
-		vector<Point2f> mpts_1, mpts_2;		// train이 1 query가 2
-		CvPoint dst_corners[4];
-		matches2points(matches, kp_database, kp_camera_matching_thread, mpts_1, mpts_2); //Extract a list of the (x,y) location of the matches
-		
-		outimg = Mat::zeros(matching_thread_rgbcamera.rows, matching_thread_rgbcamera.cols, matching_thread_rgbcamera.type());
-		
-		//Draw Matching Results between Camera and Database Image
-		
-		
-		drawMatches(matching_thread_rgbcamera, kp_camera_matching_thread, img_database, kp_database, matches,outimg,
-			Scalar(0,255,0), Scalar(0,0,255),
-			std::vector<std::vector<char> >(), DrawMatchesFlags::DRAW_RICH_KEYPOINTS );
-		/*
-		imshow("BaekAR", outimg);
-		cvWaitKey(1);
-		*/
-		 // need at least 5 matched pairs of points (more are better)
-		 if (computeHomography && (mpts_1.size() > 5))
-         {
-                			
-				// Always feed the latest matches to the tracking thread, even
-				// while bThreadTracking1==true. The original code only did so
-				// when tracking was inactive, which left tracking stuck on a
-				// stale (potentially wrong) initial homography — once tracking
-				// latched onto a wrong region it could never re-sync to fresh
-				// detections. With the always-update policy, every iteration
-				// of matching nudges tracking back toward ground truth.
-				g_mpts_1 = mpts_1;
-				g_mpts_2 = mpts_2;
-				if (bInitTracking) bInitTracking = false;
-				//Find Homography
-				// Original used `&&` (skip only when BOTH < 5) — wrong: findHomography
-				// requires both inputs to have ≥4 points and equal size. Use `||`.
-				if(mpts_1.size()<5 || mpts_2.size()<5 || mpts_1.size()!=mpts_2.size())
-					continue;
-
-				cv::Mat inlierMask;
-				// Threshold tuned by trial: 1.5 px was too strict (no fits at all
-				// with screen-displayed markers); 3.0 was too loose (wobbly).
-				// 2.5 is the sweet spot. RHO (PROSAC) solver where available;
-				// fall back to RANSAC if RHO can't find a model.
-				Mat H = findHomography(Mat(mpts_1), Mat(mpts_2), cv::RHO, 2.5, inlierMask);
-				if (H.empty()) {
-					H = findHomography(Mat(mpts_1), Mat(mpts_2), RANSAC, 2.5, inlierMask);
-				}
-				int inlierCount = inlierMask.empty() ? 0 : cv::countNonZero(inlierMask);
-
-				static int logTick = 0;
-				if (++logTick % 30 == 0) {
-					fprintf(stderr, "matching: candidates=%lu, inliers=%d\n",
-					        (unsigned long)mpts_1.size(), inlierCount);
-				}
-
-				if(H.empty() || H.cols != 3 || H.rows != 3 || inlierCount < 8)
-					continue;
-
-				//Convert Object Corners to Transformed Object Corners Using Homography Matrix Information
-				perspectiveTransform( obj_matching_corners, dst_matching_corners, H);
-				
-				//Draw Object Contour Line 
-				/*
-				line( outimg, dst_matching_corners[0], dst_matching_corners[1], Scalar(0, 255, 0), 4 );
-				line( outimg, dst_matching_corners[1], dst_matching_corners[2], Scalar( 0, 255, 0), 4 );
-				line( outimg, dst_matching_corners[2], dst_matching_corners[3], Scalar( 0, 255, 0), 4 );
-				line( outimg, dst_matching_corners[3], dst_matching_corners[0], Scalar( 0, 255, 0), 4 );	
-				imshow("Matches", outimg);
-				*/
-				
-				//waitKey(1);	
-
-				dst_matching_corners1=dst_matching_corners;
-				if(idxcount==1 && bThreadTracking1==false){
-					//threadResults1.
-					//3D OBJECT 를 위한 공간
-
-					threadResults1.cf=true;			
-
-
-					threadResults1.vertex[0].x=dst_matching_corners[0].x;
-					threadResults1.vertex[0].y=dst_matching_corners[0].y;
-					threadResults1.vertex[1].x=dst_matching_corners[1].x;
-					threadResults1.vertex[1].y=dst_matching_corners[1].y;
-					threadResults1.vertex[2].x=dst_matching_corners[2].x;
-					threadResults1.vertex[2].y=dst_matching_corners[2].y;
-					threadResults1.vertex[3].x=dst_matching_corners[3].x;
-					threadResults1.vertex[3].y=dst_matching_corners[3].y;
-
-
-					//bsw 새롭게 추가한 코드
-					camera.featuresResult.vertex[0].x=dst_matching_corners[0].x;
-					camera.featuresResult.vertex[0].y=dst_matching_corners[0].y;
-					camera.featuresResult.vertex[1].x=dst_matching_corners[1].x;
-					camera.featuresResult.vertex[1].y=dst_matching_corners[1].y;
-					camera.featuresResult.vertex[2].x=dst_matching_corners[2].x;
-					camera.featuresResult.vertex[2].y=dst_matching_corners[2].y;
-					camera.featuresResult.vertex[3].x=dst_matching_corners[3].x;
-					camera.featuresResult.vertex[3].y=dst_matching_corners[3].y;
-
-					double dx, dy;
-								
-					//CvPoint2D p1, p2;
-					//bsw 필요없는 코드일듯
-					/*
-					for(int i=0; i<4; ++i) {
-				
-						p1=camera.featuresResult.vertex[i];
-						p2=camera.featuresResult.vertex[(i+1)%4];
-
-						dx=p1.x-p2.x;
-						dy=p1.y-p2.y;
-
-						camera.featuresResult.line[i][0]=-dy;
-						camera.featuresResult.line[i][1]=dx;
-						camera.featuresResult.line[i][2]=(p2.x)*(p1.y)-(p1.x)*(p2.y);
-
-				
-					}*/
-
-			
-					camera.featuresResult.center.x=camera.featuresResult.vertex[0].x+((camera.featuresResult.vertex[1].x-camera.featuresResult.vertex[0].x)/2);
-					camera.featuresResult.center.y=camera.featuresResult.vertex[0].y+((camera.featuresResult.vertex[3].y-camera.featuresResult.vertex[0].y)/2);
-			
-					//matching_thread_rgbcamera.copyTo(gDetectionResult1);
-			
-					
-
-					/*
-					if(bThreadTracking1==false && mbisDetecting==true){
-						g_mpts_1=mpts_1;
-						g_mpts_2=mpts_2;
-					}
-			
-					bThreadDetection1=mbisDetecting;
-					*/
-			
-				}
-				
-				mbisDetecting=true;
-
-				
-				
-		}else
-			mbisDetecting=false;
-
-		bThreadDetection1=mbisDetecting;
-		
-			
-		
-			
-
-		// Was: explicit ~vector / ~Mat on stack-local objects (UB — next
-		// iteration writes through freed storage and heap-corrupts).
-		matches.clear();
-
-		desc_camera_matching_thread.release();
-		kp_camera_matching_thread.clear();
-
-		matching_thread_rgbcamera.release();
-		matching_thread_graycamera.release();
-		matching_thread_result.release();
-
-		dst_matching_corners.clear();
-
-	}
-
-	// kp_database / desc_database are auto-storage; let scope exit destruct them.
-	
-	_endthreadex(0);
-	return 0;
-	
-}
-
-
-
-unsigned int ThreadTracking(void *param)
-{
-		
-	int idxcount=*((int*)param);
-	
-	bool mbistracking=false;
-	bool mbisDetecting=false;
-	
-	bool mbisPrevMatchLoc=false;
-	Point prev_matchLoc;
-	Mat tracking_thread_rgbcamera, tracking_thread_transformedcamera;
-		
-	vector<KeyPoint>			kp_database;
-	Mat							desc_database;
-	Mat							img_database;
-
-	vector<Point2f>				obj_tracking_corners(4);
-	vector<Point2f>				dst_tracking_corners(4);
-	
-	int							match_method;
-	int							windowSize=20;
-
-	
-	Mat img_database_resize;
-	img_database_resize.cols = img_rgbdatabase1.cols/2; 
-	img_database_resize.rows = img_rgbdatabase1.rows/2;
-	resize(img_rgbdatabase1,img_database_resize,img_database_resize.size());
-
-	//경민 capture2>>tracking_thread_rgbcamera를 capture1으로 수정함
-#ifdef _WIN32
-	capture1>>tracking_thread_rgbcamera;
-#else
-	tracking_thread_rgbcamera = getSharedFrame();
-#endif
-	if(tracking_thread_rgbcamera.empty()) {
-		tracking_thread_rgbcamera = Mat::zeros(480, 640, CV_8UC3);
-	}
-
-	Mat tracking_thread_result(tracking_thread_rgbcamera.rows-img_database_resize.rows+1,tracking_thread_rgbcamera.cols-img_database_resize.cols,CV_32FC1);
-
-
-	uint64_t lastFrameSequence = 0;
-	while(!WorkersShouldStop())
-	{
-		if(idxcount==1){
-			
-			mbisDetecting=bThreadDetection1;
-		}
-		else if(idxcount==2){
-				
-			mbisDetecting=bThreadDetection2;
-		}
-
-		//Only Tracking will be run when Detection Condition Value was True
-		if(mbisDetecting==true)
-		{
-
-			//경민 capture2를 capture1으로 수정함
-#ifdef _WIN32
-			capture1>>tracking_thread_rgbcamera;
-#else
-			tracking_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
-#endif
-
-			// Skip if no new frame arrived (getSharedFrameIfNewer waited up to 50 ms)
-			if(tracking_thread_rgbcamera.empty()) {
-				continue;
-			}
-
-			//minMaxLoc을 위한 함수
-			double minVal; double maxVal; Point minLoc; Point maxLoc; Point matchLoc;
-
-			match_method=CV_TM_CCOEFF_NORMED;
-
-			//Homography & NCC
-			//Cam으로부터 받아오는 영상의 포인트 mpts_2, DB로부터 받아오는 포인트 mpts_1
-			// Snapshot the shared point sets to locals: PR #13 has matching
-			// thread overwriting g_mpts_1/g_mpts_2 every iteration with no
-			// lock, so size N can change between the size check and the
-			// findHomography call (findHomography then asserts
-			// src.checkVector(2) == dst.checkVector(2)). Copy first, validate
-			// after — local copies are immune to mid-iteration updates.
-			std::vector<cv::Point2f> local_mpts_1 = g_mpts_1;
-			std::vector<cv::Point2f> local_mpts_2 = g_mpts_2;
-			if(local_mpts_2.size()<5 || local_mpts_1.size()<5 || local_mpts_2.size()!=local_mpts_1.size())
-			{
-				//mbisDetecting=false;
-
-				bThreadTracking1=false;
-				//트랙킹을 실패했을 경우 정보를 지워줌
-				dst_tracking_corners.clear();
-				dst_tracking_corners1=dst_tracking_corners;
-
-				continue;
-			}
-			Mat HH = findHomography(Mat(local_mpts_2), Mat(local_mpts_1), RANSAC, 2);						//Homography
-			// RANSAC can fail and return an empty Mat — guard before invert/perspectiveTransform.
-			if(HH.empty() || HH.cols != 3 || HH.rows != 3) {
-				bThreadTracking1=false;
-				//트랙킹을 실패했을 경우 정보를 지워줌
-				dst_tracking_corners.clear();
-				dst_tracking_corners1=dst_tracking_corners;
-				continue;
-			}
-			Mat HH_inver;
-
-
-			invert(HH, HH_inver,DECOMP_LU );//역행렬 계산
-			//bIsHomographyInvertMatrix = true;
-				
-			warpPerspective(tracking_thread_rgbcamera,tracking_thread_transformedcamera,HH,tracking_thread_rgbcamera.size(),INTER_LINEAR,BORDER_CONSTANT);		//Wrapping
-			//dilate(Outout,Outout,Mat(3,3,CV_32FC1));
-						
-			//Prev Frame
-
-			
-			if(mbisPrevMatchLoc==false){
-				matchTemplate(tracking_thread_transformedcamera,img_database_resize,tracking_thread_result,CV_TM_CCOEFF_NORMED);					//Templete matching
-
-				minMaxLoc( tracking_thread_result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-				mbisPrevMatchLoc=true;
-
-				if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-				{ 
-					matchLoc = minLoc; 
-
-				}
-				else
-				{	matchLoc = maxLoc; 
-				}
-
-				prev_matchLoc=matchLoc;
-
-			}else{
-							
-				/*
-				Rect roi(Point(prev_matchLoc.x, prev_matchLoc.y), Size(img_rgbdatabase1.cols/2+windowSize, img_rgbdatabase1.rows/2+windowSize));
-				Mat roi_tracking_thread_transformedcamera=Mat(tracking_thread_transformedcamera, roi);
-				matchTemplate(roi_tracking_thread_transformedcamera,img_database_resize,tracking_thread_result,CV_TM_CCOEFF_NORMED);					//Templete matching
-				minMaxLoc( tracking_thread_result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-
-				if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-				{ 
-					matchLoc = minLoc; 
-
-				}
-				else
-				{	matchLoc = maxLoc; 
-				}
-
-				matchLoc+=prev_matchLoc;
-				prev_matchLoc=matchLoc;
-				namedWindow("wrapping");
-				imshow("wrapping", roi_tracking_thread_transformedcamera);
-				
-				waitKey(1);
-				*/
-				
-				if(prev_matchLoc.x-windowSize>=0 && prev_matchLoc.y-windowSize>=0){
-					Rect roi(Point(prev_matchLoc.x-windowSize, prev_matchLoc.y-windowSize), Size(img_rgbdatabase1.cols/2+windowSize*2, img_rgbdatabase1.rows/2+windowSize*2));
-					Mat roi_tracking_thread_transformedcamera=Mat(tracking_thread_transformedcamera, roi);
-					matchTemplate(roi_tracking_thread_transformedcamera,img_database_resize,tracking_thread_result,CV_TM_CCOEFF_NORMED);					//Templete matching
-					minMaxLoc( tracking_thread_result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-
-					if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-					{ 
-						matchLoc = minLoc; 
-
-					}
-					else
-					{	matchLoc = maxLoc; 
-					}
-
-					matchLoc.x+=(prev_matchLoc.x-windowSize);
-					matchLoc.y+=(prev_matchLoc.y-windowSize);
-					//matchLoc+=prev_matchLoc;
-
-					prev_matchLoc=matchLoc;
-					/*
-					namedWindow("wrapping");
-					imshow("wrapping", roi_tracking_thread_transformedcamera);
-
-					waitKey(1);
-					*/
-				}
-				else{
-
-					Rect roi(Point(prev_matchLoc.x, prev_matchLoc.y), Size(img_rgbdatabase1.cols/2+windowSize, img_rgbdatabase1.rows/2+windowSize));
-					Mat roi_tracking_thread_transformedcamera=Mat(tracking_thread_transformedcamera, roi);
-					matchTemplate(roi_tracking_thread_transformedcamera,img_database_resize,tracking_thread_result,CV_TM_CCOEFF_NORMED);					//Templete matching
-					minMaxLoc( tracking_thread_result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-
-					if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-					{ 
-						matchLoc = minLoc; 
-
-					}
-					else
-					{	matchLoc = maxLoc; 
-					}
-
-					matchLoc+=prev_matchLoc;
-					prev_matchLoc=matchLoc;
-					
-					/*
-					namedWindow("wrapping");
-					imshow("wrapping", roi_tracking_thread_transformedcamera);
-					waitKey(1);
-
-					*/
-
-
-				}
-				
-				
-			}
-
-			//원래 있던 코드 주석처리
-			//matchTemplate(tracking_thread_transformedcamera,img_database_resize,tracking_thread_result,CV_TM_CCOEFF_NORMED);					//Templete matching
-				
-			//Normalization, 2012, 03, 04 by Sungwook
-			//normalize( MatchingResult, MatchingResult, 0, 1, NORM_MINMAX, -1, Mat() );
-
-
-			//minMaxLoc(MatchingResult, &min, &max, NULL, &left_top);								//collation
-
-			//minMaxLoc, 2012, 03, 04 by Sungwook 원래 있던 코드 주석처리
-			//minMaxLoc( tracking_thread_result, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-			
-			/*
-			if( match_method  == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED )
-			{ 
-				matchLoc = minLoc; 
-								
-			}
-			else
-			{	matchLoc = maxLoc; 
-			}*/
-
-
-			//Rectangle Souce Code 수정 by Sungwook
-			//rectangle( wrapImgRGB2, matchLoc, Point( matchLoc.x + DBResizImg.cols , matchLoc.y + DBResizImg.rows ), Scalar::all(0), 2, 8, 0 );
-				
-			//사각형 그려주는 부분도 수정 2012/03/25~~~~~~~
-
-			//rectangle( tracking_thread_transformedcamera, matchLoc, Point( matchLoc.x + img_rgbdatabase1.cols/2 , matchLoc.y + img_rgbdatabase1.rows/2 ), Scalar::all(0), 2, 8, 0 );
-				
-			//rectangle( tracking_thread_result, matchLoc, Point( matchLoc.x + img_database_resize.cols , matchLoc.y + img_database_resize.rows ), Scalar::all(0), 2, 8, 0 );
-				
-
-			//~~~~~사각형 그려주는 부분도 수정 2012/03/25
-
-
-
-			//rectangle(wrapImgRGB2, left_top, Point(left_top.x + imgRGB1.cols/2, left_top.y + imgRGB1.rows/2), CV_RGB(255,0,0)); // 찾은 
-
-
-			//printf("Min Value is %x\n", min);
-			//NCC나 SAD는 MAX값을 기준으로!
-			//printf("Max Value is %f\n", maxVal);
-				
-			//font
-			char s_output_result[50];
-			sprintf(s_output_result,"max:%f  min:%f",maxVal,minVal);    //우선 sprintf로 문자열 생성
-			putText(tracking_thread_transformedcamera, s_output_result, Point(20,50), FONT_HERSHEY_SCRIPT_SIMPLEX, 1,Scalar::all(255),1,2);
-			
-			/*
-			namedWindow("MatchingResult");
-			imshow("MatchingResult",tracking_thread_result);
-			waitKey(1);
-			*/
-
-
-			/*
-			namedWindow("wrapping");
-			imshow("wrapping", tracking_thread_transformedcamera);
-			waitKey(1);
-			*/
-			
-			//여기서 트랙킹이 실패했을 경우에만 Detection 쓰레드가 호출되도록 수정하자!!  이부분 값을 0.55 -> 0.65로 수정함
-			if(maxVal < 0.65){
-				//tracking_thread_result.release();
-				bThreadTracking1=false;
-				mbisPrevMatchLoc=false;
-
-				//트랙킹을 실패했을 경우 정보를 지워줌
-				dst_tracking_corners.clear();
-				dst_tracking_corners1=dst_tracking_corners;
-				
-				printf("트랙킹 실패\n");
-			}
-			else
-			{		
-				bThreadTracking1=true;
-
-				CvPoint p[4];
-				p[0].x = matchLoc.x;
-				p[0].y = matchLoc.y;
-
-				p[1].x = matchLoc.x+img_rgbdatabase1.cols/2;
-				p[1].y = matchLoc.y;
-
-				p[2].x = matchLoc.x+img_rgbdatabase1.cols/2;
-				p[2].y = matchLoc.y+img_rgbdatabase1.rows/2;
-
-				p[3].x = matchLoc.x;
-				p[3].y = matchLoc.y+img_rgbdatabase1.rows/2;
-
-				obj_tracking_corners[0] = cvPoint(matchLoc.x,matchLoc.y); 
-				obj_tracking_corners[1] = cvPoint( matchLoc.x+img_rgbdatabase1.cols/2, matchLoc.y);
-				obj_tracking_corners[2] = cvPoint( matchLoc.x+img_rgbdatabase1.cols/2, matchLoc.y+img_rgbdatabase1.rows/2); 
-				obj_tracking_corners[3] = cvPoint( matchLoc.x, matchLoc.y+img_rgbdatabase1.rows/2);
-				perspectiveTransform( obj_tracking_corners, dst_tracking_corners, HH_inver);
-
-				//tracking_thread_rgbcamera = tracking_thread_rgbcamera;
-				
-				/*
-				line( tracking_thread_rgbcamera, dst_tracking_corners[0], dst_tracking_corners[1], Scalar(0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[1], dst_tracking_corners[2], cvScalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[2], dst_tracking_corners[3], cvScalar( 0, 255, 255), 4 );
-				line( tracking_thread_rgbcamera, dst_tracking_corners[3], dst_tracking_corners[0], cvScalar( 0, 255, 255), 4 );	
-				*/
-				
-				dst_tracking_corners1=dst_tracking_corners;
-
-				/*
-				namedWindow("TrackingResult");
-				
-				imshow("TrackingResult", tracking_thread_rgbcamera);
-				waitKey(1);
-				*/
-
-
-
-				if(idxcount==1){
-					//threadResults1.
-					//3D OBJECT 를 위한 공간
-
-					threadResults1.cf=true;			
-
-					camera.featuresResult.vertex[0].x=dst_tracking_corners[0].x;
-					camera.featuresResult.vertex[0].y=dst_tracking_corners[0].y;
-					camera.featuresResult.vertex[1].x=dst_tracking_corners[1].x;
-					camera.featuresResult.vertex[1].y=dst_tracking_corners[1].y;
-					camera.featuresResult.vertex[2].x=dst_tracking_corners[2].x;
-					camera.featuresResult.vertex[2].y=dst_tracking_corners[2].y;
-					camera.featuresResult.vertex[3].x=dst_tracking_corners[3].x;
-					camera.featuresResult.vertex[3].y=dst_tracking_corners[3].y;
-
-			
-					double dx, dy;
-
-			
-					CvPoint2D p1, p2;
-
-					//BSW 필요없는 코드일듯
-					/*
-					for(int i=0; i<4; ++i) {
-				
-						p1=threadResults1.vertex[i];
-						p2=threadResults1.vertex[(i+1)%4];
-
-						dx=p1.x-p2.x;
-						dy=p1.y-p2.y;
-
-						threadResults1.line[i][0]=-dy;
-						threadResults1.line[i][1]=dx;
-						threadResults1.line[i][2]=(p2.x)*(p1.y)-(p1.x)*(p2.y);
-
-				
-					}*/
-
-			
-					camera.featuresResult.center.x=camera.featuresResult.vertex[0].x+((camera.featuresResult.vertex[1].x-camera.featuresResult.vertex[0].x)/2);
-					camera.featuresResult.center.y=camera.featuresResult.vertex[0].y+((camera.featuresResult.vertex[3].y-camera.featuresResult.vertex[0].y)/2);
-			
-					//matching_thread_rgbcamera.copyTo(gDetectionResult1);
-			
-
-					dst_tracking_corners1=dst_tracking_corners;
-
-					/*
-					if(bThreadTracking1==false && mbisDetecting==true){
-						g_mpts_1=mpts_1;
-						g_mpts_2=mpts_2;
-					}
-			
-					bThreadDetection1=mbisDetecting;
-					*/
-					//초기화
-					dst_tracking_corners.clear();
-					
-				}
-				else if(idxcount==2){
-
-
-					//3D OBJECT 를 위한 공간
-
-					threadResults2.cf=true;
-
-					threadResults2.vertex[0].x=dst_tracking_corners[0].x;
-					threadResults2.vertex[0].y=dst_tracking_corners[0].y;
-					threadResults2.vertex[1].x=dst_tracking_corners[1].x;
-					threadResults2.vertex[1].y=dst_tracking_corners[1].y;
-					threadResults2.vertex[2].x=dst_tracking_corners[2].x;
-					threadResults2.vertex[2].y=dst_tracking_corners[2].y;
-					threadResults2.vertex[3].x=dst_tracking_corners[3].x;
-					threadResults2.vertex[3].y=dst_tracking_corners[3].y;
-
-
-					double dx, dy;
-					CvPoint2D p1, p2;
-					for(int i=0; i<4; ++i) {
-
-						p1=threadResults2.vertex[i];
-						p2=threadResults2.vertex[(i+1)%4];
-
-						dx=p1.x-p2.x;
-						dy=p1.y-p2.y;
-
-						threadResults2.line[i][0]=-dy;
-						threadResults2.line[i][1]=dx;
-						threadResults2.line[i][2]=(p2.x)*(p1.y)-(p1.x)*(p2.y);
-
-
-					}
-
-
-					threadResults2.center.x=(threadResults2.vertex[1].x-threadResults2.vertex[0].x)/2;
-					threadResults2.center.y=(threadResults2.vertex[3].y-threadResults2.vertex[0].y)/2;
-
-
-
-					//matching_thread_rgbcamera.copyTo(mResult2);
-			
-					dst_tracking_corners2=dst_tracking_corners;
-
-					bThreadDetection2=true;
-
-			
-			
-				}		
-		
-			}
-
-			//Release Variables
-			//tracking_thread_result.release();
-			//g_mpts_1.clear();
-			//g_mpts_2.clear();
-
-			tracking_thread_rgbcamera.release();
-			tracking_thread_transformedcamera.release();
-		}
-#ifndef _WIN32
-		else {
-			// Detection is off: wait instead of spinning a core.
-			std::this_thread::sleep_for(std::chrono::milliseconds(2));
-		}
-#endif
-				
-	}			
-	_endthreadex(0);
-	return 0;
-
-}
-
-// 
-
-
-
-
+// ThreadDraw, ThreadBRISKMatching and ThreadTracking moved to
+// legacy_marker_tracker.cpp (the draw thread was never started).
 
 #ifdef _WIN32
 INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance, __in LPSTR lpCmdLine, __in int nShowCmd )
@@ -2519,124 +1382,36 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 }
 #else
 // Entry points for the application layer (legacy_engine.h). main() lives in
-// apps/baekar/main.cpp; window creation moved to adapters/window/GlfwWindow.
+// apps/baekar/main.cpp; frames, marker tracking and the marker pose come
+// from the application's ports.
 
-static legacy_engine::Options g_options;
 static int    g_argc = 0;
 static char** g_argv = nullptr;
-
-// Worker threads owned by the engine and joined on shutdown. The 2012 code
-// passed &val1 from InitializeEngineMain's stack, which is gone by the time
-// the thread reads it; this slot lives for the whole program.
-static int g_markerSlot1 = 1;
-static std::vector<std::thread> g_workers;
-
-static void StartWorkerThreads()
-{
-	g_stopWorkers = false;
-	g_workers.emplace_back([] { ThreadBRISKMatching(&g_markerSlot1); });
-	g_workers.emplace_back([] { ThreadTracking(&g_markerSlot1); });
-}
-
-static void StopWorkerThreads()
-{
-	g_stopWorkers = true;
-	g_frameChanged.notify_all();
-	for (std::thread& worker : g_workers)
-		if (worker.joinable()) worker.join();
-	g_workers.clear();
-}
-
-// Accepts a path, or a bare filename that lives in image/.
-static std::string ResolveMarkerPath(const std::string& path)
-{
-	if (access(path.c_str(), R_OK) != 0 && path.find('/') == std::string::npos) {
-		const std::string inImageDir = std::string("image/") + path;
-		if (access(inImageDir.c_str(), R_OK) == 0)
-			return inImageDir;
-	}
-	return path;
-}
 
 namespace legacy_engine {
 
 bool Prepare(const Options& options, int argc, char** argv)
 {
-	g_options = options;
 	g_argc = argc;
 	g_argv = argv;
 	wonjo_dx::bDrawHand = options.handTracking ? TRUE : FALSE;
 
-	for (const std::string& requested : options.simulatedMarkers) {
-		const std::string markerPath = ResolveMarkerPath(requested);
-		if (access(markerPath.c_str(), R_OK) != 0) {
-			fprintf(stderr, "BaekAR: simulation marker not found: %s\n", markerPath.c_str());
-			return false;
-		}
-		g_markerSimulationPaths.push_back(markerPath);
-	}
-	if (!g_markerSimulationPaths.empty()) {
-		g_markerSimulationEnabled = true;
-		g_markerSimulationPath = g_markerSimulationPaths.front();
-		Filename[0]._strFilename = g_markerSimulationPath;
-		Filename[1]._strFilename = g_markerSimulationPath;
-	}
-
-	if (!options.markerImage.empty()) {
-		const std::string markerPath = ResolveMarkerPath(options.markerImage);
-		if (access(markerPath.c_str(), R_OK) != 0) {
-			fprintf(stderr, "BaekAR: marker image not found: %s\n", markerPath.c_str());
-			return false;
-		}
-		Filename[0]._strFilename = markerPath;
-		Filename[1]._strFilename = markerPath;
-	}
-	g_chosenCameraIndex = options.cameraIndex;
-
-	// Tell OpenCV to skip its own AVFoundation authorization handling.
-	// The .app bundle's Info.plist triggers the macOS permission dialog instead.
-	// Without this, cv::VideoCapture::open() blocks waiting for auth that
-	// never completes (OpenCV issue #7519).
-	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
-
-	if (!g_markerSimulationEnabled) {
-		// Marker-image picker: thesis "select a feature-detectable photo" workflow.
-		if (options.interactive && options.markerImage.empty()) {
-			const std::string chosen = PickMarkerImage();
-			if (!chosen.empty()) {
-				Filename[0]._strFilename = chosen;
-				Filename[1]._strFilename = chosen;
-			}
-		}
-		fprintf(stderr, "BaekAR: marker = %s\n", Filename[0]._strFilename.c_str());
-
-		// Window-as-AR-texture (thesis novelty): ScreenCaptureKit streams the
-		// chosen window's pixels into g_winFrameBuf.
-		if (options.windowCapture) {
+	// Window-as-AR-texture (thesis novelty): ScreenCaptureKit streams the
+	// chosen window's pixels into g_winFrameBuf.
+	if (options.windowCapture && options.cameraInput) {
 #ifdef __APPLE__
-			const uint32_t winId = WCPicker_PickWindowID();
-			if (winId != 0) {
-				g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
-				if (g_winStream) {
-					g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
-					fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
-				}
+		const uint32_t winId = WCPicker_PickWindowID();
+		if (winId != 0) {
+			g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
+			if (g_winStream) {
+				g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
+				fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
 			}
-#else
-			fprintf(stderr, "BaekAR: --window-capture needs macOS ScreenCaptureKit; ignored.\n");
-#endif
 		}
-	} else {
-		fprintf(stderr, "BaekAR: synthetic camera enabled — %zu marker(s).\n",
-		        g_markerSimulationPaths.size());
-		for (const std::string& markerPath : g_markerSimulationPaths)
-			fprintf(stderr, "  %s\n", markerPath.c_str());
+#else
+		fprintf(stderr, "BaekAR: --window-capture needs macOS ScreenCaptureKit; ignored.\n");
+#endif
 	}
-
-	g_multiMarkerSimulationEnabled = options.multiMarkerTracker;
-	g_multiMarkerPaths = g_markerSimulationEnabled
-		? g_markerSimulationPaths
-		: std::vector<std::string>(1, Filename[0]._strFilename);
 	fflush(stderr);
 	return true;
 }
@@ -2662,9 +1437,9 @@ static void SetInputFrame(const FrameInput& input)
 
 bool Start(const FrameInput& firstFrame)
 {
-	SetInputFrame(firstFrame);
 	// Runs on the GL thread: FingertipPoseEstimation::Initialize calls
 	// glGenTextures, and macOS GL calls only work on the context's thread.
+	SetInputFrame(firstFrame);
 	fprintf(stderr, "BaekAR: Starting engine initialization...\n");
 	const int rc = InitializeEngineMain();
 	if (rc != 0) {
@@ -2675,16 +1450,16 @@ bool Start(const FrameInput& firstFrame)
 	return true;
 }
 
-void RenderFrame(const FrameInput& input, const Pointer& pointer)
+void RenderFrame(const FrameInput& frame, const TrackingInput& tracking, const Pointer& pointer)
 {
-	SetInputFrame(input);
+	SetInputFrame(frame);
+	g_tracking = tracking;
 	g_pointer = pointer;
 	mainLoop();
 }
 
 void Shutdown()
 {
-	StopWorkerThreads();
 	ReleaseEngineMain();
 #ifdef __APPLE__
 	if (g_winStream) {
@@ -2692,7 +1467,6 @@ void Shutdown()
 		g_winStream = nullptr;
 	}
 #endif
-	fprintf(stderr, "BaekAR: workers joined.\n");
 }
 
 }  // namespace legacy_engine

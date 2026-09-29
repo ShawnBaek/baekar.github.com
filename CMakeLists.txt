@@ -64,6 +64,8 @@ include(CTest)
 # points; main() lives in apps/baekar/main.cpp.
 set(ENGINE_SOURCES
     MarkerlessAR/EngineMain.cpp
+    MarkerlessAR/legacy_marker_tracker.cpp
+    MarkerlessAR/legacy_pose.cpp
     MarkerlessAR/d3d.cpp
     MarkerlessAR/wonjo.cpp
     MarkerlessAR/cam.cpp
@@ -277,6 +279,8 @@ add_library(baekar_adapters STATIC
     src/adapters/window/GlfwWindow.cpp
     src/adapters/legacy/LegacyEnginePipeline.cpp
     src/adapters/frame_source/FrameSources.cpp
+    src/adapters/tracking/MarkerTrackers.cpp
+    src/adapters/pose/LegacyCameraPoseEstimator.cpp
 )
 baekar_use_modern_cpp(baekar_adapters)
 target_include_directories(baekar_adapters PRIVATE ${CMAKE_SOURCE_DIR}/MarkerlessAR)
@@ -306,6 +310,16 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARFrameSourceTests PRIVATE baekar_adapters)
     add_test(NAME frame_source_record_replay COMMAND BaekARFrameSourceTests)
     set_tests_properties(frame_source_record_replay PROPERTIES LABELS "integration")
+
+    add_executable(BaekARLegacyCharacterizationTests
+        tests/characterization/legacy_tracking_pose_test.cpp)
+    baekar_use_modern_cpp(BaekARLegacyCharacterizationTests)
+    target_compile_definitions(BaekARLegacyCharacterizationTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(BaekARLegacyCharacterizationTests PRIVATE baekar_adapters)
+    add_test(NAME legacy_tracking_and_pose COMMAND BaekARLegacyCharacterizationTests)
+    set_tests_properties(legacy_tracking_and_pose PROPERTIES
+        LABELS "characterization;tracking" TIMEOUT 60)
 endif()
 
 # macOS: build as .app bundle so the system shows camera permission dialog

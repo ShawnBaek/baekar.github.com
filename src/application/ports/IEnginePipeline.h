@@ -4,26 +4,27 @@
 #include "application/AppConfig.h"
 #include "core/Frame.h"
 #include "core/Input.h"
+#include "core/Tracking.h"
 
 namespace baekar {
 
-// The per-frame work that still lives in the 2012 engine. This is the
-// strangler seam: later stages move frame input, tracking, pose, hand
-// tracking and rendering out from behind it into their own ports.
+// The per-frame work that still lives in the 2012 engine: hand tracking,
+// rendering and interaction. This is the strangler seam; frame input
+// (IFrameSource), marker tracking (IMarkerTracker) and the marker pose
+// (IPoseEstimator) have already moved out from behind it.
 class IEnginePipeline {
 public:
     virtual ~IEnginePipeline() = default;
 
-    // Marker selection (and, with --interactive, the stdin marker picker)
-    // and optional window capture.
+    // Hand tracking switch and the optional macOS window capture.
     virtual bool prepare(const AppConfig& config) = 0;
     // GL state, meshes and textures. Needs the current GL context.
     virtual bool initializeRenderer() = 0;
-    // Builds the marker database and starts the tracking workers.
+    // Hand tracking initialization.
     virtual bool start(const Frame& firstFrame) = 0;
-    // Processes and renders one frame into the current back buffer.
-    virtual void renderFrame(const Frame& frame, const PointerState& pointer) = 0;
-    // Stops and joins every worker.
+    // Hand tracking, rendering and interaction for one frame.
+    virtual void renderFrame(const Frame& frame, const TrackingResult& tracking,
+                             const PointerState& pointer) = 0;
     virtual void shutdown() = 0;
 };
 

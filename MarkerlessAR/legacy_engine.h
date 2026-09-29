@@ -6,6 +6,7 @@
 
 #include <opencv2/core.hpp>
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -13,13 +14,9 @@
 namespace legacy_engine {
 
 struct Options {
-    int cameraIndex = -1;                       // -1: platform default
-    std::string markerImage;                    // empty: image/yejin.jpg
-    std::vector<std::string> simulatedMarkers;  // resolved paths
-    bool multiMarkerTracker = false;            // MultiMarkerDetector instead of 2012 threads
     bool handTracking = true;
-    bool interactive = false;
-    bool windowCapture = false;
+    bool cameraInput = true;     // false for synthetic or replayed frames
+    bool windowCapture = false;  // macOS ScreenCaptureKit window-as-texture
 };
 
 // One frame from the application's IFrameSource (640x480 BGR).
@@ -30,23 +27,42 @@ struct FrameInput {
     bool live = true;  // false for the "camera unavailable" placeholder
 };
 
+// What the application's IMarkerTracker and IPoseEstimator produced for
+// this frame. Matrices use the 2012 D3DX memory layout.
+struct TrackedMarker {
+    std::size_t index = 0;
+    std::string name;
+    bool found = false;
+    bool tracking = false;
+    std::array<cv::Point2f, 4> outline{};  // detection corners
+    int inliers = 0;
+    int trackedPoints = 0;
+};
+
+struct TrackingInput {
+    std::vector<TrackedMarker> markers;
+    bool drivesPose = false;  // 2012 single-marker pipeline: pose + 3D overlay
+    std::array<float, 16> projection{};
+    bool poseValid = false;
+    std::array<float, 16> view{};
+};
+
 struct Pointer {
     double x = 0.0;
     double y = 0.0;
     bool leftDown = false;
 };
 
-// Stores options, resolves marker paths and, with interactive, runs the
-// marker picker. Camera permission and the camera picker are part of the
-// macOS frame source now.
+// Stores options and opens the optional macOS window capture. Marker
+// selection, camera permission and the camera picker live in the
+// application now.
 bool Prepare(const Options& options, int argc, char** argv);
 // GLUT, the D3D-over-GL stub and the 2012 GL state. Needs a current context.
 bool InitializeRenderer();
-// Former InitializeEngineMain(): HandyAR, BRISK database, workers.
+// Former InitializeEngineMain(): HandyAR initialization.
 bool Start(const FrameInput& firstFrame);
-// Former mainLoop() body: one frame of tracking, pose and rendering.
-void RenderFrame(const FrameInput& frame, const Pointer& pointer);
-// Stops and joins the worker threads.
+// Former mainLoop() body: hand tracking and rendering for one frame.
+void RenderFrame(const FrameInput& frame, const TrackingInput& tracking, const Pointer& pointer);
 void Shutdown();
 
 }  // namespace legacy_engine
