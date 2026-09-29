@@ -13,21 +13,23 @@ apps -> application -> core
 legacy code is reached through adapters
 ```
 
-The target folders are:
+The folders (in place since stage 7):
 
 ```text
 apps/baekar/             executable and composition root
 src/core/                geometry, scene, and tracking value types
 src/application/         use cases, lifecycle, and ports
-src/adapters/            OpenCV, Kato, HandyAR, and OpenGL adapters
-src/platform/macos/      AVFoundation and ScreenCaptureKit
-legacy/                  reviewed 2012 and platform-specific code
-assets/                  runtime images, calibration, and meshes
-tests/characterization/  current behavior
-tests/integration/       adapter and application boundaries
+src/adapters/            frame sources, trackers, pose, hand, renderer, scene, window
+src/platform/macos/      AVFoundation, ScreenCaptureKit, camera menu and permission
+legacy/MarkerlessAR/     the 2012 engine (C++14), layout unchanged
+legacy/bridge/           C++14 wrappers that expose 2012 classes through plain headers
+assets/                  runtime images, calibration, meshes and skin models
+tests/unit/              parser and interaction state machine
+tests/characterization/  2012 tracker and pose behavior
+tests/integration/       frame source record/replay
 ```
 
-This is the destination, not the structure for the first PR. Files move only after a boundary builds and has characterization coverage.
+The patterns behind this layout are in [design.md](design.md). Provenance and licenses of the 2012 code are in [legacy/README.md](../../legacy/README.md).
 
 ## Rules
 
@@ -39,37 +41,53 @@ This is the destination, not the structure for the first PR. Files move only aft
 6. Check source and asset provenance before calling a folder `legacy` or `third_party`.
 7. Compare every refactoring PR with the merged macOS baseline.
 
-## Current seams
+## Seams
 
-| Seam | Current implementation | First boundary |
-|---|---|---|
-| Frame source | `HandyAR/Capture` | camera, video, AVFoundation, synthetic, and dummy strategies |
-| Marker tracking | `compat/MultiMarkerDetector` | reusable tracking library, then `IMarkerTracker` |
-| Pose | `KatoPoseEstimation` and calibration | `IPoseEstimator` adapter |
-| Hand interaction | `HandyAR` | `IHandTracker` adapter |
-| Scene | `Contents` | application-owned scene model |
-| Rendering | `wonjo`, `d3d`, OpenGL compatibility | renderer adapter |
-| macOS | `compat/macos_*` | platform adapters |
+| Port | Implementations |
+|---|---|
+| `IFrameSource` | `AvFoundationFrameSource` (macOS), `OpenCvCameraFrameSource`, `SyntheticFrameSource`, `ImageSequenceFrameSource` (replay), `DummyFrameSource`, `RecordingFrameSource` (decorator) |
+| `IMarkerTracker` | `LegacySingleMarkerTracker` (2012 BRISK + NCC threads), `MultiMarkerTracker` |
+| `IPoseEstimator` | `LegacyCameraPoseEstimator` (2012 `CCamera`) |
+| `IHandTracker` | `HandyArHandTracker`, `DisabledHandTracker` |
+| `IRenderer` | `LegacyGlRenderer` (2012 `wonjo_dx` over OpenGL) |
+| `IScene` / `IWindowTextureSource` | `ContentsScene`; `ScreenCaptureWindowSource` (macOS) |
+| `IWindow` | `GlfwWindow` |
 
-`EngineMain.cpp` remains the composition root until these boundaries exist. It becomes smaller in later PRs; the first PR does not split it.
+`EngineMain.cpp` is gone: its code lives in the `legacy/bridge` wrappers, and `apps/baekar/main.cpp` is the composition root.
 
 ## Runtime invariants
 
-- Camera, video, synthetic marker, and window capture modes keep the same command-line behavior.
+- Camera, synthetic marker, and window capture modes keep working. The stdin pickers now run only with `--interactive`; `--camera`, `--marker` and `--window-capture` replace them.
 - Marker identities in one published result belong to the same frame sequence.
 - Tracking can lose markers during occlusion and recover them after they return.
 - Rendering and event polling remain on the GLFW/OpenGL context thread.
 - Camera permission and application bundle behavior remain macOS responsibilities.
 - The original BRISK, AGAST, Kato, and HandyAR calculations stay available for comparison.
 
-## Planned order
+## Foundation order
 
-1. Architecture baseline and characterization tests.
-2. C++17 boundary for new code, with legacy code isolated when needed.
-3. Application facade and explicit lifecycle ownership.
-4. Frame-source strategies.
-5. Tracking and pose ports.
-6. Hand interaction and rendering adapters.
-7. Folder moves with no formatting changes.
+| Stage | Status |
+|---|---|
+| 1. Architecture baseline and characterization tests | Done (PR #34) |
+| 2. C++17 boundary; legacy isolated as `baekar_legacy` (C++14); macOS + Linux CI | Done |
+| 3. Application facade, `AppConfig`, worker lifecycle (stop + join) | Done |
+| 4. Frame-source strategies, record and replay | Done |
+| 5. Tracking and pose ports | Done |
+| 6. Hand, renderer and scene ports; `InteractionController` | Done |
+| 7. Folder moves with no formatting changes | Done |
 
-The yearly markerless AR work starts after this foundation. A yearly experiment should enter through a tracking, pose, mapping, or reconstruction interface instead of being added directly to `EngineMain.cpp`.
+Found while extracting, and fixed in the stage that touched them:
+
+- Worker threads were detached `while(true)` loops and read their argument from a dead stack variable.
+- The two 2012 tracking threads shared ~40 globals without synchronization.
+- The tracking search window could leave the image and throw inside the thread, ending the process.
+- Picking read the projection, view and viewport from the D3D stub device, which never fills them outside Windows.
+- The projection matrix was rebuilt and appended to `projectionlog.txt` every frame.
+
+Found and left for a decision:
+
+- The bundled GPL-3.0 BRISK/AGAST are still linked (see `legacy/README.md`).
+- `CCamera::D3DXMakeViewMatrix` still appends to `viewlog.txt` every frame.
+- Homebrew's `opencv` is now OpenCV 5, which removed the C API the 2012 code uses; the build pins `opencv@4`.
+
+The yearly markerless AR work starts after this foundation. A yearly experiment enters through a port (frame source, tracker, pose, hand, renderer) and is chosen in the composition root.

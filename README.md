@@ -29,7 +29,7 @@ cmake --build build --parallel
 open build/BaekAR.app
 ```
 
-BaekAR needs camera permission on first launch.
+BaekAR needs camera permission on first launch. Run `BaekAR --help` for the camera, marker, replay, recording and tracker options.
 
 Homebrew's `opencv` formula is OpenCV 5, which removed the C API that the 2012 engine still uses. Install `opencv@4`; CMake finds it automatically.
 
@@ -81,7 +81,7 @@ Continue from the merged macOS version. Verify the current behavior first, and t
 
 The original 2012 pipeline will stay available for comparison.
 
-Architecture decisions and the folder migration are tracked in [`docs/architecture`](docs/architecture/README.md).
+Architecture decisions and the folder migration are tracked in [`docs/architecture`](docs/architecture/README.md). The foundation refactoring (stages 1–7) is complete; the 2012 code and its provenance are described in [`legacy/README.md`](legacy/README.md).
 
 ### Step 2 — Verify on macOS
 

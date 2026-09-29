@@ -28,9 +28,9 @@ struct MarkerObservation {
     std::uint64_t frameSequence = 0;
 };
 
-// 4x4 matrix as 16 floats. D3DX row-major/row-vector and OpenGL
-// column-major/column-vector matrices share this memory layout, so the
-// 2012 camera's matrices are stored here unchanged.
+// 4x4 matrix as 16 floats, in the element order of the 2012 D3DXMATRIXA16.
+// The 2012 camera's matrices are stored unchanged; the renderer converts
+// them for OpenGL.
 struct Mat4 {
     std::array<float, 16> m{};
     static Mat4 identity() {

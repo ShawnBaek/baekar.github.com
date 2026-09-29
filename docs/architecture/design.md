@@ -95,7 +95,7 @@ struct MarkerObservation {     // one marker in one frame
 
 struct CameraIntrinsics { double fx, fy, cx, cy; cv::Vec4d distortion; cv::Size imageSize; };
 
-struct Mat4 { std::array<float, 16> m; };      // column-major, OpenGL convention
+struct Mat4 { std::array<float, 16> m; };      // 2012 D3DX layout; the renderer converts
 
 struct Pose { bool valid; Mat4 projection; Mat4 view; };
 
@@ -241,6 +241,13 @@ tests/                     characterization/, unit/, integration/
 | Integration | record → replay round trip; headless app run (`--frames`, `--screenshot`) under Xvfb in CI | Frame counts and tracked-marker logs |
 
 ## 10. Stage mapping
+
+All seven stages are implemented. Differences from the sketches above:
+`IEnginePipeline` existed as a temporary strangler seam in stages 3–5 and
+was removed in stage 6; matrices are carried in the 2012 D3DX layout
+(`Mat4`) and converted by the renderer; `InteractionController` is a small
+two-state machine per input rather than State-pattern classes.
+
 
 | Stage | Delivers from this design |
 |---|---|
