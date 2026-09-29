@@ -64,9 +64,9 @@
 // GLFW for macOS windowing
 #ifndef _WIN32
 #include <unistd.h>
-#include <GLFW/glfw3.h>
-static GLFWwindow* g_window = nullptr;
-static bool g_mouseDown = false;
+#include "legacy_engine.h"
+// Pointer state handed in by the application each frame (was read from GLFW here).
+static legacy_engine::Pointer g_pointer;
 static bool g_mouseWasDown = false;
 static double g_mousePrevX = 0, g_mousePrevY = 0;
 #endif
@@ -142,16 +142,43 @@ VideoCapture	capture2(0);
 // Shared frame buffer: mainLoop captures from gCapture and stores the latest
 // frame here.  Matching/tracking threads read from this shared buffer.
 #include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <thread>
+#include <chrono>
 static std::mutex g_frameMutex;
+static std::condition_variable g_frameChanged;
 static Mat g_sharedFrame;
+static uint64_t g_sharedFrameSequence = 0;
+
+// Workers stop when this is set; Shutdown() sets it and joins them.
+static std::atomic<bool> g_stopWorkers{false};
+static bool WorkersShouldStop() { return g_stopWorkers.load(); }
+static void StartWorkerThreads();  // defined with the legacy_engine entry points
 
 static Mat getSharedFrame() {
 	std::lock_guard<std::mutex> lock(g_frameMutex);
 	return g_sharedFrame.clone();
 }
+// Returns the shared frame only if it is newer than lastSequence, waiting up
+// to 50 ms for one. Workers used to re-process the same frame in a busy loop.
+static Mat getSharedFrameIfNewer(uint64_t& lastSequence) {
+	std::unique_lock<std::mutex> lock(g_frameMutex);
+	g_frameChanged.wait_for(lock, std::chrono::milliseconds(50), [&] {
+		return g_sharedFrameSequence != lastSequence || g_stopWorkers.load();
+	});
+	if (g_sharedFrameSequence == lastSequence || g_sharedFrame.empty())
+		return Mat();
+	lastSequence = g_sharedFrameSequence;
+	return g_sharedFrame.clone();
+}
 static void setSharedFrame(const Mat& frame) {
-	std::lock_guard<std::mutex> lock(g_frameMutex);
-	frame.copyTo(g_sharedFrame);
+	{
+		std::lock_guard<std::mutex> lock(g_frameMutex);
+		frame.copyTo(g_sharedFrame);
+		++g_sharedFrameSequence;
+	}
+	g_frameChanged.notify_all();
 }
 // Dummy VideoCapture objects (never opened) to keep Windows code path compilable
 VideoCapture	capture;
@@ -165,7 +192,9 @@ static IplImage g_dummyIpl;
 static bool g_markerSimulationEnabled = false;
 static std::string g_markerSimulationPath;
 static std::vector<std::string> g_markerSimulationPaths;
+// MultiMarkerDetector replaces the two 2012 threads when enabled.
 static bool g_multiMarkerSimulationEnabled = false;
+static std::vector<std::string> g_multiMarkerPaths;
 static MultiMarkerDetector g_multiMarkerDetector;
 
 #ifndef _WIN32
@@ -674,51 +703,9 @@ IplImage		*img_input;
 
 int InitializeEngineMain();  // forward declaration
 
-#ifndef _WIN32
-#include <thread>
-#include <atomic>
-static bool g_engineInitialized = false;
-static std::atomic<bool> g_engineInitStarted{false};
-static std::atomic<bool> g_engineInitDone{false};
-static std::atomic<int>  g_engineInitResult{-1};
-
-static void engineInitThread() {
-	g_engineInitResult = InitializeEngineMain();
-	g_engineInitDone = true;
-}
-#endif
 
 static void mainLoop(void)
 {
-#ifndef _WIN32
-	// Run engine init synchronously on the main thread the first time mainLoop
-	// fires. Capture::open has its own 10s timeout and the AVFoundation auth
-	// request runs at startup, so the only way init blocks is a stuck camera
-	// daemon — which the timeout handles. Init must run on the main thread
-	// because FingertipPoseEstimation::Initialize calls glGenTextures, and on
-	// macOS GL calls only work on the thread that owns the context.
-	if (!g_engineInitialized) {
-		fprintf(stderr, "BaekAR: Starting engine initialization...\n");
-		fflush(stderr);
-		int rc = InitializeEngineMain();
-		if (rc != 0) {
-			fprintf(stderr, "BaekAR: Engine initialization failed (%d).\n", rc);
-			if (g_markerSimulationEnabled) {
-				fprintf(stderr, "BaekAR: Check marker paths and use visually distinct marker images.\n");
-			} else {
-				fprintf(stderr, "BaekAR: On macOS, grant camera access in:\n");
-				fprintf(stderr, "        System Settings > Privacy & Security > Camera\n");
-			}
-			fflush(stderr);
-			if (g_window) glfwSetWindowShouldClose(g_window, GLFW_TRUE);
-			return;
-		}
-		fprintf(stderr, "BaekAR: Engine initialized successfully.\n");
-		fflush(stderr);
-		g_engineInitialized = true;
-		return; // skip first frame to let things settle
-	}
-#endif
 #ifdef _WIN32
 	if( GetKeyState(VK_LBUTTON) & 0x8000 )
 	{
@@ -728,11 +715,12 @@ static void mainLoop(void)
 		wonjo_dx::Picking(pt);
 	}
 #else
-	if (g_window) {
-		double mx, my;
-		glfwGetCursorPos(g_window, &mx, &my);
+	{
+		const double mx = g_pointer.x;
+		const double my = g_pointer.y;
+		const bool mouseDown = g_pointer.leftDown;
 
-		if (g_mouseDown && !g_mouseWasDown) {
+		if (mouseDown && !g_mouseWasDown) {
 			// Mouse-down edge: pick the AR content under the cursor.
 			POINT pt; pt.x = (LONG)mx; pt.y = (LONG)my;
 			D3DXVECTOR3 ro, rd;
@@ -746,13 +734,13 @@ static void mainLoop(void)
 				// Preserve the original z=0 picking trace for the no-hit case.
 				wonjo_dx::Picking(pt);
 			}
-		} else if (g_mouseDown && g_mouseWasDown) {
+		} else if (mouseDown && g_mouseWasDown) {
 			// Drag: translate the selected item.
 			g_contents.dragSelected(mx - g_mousePrevX, my - g_mousePrevY);
 		}
 		g_mousePrevX = mx;
 		g_mousePrevY = my;
-		g_mouseWasDown = g_mouseDown;
+		g_mouseWasDown = mouseDown;
 	}
 #endif
 	
@@ -1400,7 +1388,7 @@ int InitializeEngineMain()
     }
 
     if (g_multiMarkerSimulationEnabled) {
-        if (!g_multiMarkerDetector.Initialize(g_markerSimulationPaths)) {
+        if (!g_multiMarkerDetector.Initialize(g_multiMarkerPaths)) {
             fprintf(stderr, "BaekAR: multi-marker detector initialization failed.\n");
             return -1;
         }
@@ -1572,14 +1560,13 @@ int InitializeEngineMain()
 	int val1=1, val2=2, val3=3, val4=4, val5=5, val6=6,val7=7, val8=8, val9=9, val10=10, val11=11, val12=12;
 
 	fprintf(stderr, "DBG: Starting threads...\n"); fflush(stderr);
-#ifndef _WIN32
-	if (!g_multiMarkerSimulationEnabled) {
-#endif
+#ifdef _WIN32
 		hMatchingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val1, 0, &uMatchingThreadID[0] );
 		//hMatchingThread[1] = (HANDLE)_beginthreadex( NULL, 0, &ThreadBRISKMatching, &val2, 0, &uMatchingThreadID[1] );
 		hTrackingThread[0] = (HANDLE)_beginthreadex( NULL, 0, &ThreadTracking, &val1, 0, &uTrackingThreadID[0] );
-#ifndef _WIN32
-	}
+#else
+	if (!g_multiMarkerSimulationEnabled)
+		StartWorkerThreads();
 #endif
 
 	
@@ -1747,13 +1734,14 @@ unsigned int ThreadBRISKMatching(void *param)
 
 	}
 
-	while(true){
+	uint64_t lastFrameSequence = 0;
+	while(!WorkersShouldStop()){
 				
 		if(idxcount==1){
 #ifdef _WIN32
 			capture1>>matching_thread_rgbcamera;
 #else
-			matching_thread_rgbcamera = getSharedFrame();
+			matching_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
 #endif
 			mbistracking=bThreadTracking1;
 
@@ -1762,17 +1750,14 @@ unsigned int ThreadBRISKMatching(void *param)
 #ifdef _WIN32
 			capture2>>matching_thread_rgbcamera;
 #else
-			matching_thread_rgbcamera = getSharedFrame();
+			matching_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
 #endif
 			mbistracking=bThreadTracking2;
 		}
 
 		// Skip if no frame available yet
 		if(matching_thread_rgbcamera.empty()) {
-#ifndef _WIN32
-			struct timespec ts = {0, 50000000}; // 50ms
-			nanosleep(&ts, NULL);
-#endif
+			// getSharedFrameIfNewer already waited up to 50 ms for a new frame.
 			continue;
 		}
 
@@ -2035,7 +2020,8 @@ unsigned int ThreadTracking(void *param)
 	Mat tracking_thread_result(tracking_thread_rgbcamera.rows-img_database_resize.rows+1,tracking_thread_rgbcamera.cols-img_database_resize.cols,CV_32FC1);
 
 
-	while(true)
+	uint64_t lastFrameSequence = 0;
+	while(!WorkersShouldStop())
 	{
 		if(idxcount==1){
 			
@@ -2054,15 +2040,11 @@ unsigned int ThreadTracking(void *param)
 #ifdef _WIN32
 			capture1>>tracking_thread_rgbcamera;
 #else
-			tracking_thread_rgbcamera = getSharedFrame();
+			tracking_thread_rgbcamera = getSharedFrameIfNewer(lastFrameSequence);
 #endif
 
-			// Skip if no frame available yet
+			// Skip if no new frame arrived (getSharedFrameIfNewer waited up to 50 ms)
 			if(tracking_thread_rgbcamera.empty()) {
-#ifndef _WIN32
-				struct timespec ts = {0, 50000000}; // 50ms
-				nanosleep(&ts, NULL);
-#endif
 				continue;
 			}
 
@@ -2454,6 +2436,12 @@ unsigned int ThreadTracking(void *param)
 			tracking_thread_rgbcamera.release();
 			tracking_thread_transformedcamera.release();
 		}
+#ifndef _WIN32
+		else {
+			// Detection is off: wait instead of spinning a core.
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));
+		}
+#endif
 				
 	}			
 	_endthreadex(0);
@@ -2532,65 +2520,80 @@ INT APIENTRY WinMain( __in HINSTANCE hInstance, __in_opt HINSTANCE hPrevInstance
 	return 0;
 }
 #else
-// macOS entry point — GLFW windowing + OpenGL context
+// Entry points for the application layer (legacy_engine.h). main() lives in
+// apps/baekar/main.cpp; window creation moved to adapters/window/GlfwWindow.
 
-static void glfwKeyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/)
+static legacy_engine::Options g_options;
+static int    g_argc = 0;
+static char** g_argv = nullptr;
+
+// Worker threads owned by the engine and joined on shutdown. The 2012 code
+// passed &val1 from InitializeEngineMain's stack, which is gone by the time
+// the thread reads it; this slot lives for the whole program.
+static int g_markerSlot1 = 1;
+static std::vector<std::thread> g_workers;
+
+static void StartWorkerThreads()
 {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	g_stopWorkers = false;
+	g_workers.emplace_back([] { ThreadBRISKMatching(&g_markerSlot1); });
+	g_workers.emplace_back([] { ThreadTracking(&g_markerSlot1); });
 }
 
-static void glfwMouseButtonCallback(GLFWwindow* /*window*/, int button, int action, int /*mods*/)
+static void StopWorkerThreads()
 {
-	if (button == GLFW_MOUSE_BUTTON_LEFT)
-		g_mouseDown = (action == GLFW_PRESS);
+	g_stopWorkers = true;
+	g_frameChanged.notify_all();
+	for (std::thread& worker : g_workers)
+		if (worker.joinable()) worker.join();
+	g_workers.clear();
 }
 
-int main(int argc, char* argv[])
+// Accepts a path, or a bare filename that lives in image/.
+static std::string ResolveMarkerPath(const std::string& path)
 {
-#ifndef _WIN32
-	// Change working directory to the executable's directory so that data files
-	// (skin.dis, calibration/, 3dobjects/, etc.) symlinked into the .app bundle
-	// are found relative to the binary.
-	{
-		std::string exePath(argv[0]);
-		auto lastSlash = exePath.rfind('/');
-		if (lastSlash != std::string::npos) {
-			std::string exeDir = exePath.substr(0, lastSlash);
-			chdir(exeDir.c_str());
-			fprintf(stderr, "BaekAR: Working directory set to %s\n", exeDir.c_str());
-			fflush(stderr);
-		}
+	if (access(path.c_str(), R_OK) != 0 && path.find('/') == std::string::npos) {
+		const std::string inImageDir = std::string("image/") + path;
+		if (access(inImageDir.c_str(), R_OK) == 0)
+			return inImageDir;
 	}
-#endif
+	return path;
+}
 
-#ifndef _WIN32
-	for (int i = 1; i < argc; ++i) {
-		if (std::string(argv[i]) != "--simulate-marker")
-			continue;
-		if (i + 1 >= argc) {
-			fprintf(stderr, "BaekAR: --simulate-marker needs an image path or filename.\n");
-			return 2;
-		}
+namespace legacy_engine {
 
-		std::string markerPath = argv[++i];
-		if (access(markerPath.c_str(), R_OK) != 0 && markerPath.find('/') == std::string::npos)
-			markerPath = std::string("image/") + markerPath;
+bool Prepare(const Options& options, int argc, char** argv)
+{
+	g_options = options;
+	g_argc = argc;
+	g_argv = argv;
+	wonjo_dx::bDrawHand = options.handTracking ? TRUE : FALSE;
+
+	for (const std::string& requested : options.simulatedMarkers) {
+		const std::string markerPath = ResolveMarkerPath(requested);
 		if (access(markerPath.c_str(), R_OK) != 0) {
 			fprintf(stderr, "BaekAR: simulation marker not found: %s\n", markerPath.c_str());
-			return 2;
+			return false;
 		}
-
 		g_markerSimulationPaths.push_back(markerPath);
 	}
 	if (!g_markerSimulationPaths.empty()) {
 		g_markerSimulationEnabled = true;
 		g_markerSimulationPath = g_markerSimulationPaths.front();
-		g_multiMarkerSimulationEnabled = g_markerSimulationPaths.size() > 1;
 		Filename[0]._strFilename = g_markerSimulationPath;
 		Filename[1]._strFilename = g_markerSimulationPath;
 	}
-#endif
+
+	if (!options.markerImage.empty()) {
+		const std::string markerPath = ResolveMarkerPath(options.markerImage);
+		if (access(markerPath.c_str(), R_OK) != 0) {
+			fprintf(stderr, "BaekAR: marker image not found: %s\n", markerPath.c_str());
+			return false;
+		}
+		Filename[0]._strFilename = markerPath;
+		Filename[1]._strFilename = markerPath;
+	}
+	g_chosenCameraIndex = options.cameraIndex;
 
 	// Tell OpenCV to skip its own AVFoundation authorization handling.
 	// The .app bundle's Info.plist triggers the macOS permission dialog instead.
@@ -2598,127 +2601,116 @@ int main(int argc, char* argv[])
 	// never completes (OpenCV issue #7519).
 	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
 
-#ifdef __APPLE__
 	if (!g_markerSimulationEnabled) {
-	{
+#ifdef __APPLE__
 		fprintf(stderr, "BaekAR: requesting camera permission...\n");
-		fflush(stderr);
 		if (!RequestCameraPermission()) {
 			fprintf(stderr, "BaekAR: camera permission denied — engine will run with dummy frames.\n");
 			fprintf(stderr, "  Grant access in System Settings > Privacy & Security > Camera, then reset:\n");
 			fprintf(stderr, "  tccutil reset Camera com.baekar.engine\n");
-			fflush(stderr);
 		} else {
 			fprintf(stderr, "BaekAR: camera permission granted.\n");
-			fflush(stderr);
 		}
-	}
-
-	// Camera picker: enumerate AVFoundation video devices (built-in,
-	// external USB, iPhone Continuity Camera) so the user can choose
-	// which one BaekAR captures from. Empty/invalid input keeps default.
-	g_chosenCameraIndex = PickCameraIndex();
-
-	// Marker-image picker: thesis "select a feature-detectable photo, render
-	// the 3D scene anchored to it" workflow. Pick any image from image/ as
-	// the BRISK reference; skipping keeps the hardcoded default.
-	{
-		std::string chosen = PickMarkerImage();
-		if (!chosen.empty()) {
-			Filename[0]._strFilename = chosen;
-			Filename[1]._strFilename = chosen;
-			fprintf(stderr, "BaekAR: marker = %s\n", chosen.c_str());
-		} else {
-			fprintf(stderr, "BaekAR: marker = %s (default)\n",
-			        Filename[0]._strFilename.c_str());
-		}
-		fflush(stderr);
-	}
-
-	// Window-as-AR-texture (thesis novelty): present a stdin picker so the
-	// user chooses any on-screen window; ScreenCaptureKit streams its pixels
-	// into g_winFrameBuf. Skipping the picker leaves AR running marker-only.
-	{
-		uint32_t winId = WCPicker_PickWindowID();
-		if (winId != 0) {
-			g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
-			if (g_winStream) {
-				g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
-				fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
+		// Camera picker: built-in, USB and iPhone Continuity Camera.
+		if (options.interactive && options.cameraIndex < 0)
+			g_chosenCameraIndex = PickCameraIndex();
+#endif
+		// Marker-image picker: thesis "select a feature-detectable photo" workflow.
+		if (options.interactive && options.markerImage.empty()) {
+			const std::string chosen = PickMarkerImage();
+			if (!chosen.empty()) {
+				Filename[0]._strFilename = chosen;
+				Filename[1]._strFilename = chosen;
 			}
-		} else {
-			fprintf(stderr, "BaekAR: no window chosen — running marker-only mode.\n");
 		}
-		fflush(stderr);
-	}
+		fprintf(stderr, "BaekAR: marker = %s\n", Filename[0]._strFilename.c_str());
+
+		// Window-as-AR-texture (thesis novelty): ScreenCaptureKit streams the
+		// chosen window's pixels into g_winFrameBuf.
+		if (options.windowCapture) {
+#ifdef __APPLE__
+			const uint32_t winId = WCPicker_PickWindowID();
+			if (winId != 0) {
+				g_winStream = WCStream_Open(winId, kWinTexW, kWinTexH);
+				if (g_winStream) {
+					g_winFrameBuf.assign(kWinTexW * kWinTexH * 4, 0);
+					fprintf(stderr, "BaekAR: window stream ready — plane will spawn on first marker pose.\n");
+				}
+			}
+#else
+			fprintf(stderr, "BaekAR: --window-capture needs macOS ScreenCaptureKit; ignored.\n");
+#endif
+		}
 	} else {
-		fprintf(stderr, "BaekAR: synthetic camera enabled — %zu marker(s); "
-		                "camera and window pickers skipped.\n",
+		fprintf(stderr, "BaekAR: synthetic camera enabled — %zu marker(s).\n",
 		        g_markerSimulationPaths.size());
 		for (const std::string& markerPath : g_markerSimulationPaths)
 			fprintf(stderr, "  %s\n", markerPath.c_str());
-		fflush(stderr);
-	}
-#endif
-
-	// Initialize GLFW
-	if (!glfwInit()) {
-		fprintf(stderr, "Failed to initialize GLFW\n");
-		return -1;
 	}
 
-	// Create window with OpenGL context (legacy profile for fixed-function pipeline)
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-	g_window = glfwCreateWindow(640, 480, "BaekAR - Markerless AR Engine", nullptr, nullptr);
-	if (!g_window) {
-		fprintf(stderr, "Failed to create GLFW window\n");
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(g_window);
-	glfwSwapInterval(1); // vsync
+	g_multiMarkerSimulationEnabled = options.multiMarkerTracker;
+	g_multiMarkerPaths = g_markerSimulationEnabled
+		? g_markerSimulationPaths
+		: std::vector<std::string>(1, Filename[0]._strFilename);
+	fflush(stderr);
+	return true;
+}
 
-	// Set up input callbacks
-	glfwSetKeyCallback(g_window, glfwKeyCallback);
-	glfwSetMouseButtonCallback(g_window, glfwMouseButtonCallback);
+bool InitializeRenderer()
+{
+	// GLUT supplies glutSolidCone and bitmap fonts used by init() and overlays.
+	glutInit(&g_argc, g_argv);
 
 #ifdef __APPLE__
-	// Install macOS menu-bar "Camera" menu listing every AVFoundation device
-	// (built-in, USB, iPhone via Continuity). Selecting one hot-swaps the
-	// AVCap session — capture continues against the chosen device without
-	// needing to relaunch.
+	// macOS menu-bar "Camera" menu listing every AVFoundation device. Selecting
+	// one hot-swaps the AVCap session without relaunching.
 	if (!g_markerSimulationEnabled) {
 		InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
 		                  &OnCameraMenuPicked);
 	}
 #endif
 
-	// Initialize GLUT (needed for glutSolidCone etc. used in init())
-	glutInit(&argc, argv);
-
 	// Initialize D3D stub (allocates static gpDevice so GetDevice() is non-null)
 	wonjo_dx::AAR3DInitD3D(nullptr);
-
-	// Initialize OpenGL state
 	init();
-
-	fprintf(stderr, "BaekAR: OpenGL init done. Press ESC to quit.\n");
-	fprintf(stderr, "BaekAR: Camera will initialize when event loop starts...\n");
-	fflush(stderr);
-
-	// Main loop
-	while (!glfwWindowShouldClose(g_window)) {
-		mainLoop();
-		glfwSwapBuffers(g_window);
-		glfwPollEvents();
-	}
-
-	ReleaseEngineMain();
-	glfwDestroyWindow(g_window);
-	glfwTerminate();
-	return 0;
+	return true;
 }
+
+bool Start()
+{
+	// Runs on the GL thread: FingertipPoseEstimation::Initialize calls
+	// glGenTextures, and macOS GL calls only work on the context's thread.
+	fprintf(stderr, "BaekAR: Starting engine initialization...\n");
+	const int rc = InitializeEngineMain();
+	if (rc != 0) {
+		fprintf(stderr, "BaekAR: Engine initialization failed (%d).\n", rc);
+		return false;
+	}
+	fprintf(stderr, "BaekAR: Engine initialized successfully.\n");
+	return true;
+}
+
+void RenderFrame(const Pointer& pointer)
+{
+	g_pointer = pointer;
+	mainLoop();
+}
+
+void Shutdown()
+{
+	StopWorkerThreads();
+	ReleaseEngineMain();
+	gCapture.Terminate();
+#ifdef __APPLE__
+	if (g_winStream) {
+		WCStream_Close(g_winStream);
+		g_winStream = nullptr;
+	}
+#endif
+	fprintf(stderr, "BaekAR: workers joined, capture released.\n");
+}
+
+}  // namespace legacy_engine
 #endif
 
 

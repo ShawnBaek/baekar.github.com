@@ -13,6 +13,16 @@ target_compile_definitions(baekar_build_options INTERFACE
     _DRAW_HAND
 )
 
+# New architecture code (src/, apps/, tests/unit): C++17, strict warnings.
+function(baekar_use_modern_cpp target_name)
+    set_target_properties(${target_name} PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+    )
+    target_compile_options(${target_name} PRIVATE -Wall -Wextra)
+endfunction()
+
 function(baekar_use_legacy_cpp target_name)
     set_target_properties(${target_name} PROPERTIES
         CXX_STANDARD 14
@@ -42,9 +52,10 @@ endif()
 
 include(CTest)
 
-# 2012 engine sources (EngineMain.cpp is the application entry point and is
-# compiled separately by the BaekAR target below)
+# 2012 engine sources. EngineMain.cpp now exposes legacy_engine.h entry
+# points; main() lives in apps/baekar/main.cpp.
 set(ENGINE_SOURCES
+    MarkerlessAR/EngineMain.cpp
     MarkerlessAR/d3d.cpp
     MarkerlessAR/wonjo.cpp
     MarkerlessAR/cam.cpp
@@ -221,9 +232,49 @@ if(APPLE)
     )
 endif()
 
-add_executable(BaekAR MarkerlessAR/EngineMain.cpp)
-baekar_use_legacy_cpp(BaekAR)
-target_link_libraries(BaekAR PRIVATE baekar_legacy)
+# ---------------------------------------------------------------------------
+# Architecture layers (docs/architecture/design.md)
+#   baekar_core        value types, OpenCV core only
+#   baekar_application ports, AppConfig, Application facade
+#   baekar_adapters    GLFW window, legacy engine pipeline
+#   BaekAR             composition root (apps/baekar/main.cpp)
+# ---------------------------------------------------------------------------
+add_library(baekar_core INTERFACE)
+target_include_directories(baekar_core INTERFACE ${CMAKE_SOURCE_DIR}/src ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(baekar_core INTERFACE ${OpenCV_LIBS})
+
+add_library(baekar_application STATIC
+    src/application/AppConfig.cpp
+    src/application/Application.cpp
+)
+baekar_use_modern_cpp(baekar_application)
+target_compile_options(baekar_application PRIVATE -Werror)
+target_link_libraries(baekar_application PUBLIC baekar_core)
+
+add_library(baekar_adapters STATIC
+    src/adapters/window/GlfwWindow.cpp
+    src/adapters/legacy/LegacyEnginePipeline.cpp
+)
+baekar_use_modern_cpp(baekar_adapters)
+target_include_directories(baekar_adapters PRIVATE ${CMAKE_SOURCE_DIR}/MarkerlessAR)
+target_link_libraries(baekar_adapters PUBLIC
+    baekar_application
+    baekar_legacy
+    glfw
+    ${OPENGL_LIBRARIES}
+)
+
+add_executable(BaekAR apps/baekar/main.cpp)
+baekar_use_modern_cpp(BaekAR)
+target_link_libraries(BaekAR PRIVATE baekar_adapters)
+
+if(BUILD_TESTING)
+    add_executable(BaekARUnitTests tests/unit/app_config_test.cpp)
+    baekar_use_modern_cpp(BaekARUnitTests)
+    target_link_libraries(BaekARUnitTests PRIVATE baekar_application)
+    add_test(NAME app_config COMMAND BaekARUnitTests)
+    set_tests_properties(app_config PROPERTIES LABELS "unit")
+endif()
 
 # macOS: build as .app bundle so the system shows camera permission dialog
 if(APPLE)
