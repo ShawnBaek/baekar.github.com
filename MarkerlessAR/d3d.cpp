@@ -63,7 +63,7 @@ namespace wonjo_dx
 			HRESULT hr = D3DXLoadMeshFromX(location, D3DXMESH_MANAGED, GetDevice(),
 				&ms->m_AdjBuffer, &ms->m_MtrlBuffer, NULL, &ms->m_NumMtrl, &ms->m_Mesh
 				);
-#ifdef __APPLE__
+#ifndef _WIN32
 			ms->filename.assign(location);
 
 #ifdef BAEKAR_HAVE_ASSIMP
@@ -1199,7 +1199,7 @@ namespace wonjo_dx
 
 	void UploadTexture(unsigned int* tex, const unsigned char* bgra, int w, int h)
 	{
-#ifdef __APPLE__
+#ifndef _WIN32
 		if (!tex || !bgra) return;
 		if (*tex == 0) {
 			glGenTextures(1, tex);
@@ -1220,7 +1220,7 @@ namespace wonjo_dx
 
 	void DrawTexturedPlane(const D3DXMATRIXA16* matWorld, unsigned int tex, bool selected)
 	{
-#ifdef __APPLE__
+#ifndef _WIN32
 		if (matWorld) {
 			float glWorld[16];
 			for (int r = 0; r < 4; ++r)

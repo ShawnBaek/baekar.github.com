@@ -67,7 +67,7 @@ namespace wonjo_dx
 		std::vector<D3DMATERIAL9> Mtrls;
 		std::string filename;
 		std::vector<LPDIRECT3DTEXTURE9> m_Tex;
-#ifdef __APPLE__
+#ifndef _WIN32
 		// Real .X content via Assimp. Each sub-mesh is a flat triangle list:
 		// vertices interleaved is overkill for fixed-function GL — keep three
 		// parallel arrays and call glVertexPointer/glNormalPointer.

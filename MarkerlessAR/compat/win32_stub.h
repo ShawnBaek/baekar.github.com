@@ -93,8 +93,6 @@ inline void _endthreadex(unsigned) {} // no-op — thread exits when function re
 // Window stubs (will be replaced by GLFW in Sprint 3)
 #define CALLBACK
 #define APIENTRY
-#define __in
-#define __in_opt
 #define WINAPI
 
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);

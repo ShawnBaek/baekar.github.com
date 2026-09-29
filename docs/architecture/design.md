@@ -51,6 +51,28 @@ Dependency rules (checked by the CMake target graph, not by convention):
 OpenCV value types (`cv::Mat`, `cv::Point2f`, `cv::Matx`) are allowed in `core` because
 removing them would add frame copies (architecture rule 5).
 
+### Supported platforms: macOS and Linux
+
+macOS is the product platform. Linux is kept building and running so that the engine can be
+verified headlessly (Xvfb) and in CI without a Mac.
+
+| Layer | macOS | Linux |
+|---|---|---|
+| core, application, adapters, legacy | same sources | same sources |
+| Window + GL context | GLFW + legacy OpenGL 2.1 | GLFW + legacy OpenGL 2.1 (Mesa) |
+| Camera | `AvFoundationFrameSource` (Continuity Camera aware) | `OpenCvCameraFrameSource` (V4L2) |
+| Camera permission, camera menu, window capture | `src/platform/macos` | not built; flags report "not available" |
+| App packaging | `.app` bundle with `Info.plist` | plain executable |
+
+Rules that keep both working:
+
+* `__APPLE__` guards only code that calls Apple frameworks. Portable OpenGL, POSIX and
+  OpenCV code is guarded by `#ifndef _WIN32` (the 2012 Windows path) or not at all.
+* Platform differences are chosen in the composition root by picking an adapter, not with
+  `#ifdef` inside the application loop.
+* Include file names match the on-disk case (macOS file systems hide mismatches, Linux does not).
+* CI builds and tests both platforms on every push.
+
 ## 3. Core types (`src/core`)
 
 ```cpp

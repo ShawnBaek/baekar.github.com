@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install cmake opencv glfw glm freeglut assimp
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        # The multi-marker characterization tests sleep in wall-clock time,
+        # so a slow shared runner can miss the 90% threshold. Retry instead
+        # of loosening the recorded behavior.
+        run: ctest --test-dir build --output-on-failure --repeat until-pass:3
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libopencv-dev libglfw3-dev freeglut3-dev \
+            libglm-dev libassimp-dev xvfb
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --repeat until-pass:3

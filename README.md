@@ -31,6 +31,18 @@ open build/BaekAR.app
 
 BaekAR needs camera permission on first launch.
 
+## Build on Linux
+
+Linux builds the same engine for headless verification and CI. macOS-only features (Continuity Camera, camera menu, window capture) are not built there.
+
+```bash
+sudo apt-get install cmake libopencv-dev libglfw3-dev freeglut3-dev libglm-dev libassimp-dev
+
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build
+```
+
 To run it with a virtual camera looking at one of the marker images:
 
 ```bash

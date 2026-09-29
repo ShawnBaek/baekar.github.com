@@ -42,9 +42,9 @@ endif()
 
 include(CTest)
 
-# Source files - main engine
+# 2012 engine sources (EngineMain.cpp is the application entry point and is
+# compiled separately by the BaekAR target below)
 set(ENGINE_SOURCES
-    MarkerlessAR/EngineMain.cpp
     MarkerlessAR/d3d.cpp
     MarkerlessAR/wonjo.cpp
     MarkerlessAR/cam.cpp
@@ -129,7 +129,7 @@ add_library(baekar_tracking STATIC
     MarkerlessAR/compat/multi_marker_detector.cpp
     MarkerlessAR/compat/synthetic_marker_source.cpp
 )
-baekar_use_legacy_cpp(baekar_tracking)
+set_target_properties(baekar_tracking PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 target_include_directories(baekar_tracking PUBLIC
     ${CMAKE_SOURCE_DIR}/MarkerlessAR/compat
     ${OpenCV_INCLUDE_DIRS}
@@ -162,8 +162,10 @@ if(BUILD_TESTING)
     endforeach()
 endif()
 
-# Combine all sources
-set(ALL_SOURCES
+# The 2012 engine, compiled unchanged. It stays at C++14 because BRISK,
+# AGAST and calibration sources use the `register` keyword that C++17
+# removed (ADR 0002). New code links it instead of compiling its sources.
+add_library(baekar_legacy STATIC
     ${ENGINE_SOURCES}
     ${BRISK_SOURCES}
     ${AGAST_SOURCES}
@@ -171,11 +173,9 @@ set(ALL_SOURCES
     ${KATO_SOURCES}
     ${HANDYAR_SOURCES}
 )
+baekar_use_legacy_cpp(baekar_legacy)
 
-add_executable(BaekAR ${ALL_SOURCES})
-baekar_use_legacy_cpp(BaekAR)
-
-target_include_directories(BaekAR PRIVATE
+target_include_directories(baekar_legacy PUBLIC
     ${CMAKE_SOURCE_DIR}/MarkerlessAR
     ${CMAKE_SOURCE_DIR}/MarkerlessAR/brisk
     ${CMAKE_SOURCE_DIR}/MarkerlessAR/agast
@@ -188,7 +188,7 @@ target_include_directories(BaekAR PRIVATE
     ${GLM_INCLUDE_DIR}
 )
 
-target_link_libraries(BaekAR PRIVATE
+target_link_libraries(baekar_legacy PUBLIC
     baekar_build_options
     baekar_tracking
     ${OpenCV_LIBS}
@@ -197,13 +197,19 @@ target_link_libraries(BaekAR PRIVATE
     ${GLUT_LIBRARIES}
 )
 
+# The bundled BRISK Hamming matcher uses SSSE3 intrinsics on x86-64
+# (Intel Macs and Linux CI). Apple Silicon builds do not need this flag.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    target_compile_options(baekar_legacy PUBLIC -mssse3)
+endif()
+
 if(assimp_FOUND)
-    target_link_libraries(BaekAR PRIVATE assimp::assimp)
-    target_compile_definitions(BaekAR PRIVATE BAEKAR_HAVE_ASSIMP=1)
+    target_link_libraries(baekar_legacy PUBLIC assimp::assimp)
+    target_compile_definitions(baekar_legacy PUBLIC BAEKAR_HAVE_ASSIMP=1)
 endif()
 
 if(APPLE)
-    target_link_libraries(BaekAR PRIVATE
+    target_link_libraries(baekar_legacy PUBLIC
         "-framework AVFoundation"
         "-framework Foundation"
         "-framework Cocoa"
@@ -214,6 +220,10 @@ if(APPLE)
         "-lobjc"
     )
 endif()
+
+add_executable(BaekAR MarkerlessAR/EngineMain.cpp)
+baekar_use_legacy_cpp(BaekAR)
+target_link_libraries(BaekAR PRIVATE baekar_legacy)
 
 # macOS: build as .app bundle so the system shows camera permission dialog
 if(APPLE)
