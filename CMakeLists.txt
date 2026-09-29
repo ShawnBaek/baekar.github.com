@@ -76,12 +76,15 @@ set(ENGINE_SOURCES
     MarkerlessAR/stdafx.cpp
 )
 
+# macOS platform layer: AVFoundation capture, camera permission and menu,
+# ScreenCaptureKit window capture. Only this target links Apple frameworks.
 if(APPLE)
-    list(APPEND ENGINE_SOURCES
+    add_library(baekar_platform_macos STATIC
         MarkerlessAR/compat/macos_camera_auth.mm
         MarkerlessAR/compat/macos_window_capture.mm
         MarkerlessAR/compat/macos_av_capture.mm
         MarkerlessAR/compat/macos_camera_menu.mm
+        src/platform/macos/AvFoundationFrameSource.cpp
     )
     # These .mm files capture Obj-C objects via __block; without ARC the
     # captures don't auto-retain and the autorelease pool drains them
@@ -91,6 +94,24 @@ if(APPLE)
         MarkerlessAR/compat/macos_av_capture.mm
         MarkerlessAR/compat/macos_camera_menu.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+    )
+    set_target_properties(baekar_platform_macos PROPERTIES
+        CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+    target_include_directories(baekar_platform_macos PUBLIC
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/MarkerlessAR
+        ${OpenCV_INCLUDE_DIRS}
+    )
+    target_link_libraries(baekar_platform_macos PUBLIC
+        ${OpenCV_LIBS}
+        "-framework AVFoundation"
+        "-framework Foundation"
+        "-framework Cocoa"
+        "-framework ScreenCaptureKit"
+        "-framework CoreMedia"
+        "-framework CoreVideo"
+        "-framework CoreGraphics"
+        "-lobjc"
     )
 endif()
 
@@ -228,16 +249,9 @@ if(assimp_FOUND)
 endif()
 
 if(APPLE)
-    target_link_libraries(baekar_legacy PUBLIC
-        "-framework AVFoundation"
-        "-framework Foundation"
-        "-framework Cocoa"
-        "-framework ScreenCaptureKit"
-        "-framework CoreMedia"
-        "-framework CoreVideo"
-        "-framework CoreGraphics"
-        "-lobjc"
-    )
+    # The 2012 engine still reaches ScreenCaptureKit window capture directly
+    # (moves behind a scene port in stage 6).
+    target_link_libraries(baekar_legacy PUBLIC baekar_platform_macos)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -262,12 +276,14 @@ target_link_libraries(baekar_application PUBLIC baekar_core)
 add_library(baekar_adapters STATIC
     src/adapters/window/GlfwWindow.cpp
     src/adapters/legacy/LegacyEnginePipeline.cpp
+    src/adapters/frame_source/FrameSources.cpp
 )
 baekar_use_modern_cpp(baekar_adapters)
 target_include_directories(baekar_adapters PRIVATE ${CMAKE_SOURCE_DIR}/MarkerlessAR)
 target_link_libraries(baekar_adapters PUBLIC
     baekar_application
     baekar_legacy
+    baekar_tracking
     glfw
     ${OPENGL_LIBRARIES}
 )
@@ -282,6 +298,14 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARUnitTests PRIVATE baekar_application)
     add_test(NAME app_config COMMAND BaekARUnitTests)
     set_tests_properties(app_config PROPERTIES LABELS "unit")
+
+    add_executable(BaekARFrameSourceTests tests/integration/frame_source_test.cpp)
+    baekar_use_modern_cpp(BaekARFrameSourceTests)
+    target_compile_definitions(BaekARFrameSourceTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(BaekARFrameSourceTests PRIVATE baekar_adapters)
+    add_test(NAME frame_source_record_replay COMMAND BaekARFrameSourceTests)
+    set_tests_properties(frame_source_record_replay PROPERTIES LABELS "integration")
 endif()
 
 # macOS: build as .app bundle so the system shows camera permission dialog

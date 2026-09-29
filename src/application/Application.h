@@ -3,6 +3,7 @@
 
 #include "application/AppConfig.h"
 #include "application/ports/IEnginePipeline.h"
+#include "application/ports/IFrameSource.h"
 #include "application/ports/IWindow.h"
 
 namespace baekar {
@@ -11,7 +12,8 @@ namespace baekar {
 // Replaces the InitializeEngineMain / mainLoop / ReleaseEngineMain trio.
 class Application {
 public:
-    Application(AppConfig config, IWindow& window, IEnginePipeline& pipeline);
+    // `source` must already be open; the application closes it on shutdown.
+    Application(AppConfig config, IWindow& window, IFrameSource& source, IEnginePipeline& pipeline);
 
     // Returns the process exit code.
     int run();
@@ -23,7 +25,9 @@ private:
 
     AppConfig config_;
     IWindow& window_;
+    IFrameSource& source_;
     IEnginePipeline& pipeline_;
+    Frame frame_;
     long renderedFrames_ = 0;
 };
 

@@ -25,6 +25,8 @@ std::string usageText() {
         "  --camera N               camera index (default: platform default)\n"
         "  --marker PATH            marker image for the camera pipeline\n"
         "  --simulate-marker PATH   use a synthetic camera; repeat for several markers\n"
+        "  --replay DIR             replay frames recorded with --record\n"
+        "  --record DIR             save every new input frame as DIR/frame_NNNNNN.png\n"
         "  --tracker auto|legacy|multi\n"
         "                           marker tracker (auto: legacy for one marker,\n"
         "                           multi for several)\n"
@@ -72,6 +74,14 @@ ParseResult parseCommandLine(int argc, const char* const argv[]) {
             if (!needValue(value) || value.empty())
                 return fail("--simulate-marker needs an image path or filename");
             config.simulatedMarkers.push_back(value);
+        } else if (arg == "--replay") {
+            if (!needValue(value) || value.empty())
+                return fail("--replay needs a directory");
+            config.replayDirectory = value;
+        } else if (arg == "--record") {
+            if (!needValue(value) || value.empty())
+                return fail("--record needs a directory");
+            config.recordDirectory = value;
         } else if (arg == "--tracker") {
             if (!needValue(value)) return fail("--tracker needs auto, legacy or multi");
             if (value == "auto") config.tracker = TrackerKind::Auto;
@@ -100,6 +110,8 @@ ParseResult parseCommandLine(int argc, const char* const argv[]) {
         return fail("--tracker legacy follows one marker; use multi for several");
     if (config.usesSimulation() && !config.markerImage.empty())
         return fail("--marker and --simulate-marker cannot be combined");
+    if (config.usesSimulation() && !config.replayDirectory.empty())
+        return fail("--replay and --simulate-marker cannot be combined");
 
     result.ok = true;
     return result;

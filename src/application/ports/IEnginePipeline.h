@@ -2,6 +2,7 @@
 #define BAEKAR_APPLICATION_PORTS_IENGINE_PIPELINE_H
 
 #include "application/AppConfig.h"
+#include "core/Frame.h"
 #include "core/Input.h"
 
 namespace baekar {
@@ -13,15 +14,16 @@ class IEnginePipeline {
 public:
     virtual ~IEnginePipeline() = default;
 
-    // Platform setup that may prompt the user (camera permission, pickers).
+    // Marker selection (and, with --interactive, the stdin marker picker)
+    // and optional window capture.
     virtual bool prepare(const AppConfig& config) = 0;
     // GL state, meshes and textures. Needs the current GL context.
     virtual bool initializeRenderer() = 0;
-    // Opens the frame source and starts the tracking workers.
-    virtual bool start() = 0;
+    // Builds the marker database and starts the tracking workers.
+    virtual bool start(const Frame& firstFrame) = 0;
     // Processes and renders one frame into the current back buffer.
-    virtual void renderFrame(const PointerState& pointer) = 0;
-    // Stops and joins every worker, then releases the frame source.
+    virtual void renderFrame(const Frame& frame, const PointerState& pointer) = 0;
+    // Stops and joins every worker.
     virtual void shutdown() = 0;
 };
 

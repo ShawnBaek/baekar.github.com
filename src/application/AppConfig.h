@@ -14,6 +14,8 @@ struct AppConfig {
     int cameraIndex = -1;                       // -1: platform default
     std::string markerImage;                    // empty: image/yejin.jpg
     std::vector<std::string> simulatedMarkers;  // non-empty: synthetic camera
+    std::string replayDirectory;                // non-empty: replay recorded frames
+    std::string recordDirectory;                // non-empty: record every new frame
     TrackerKind tracker = TrackerKind::Auto;
     bool handTracking = true;
     bool interactive = false;    // run the stdin camera/marker/window pickers

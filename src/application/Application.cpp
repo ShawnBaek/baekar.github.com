@@ -7,30 +7,42 @@
 
 namespace baekar {
 
-Application::Application(AppConfig config, IWindow& window, IEnginePipeline& pipeline)
-    : config_(std::move(config)), window_(window), pipeline_(pipeline) {}
+Application::Application(AppConfig config, IWindow& window, IFrameSource& source,
+                         IEnginePipeline& pipeline)
+    : config_(std::move(config)), window_(window), source_(source), pipeline_(pipeline) {}
 
 int Application::run() {
     if (!pipeline_.prepare(config_)) {
         std::fprintf(stderr, "BaekAR: platform preparation failed.\n");
+        source_.close();
         return 1;
     }
     if (!pipeline_.initializeRenderer()) {
         std::fprintf(stderr, "BaekAR: renderer initialization failed.\n");
+        source_.close();
         return 1;
     }
-    if (!pipeline_.start()) {
+    std::fprintf(stderr, "BaekAR: frame source: %s\n", source_.describe().c_str());
+    if (!source_.read(frame_)) {
+        std::fprintf(stderr, "BaekAR: the frame source produced no first frame.\n");
+        source_.close();
+        return 1;
+    }
+    if (!pipeline_.start(frame_)) {
         std::fprintf(stderr, "BaekAR: engine start failed.\n");
         if (config_.usesSimulation())
             std::fprintf(stderr, "BaekAR: check marker paths and use visually distinct marker images.\n");
         pipeline_.shutdown();
+        source_.close();
         return 1;
     }
     std::fprintf(stderr, "BaekAR: engine running. Press ESC to quit.\n");
 
     int exitCode = 0;
     while (!window_.shouldClose()) {
-        pipeline_.renderFrame(window_.pointer());
+        // Keep the previous frame when the source has nothing new this tick.
+        source_.read(frame_);
+        pipeline_.renderFrame(frame_, window_.pointer());
         ++renderedFrames_;
 
         const bool lastFrame = config_.maxFrames > 0 && renderedFrames_ >= config_.maxFrames;
@@ -43,6 +55,7 @@ int Application::run() {
     }
 
     pipeline_.shutdown();
+    source_.close();
     std::fprintf(stderr, "BaekAR: rendered %ld frame(s).\n", renderedFrames_);
     return exitCode;
 }

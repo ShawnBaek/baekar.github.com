@@ -55,6 +55,13 @@ int main() {
         expect(r.config.tracker == baekar::TrackerKind::Multi, "tracker parsed");
         expect(r.config.interactive && r.config.windowCapture, "switches parsed");
     }
+    {
+        const auto r = parse({"--replay", "rec", "--record", "out"});
+        expect(r.ok && r.config.replayDirectory == "rec" && r.config.recordDirectory == "out",
+               "replay and record parsed");
+    }
+    expect(!parse({"--replay", "rec", "--simulate-marker", "a.jpg"}).ok,
+           "replay and simulate-marker are exclusive");
     expect(parse({"--help"}).showHelp, "help flag");
     expect(!parse({"--frames"}).ok, "missing value rejected");
     expect(!parse({"--frames", "0"}).ok, "zero frames rejected");

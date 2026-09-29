@@ -81,16 +81,6 @@ static double g_mousePrevX = 0, g_mousePrevY = 0;
 #include "Contents.hpp"
 static int g_chosenCameraIndex = -1;
 
-#ifdef __APPLE__
-// Forward decl: gCapture is defined in HandyAR/HandyAR.h (included via
-// EngineMain.cpp's existing includes). The menu callback fires on the
-// AppKit main thread; SwitchCamera mutex-free (just AVCap close+reopen).
-extern Capture gCapture;
-static void OnCameraMenuPicked(int newIdx) {
-    gCapture.SwitchCamera(newIdx);
-    g_chosenCameraIndex = newIdx;
-}
-#endif
 static Contents  g_contents;
 #ifdef __APPLE__
 static WCStream* g_winStream  = nullptr;
@@ -139,8 +129,8 @@ VideoCapture	capture(0);
 VideoCapture	capture1(0);
 VideoCapture	capture2(0);
 #else
-// Shared frame buffer: mainLoop captures from gCapture and stores the latest
-// frame here.  Matching/tracking threads read from this shared buffer.
+// Shared frame buffer: mainLoop publishes the application's frames here and
+// the matching/tracking threads read from it.
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
@@ -184,6 +174,15 @@ static void setSharedFrame(const Mat& frame) {
 VideoCapture	capture;
 VideoCapture	capture1;
 VideoCapture	capture2;
+
+// Current frame handed in by the application's IFrameSource
+// (legacy_engine::Start / RenderFrame). g_inputLive is false for the
+// "camera unavailable" placeholder source.
+static cv::Mat  g_inputFrame;
+static uint64_t g_inputSequence = 0;
+static int64    g_inputTick = 0;
+static bool     g_inputLive = false;
+static uint64_t g_lastPublishedSequence = 0;
 
 // Camera fallback: when camera is unavailable, use a dummy frame
 static bool g_cameraAvailable = false;
@@ -1075,33 +1074,27 @@ static void mainLoop(void)
 	// capture
 	IplImage * frame = 0;
 
-#ifndef _WIN32
-	if (g_cameraAvailable) {
-#endif
-		gCapture.CaptureFrame();
-		frame = gCapture.QueryFrame();
-#ifndef _WIN32
-	}
-	if ( !frame )
-	{
-		// Use dummy frame when camera is unavailable
-		frame = &g_dummyIpl;
-	}
-#else
+#ifdef _WIN32
+	gCapture.CaptureFrame();
+	frame = gCapture.QueryFrame();
 	if ( !frame )
 	{
 		return;
 	}
-#endif
 	gFingertipPoseEstimation.OnCapture( frame, gCapture.QueryTickCount() );
+#else
+	// The frame comes from the application's IFrameSource (legacy_engine::RenderFrame).
+	IplImage frameHeader = cvIplImage(g_inputFrame);
+	frame = &frameHeader;
+	gFingertipPoseEstimation.OnCapture( frame, g_inputTick );
 
-#ifndef _WIN32
-	// Publish camera frame to shared buffer for matching/tracking threads
-	if (g_cameraAvailable) {
-		cv::Mat frameMat = cv::cvarrToMat(frame, false);
-		setSharedFrame(frameMat);
+	// Publish new camera frames to the matching/tracking workers. A source
+	// can repeat a frame (same sequence); workers only need new ones.
+	if (g_cameraAvailable && g_inputSequence != g_lastPublishedSequence) {
+		setSharedFrame(g_inputFrame);
 		if (g_multiMarkerSimulationEnabled)
-			g_multiMarkerDetector.SubmitFrame(frameMat);
+			g_multiMarkerDetector.SubmitFrame(g_inputFrame);
+		g_lastPublishedSequence = g_inputSequence;
 	}
 #endif
 
@@ -1316,6 +1309,7 @@ int InitializeEngineMain()
     }
 
     // initialize capture
+#ifdef _WIN32
     bool cameraOk = false;
 #ifndef _WIN32
     if ( g_markerSimulationEnabled )
@@ -1382,10 +1376,19 @@ int InitializeEngineMain()
         return -1;
 #endif
     }
-#ifndef _WIN32
-    else {
-        g_cameraAvailable = true;
+#else
+    // Frame input now comes from the application's IFrameSource (camera,
+    // synthetic, replay or placeholder); see legacy_engine::Start.
+    IplImage firstFrameHeader = cvIplImage(g_inputFrame);
+    IplImage * frame = &firstFrameHeader;
+    g_cameraAvailable = g_inputLive;
+    if ( !g_cameraAvailable )
+    {
+        fprintf( stderr, "Camera unavailable — running with dummy frame.\n" );
+        fflush(stderr);
     }
+#endif
+#ifndef _WIN32
 
     if (g_multiMarkerSimulationEnabled) {
         if (!g_multiMarkerDetector.Initialize(g_multiMarkerPaths)) {
@@ -1545,13 +1548,8 @@ int InitializeEngineMain()
 #ifdef _WIN32
 	capture >> gDetectionResult1;
 #else
-	// On macOS, use gCapture's frame (capture is not opened separately)
-	{
-		IplImage* initFrame = gCapture.QueryFrame();
-		if (initFrame) {
-			gDetectionResult1 = cv::cvarrToMat(initFrame, true);
-		}
-	}
+	// The first frame from the application's IFrameSource.
+	gDetectionResult1 = g_inputFrame.clone();
 #endif
 	if(gDetectionResult1.empty()) {
 		gDetectionResult1 = Mat::zeros(480, 640, CV_8UC3);
@@ -2602,19 +2600,6 @@ bool Prepare(const Options& options, int argc, char** argv)
 	setenv("OPENCV_AVFOUNDATION_SKIP_AUTH", "1", 1);
 
 	if (!g_markerSimulationEnabled) {
-#ifdef __APPLE__
-		fprintf(stderr, "BaekAR: requesting camera permission...\n");
-		if (!RequestCameraPermission()) {
-			fprintf(stderr, "BaekAR: camera permission denied — engine will run with dummy frames.\n");
-			fprintf(stderr, "  Grant access in System Settings > Privacy & Security > Camera, then reset:\n");
-			fprintf(stderr, "  tccutil reset Camera com.baekar.engine\n");
-		} else {
-			fprintf(stderr, "BaekAR: camera permission granted.\n");
-		}
-		// Camera picker: built-in, USB and iPhone Continuity Camera.
-		if (options.interactive && options.cameraIndex < 0)
-			g_chosenCameraIndex = PickCameraIndex();
-#endif
 		// Marker-image picker: thesis "select a feature-detectable photo" workflow.
 		if (options.interactive && options.markerImage.empty()) {
 			const std::string chosen = PickMarkerImage();
@@ -2661,23 +2646,23 @@ bool InitializeRenderer()
 	// GLUT supplies glutSolidCone and bitmap fonts used by init() and overlays.
 	glutInit(&g_argc, g_argv);
 
-#ifdef __APPLE__
-	// macOS menu-bar "Camera" menu listing every AVFoundation device. Selecting
-	// one hot-swaps the AVCap session without relaunching.
-	if (!g_markerSimulationEnabled) {
-		InstallCameraMenu(g_chosenCameraIndex >= 0 ? g_chosenCameraIndex : 0,
-		                  &OnCameraMenuPicked);
-	}
-#endif
-
 	// Initialize D3D stub (allocates static gpDevice so GetDevice() is non-null)
 	wonjo_dx::AAR3DInitD3D(nullptr);
 	init();
 	return true;
 }
 
-bool Start()
+static void SetInputFrame(const FrameInput& input)
 {
+	g_inputFrame = input.bgr;
+	g_inputSequence = input.sequence;
+	g_inputTick = input.tickCount;
+	g_inputLive = input.live;
+}
+
+bool Start(const FrameInput& firstFrame)
+{
+	SetInputFrame(firstFrame);
 	// Runs on the GL thread: FingertipPoseEstimation::Initialize calls
 	// glGenTextures, and macOS GL calls only work on the context's thread.
 	fprintf(stderr, "BaekAR: Starting engine initialization...\n");
@@ -2690,8 +2675,9 @@ bool Start()
 	return true;
 }
 
-void RenderFrame(const Pointer& pointer)
+void RenderFrame(const FrameInput& input, const Pointer& pointer)
 {
+	SetInputFrame(input);
 	g_pointer = pointer;
 	mainLoop();
 }
@@ -2700,14 +2686,13 @@ void Shutdown()
 {
 	StopWorkerThreads();
 	ReleaseEngineMain();
-	gCapture.Terminate();
 #ifdef __APPLE__
 	if (g_winStream) {
 		WCStream_Close(g_winStream);
 		g_winStream = nullptr;
 	}
 #endif
-	fprintf(stderr, "BaekAR: workers joined, capture released.\n");
+	fprintf(stderr, "BaekAR: workers joined.\n");
 }
 
 }  // namespace legacy_engine
