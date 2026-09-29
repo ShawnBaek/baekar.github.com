@@ -10,7 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install cmake opencv glfw glm freeglut assimp
+        # Homebrew's `opencv` is OpenCV 5; the engine needs OpenCV 4.
+        run: brew install cmake opencv@4 glfw glm freeglut assimp
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: Build

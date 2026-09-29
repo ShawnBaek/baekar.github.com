@@ -32,7 +32,15 @@ function(baekar_use_legacy_cpp target_name)
 endfunction()
 
 # Find dependencies
-find_package(OpenCV 4 REQUIRED)
+# The 2012 engine uses OpenCV's C API (IplImage, cv* functions), which
+# OpenCV 5 removed. Homebrew's `opencv` formula is now 5.x, so prefer the
+# versioned `opencv@4` keg when it is installed. Moving to OpenCV 5 is a
+# separate migration (ADR 0002).
+find_package(OpenCV 4 REQUIRED
+    HINTS
+        /opt/homebrew/opt/opencv@4/lib/cmake/opencv4
+        /usr/local/opt/opencv@4/lib/cmake/opencv4
+)
 find_package(Threads REQUIRED)
 find_package(glfw3 3 REQUIRED)
 find_package(OpenGL REQUIRED)

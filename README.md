@@ -21,7 +21,7 @@ Every new PR will merge into `master` without rewriting the original Git history
 ## Build on macOS
 
 ```bash
-brew install cmake opencv glfw glm freeglut assimp
+brew install cmake opencv@4 glfw glm freeglut assimp
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
@@ -30,6 +30,8 @@ open build/BaekAR.app
 ```
 
 BaekAR needs camera permission on first launch.
+
+Homebrew's `opencv` formula is OpenCV 5, which removed the C API that the 2012 engine still uses. Install `opencv@4`; CMake finds it automatically.
 
 ## Build on Linux
 
