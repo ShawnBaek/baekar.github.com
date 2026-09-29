@@ -1,6 +1,6 @@
 #include "platform/macos/ScreenCaptureWindowSource.h"
 
-#include "compat/macos_window_capture.h"
+#include "platform/macos/macos_window_capture.h"
 
 #include <cstdio>
 

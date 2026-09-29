@@ -25,7 +25,7 @@ void expect(bool condition, const char* what) {
 }  // namespace
 
 int main() {
-    const std::string marker = std::string(BAEKAR_SOURCE_DIR) + "/MarkerlessAR/image/yejin.jpg";
+    const std::string marker = std::string(BAEKAR_SOURCE_DIR) + "/assets/image/yejin.jpg";
     const fs::path recordDir = fs::temp_directory_path() / "baekar_frame_source_test";
     fs::remove_all(recordDir);
 

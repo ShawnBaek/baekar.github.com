@@ -46,7 +46,7 @@ find_package(glfw3 3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 # assimp loads the original .X mesh files (Arrow3Axis.X, hand001.X, ipad.X)
-# the thesis ships under MarkerlessAR/Engine/. Optional: missing assimp falls
+# the thesis ships (now in assets/meshes/). Optional: missing assimp falls
 # back to the synthetic primitives in DrawMesh.
 find_package(assimp QUIET)
 
@@ -64,31 +64,31 @@ include(CTest)
 # below (tracking, pose, hand, renderer, scene); main() lives in
 # apps/baekar/main.cpp.
 set(ENGINE_SOURCES
-    MarkerlessAR/legacy_marker_tracker.cpp
-    MarkerlessAR/legacy_pose.cpp
-    MarkerlessAR/legacy_hand.cpp
-    MarkerlessAR/legacy_renderer.cpp
-    MarkerlessAR/legacy_scene.cpp
-    MarkerlessAR/d3d.cpp
-    MarkerlessAR/wonjo.cpp
-    MarkerlessAR/cam.cpp
-    MarkerlessAR/BaekAR.cpp
-    MarkerlessAR/Contents.cpp
-    MarkerlessAR/Detector.cpp
-    MarkerlessAR/SungwookFeature.cpp
-    MarkerlessAR/SungwookTransformFunctions.cpp
-    MarkerlessAR/SungwookUtility.cpp
-    MarkerlessAR/stdafx.cpp
+    legacy/bridge/legacy_marker_tracker.cpp
+    legacy/bridge/legacy_pose.cpp
+    legacy/bridge/legacy_hand.cpp
+    legacy/bridge/legacy_renderer.cpp
+    legacy/bridge/legacy_scene.cpp
+    legacy/MarkerlessAR/d3d.cpp
+    legacy/MarkerlessAR/wonjo.cpp
+    legacy/MarkerlessAR/cam.cpp
+    legacy/MarkerlessAR/BaekAR.cpp
+    legacy/MarkerlessAR/Contents.cpp
+    legacy/MarkerlessAR/Detector.cpp
+    legacy/MarkerlessAR/SungwookFeature.cpp
+    legacy/MarkerlessAR/SungwookTransformFunctions.cpp
+    legacy/MarkerlessAR/SungwookUtility.cpp
+    legacy/MarkerlessAR/stdafx.cpp
 )
 
 # macOS platform layer: AVFoundation capture, camera permission and menu,
 # ScreenCaptureKit window capture. Only this target links Apple frameworks.
 if(APPLE)
     add_library(baekar_platform_macos STATIC
-        MarkerlessAR/compat/macos_camera_auth.mm
-        MarkerlessAR/compat/macos_window_capture.mm
-        MarkerlessAR/compat/macos_av_capture.mm
-        MarkerlessAR/compat/macos_camera_menu.mm
+        src/platform/macos/macos_camera_auth.mm
+        src/platform/macos/macos_window_capture.mm
+        src/platform/macos/macos_av_capture.mm
+        src/platform/macos/macos_camera_menu.mm
         src/platform/macos/AvFoundationFrameSource.cpp
         src/platform/macos/ScreenCaptureWindowSource.cpp
     )
@@ -96,16 +96,15 @@ if(APPLE)
     # captures don't auto-retain and the autorelease pool drains them
     # before they're read (objc_msgSend crash on dangling pointer).
     set_source_files_properties(
-        MarkerlessAR/compat/macos_window_capture.mm
-        MarkerlessAR/compat/macos_av_capture.mm
-        MarkerlessAR/compat/macos_camera_menu.mm
+        src/platform/macos/macos_window_capture.mm
+        src/platform/macos/macos_av_capture.mm
+        src/platform/macos/macos_camera_menu.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
     )
     set_target_properties(baekar_platform_macos PROPERTIES
         CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
     target_include_directories(baekar_platform_macos PUBLIC
         ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR
         ${OpenCV_INCLUDE_DIRS}
     )
     target_link_libraries(baekar_platform_macos PUBLIC
@@ -124,60 +123,61 @@ endif()
 
 # BRISK feature descriptor
 set(BRISK_SOURCES
-    MarkerlessAR/brisk/brisk.cpp
+    legacy/MarkerlessAR/brisk/brisk.cpp
 )
 
 # AGAST feature detector
 set(AGAST_SOURCES
-    MarkerlessAR/agast/agast5_8.cc
-    MarkerlessAR/agast/agast5_8_nms.cc
-    MarkerlessAR/agast/agast7_12d.cc
-    MarkerlessAR/agast/agast7_12d_nms.cc
-    MarkerlessAR/agast/agast7_12s.cc
-    MarkerlessAR/agast/agast7_12s_nms.cc
-    MarkerlessAR/agast/AstDetector.cc
-    MarkerlessAR/agast/nonMaximumSuppression.cc
-    MarkerlessAR/agast/oast9_16.cc
-    MarkerlessAR/agast/oast9_16_nms.cc
+    legacy/MarkerlessAR/agast/agast5_8.cc
+    legacy/MarkerlessAR/agast/agast5_8_nms.cc
+    legacy/MarkerlessAR/agast/agast7_12d.cc
+    legacy/MarkerlessAR/agast/agast7_12d_nms.cc
+    legacy/MarkerlessAR/agast/agast7_12s.cc
+    legacy/MarkerlessAR/agast/agast7_12s_nms.cc
+    legacy/MarkerlessAR/agast/AstDetector.cc
+    legacy/MarkerlessAR/agast/nonMaximumSuppression.cc
+    legacy/MarkerlessAR/agast/oast9_16.cc
+    legacy/MarkerlessAR/agast/oast9_16_nms.cc
 )
 
 # Calibration module
 set(CALIBRATION_SOURCES
-    # MarkerlessAR/calibration/BaekARCamera.cpp  # Excluded — duplicate CCamera class, only used by its own .cpp
-    MarkerlessAR/calibration/Camera.cpp
-    MarkerlessAR/calibration/cvFindExtrinsicCameraParams3.cpp
+    # legacy/MarkerlessAR/calibration/BaekARCamera.cpp  # Excluded — duplicate CCamera class, only used by its own .cpp
+    legacy/MarkerlessAR/calibration/Camera.cpp
+    legacy/MarkerlessAR/calibration/cvFindExtrinsicCameraParams3.cpp
 )
 
 # Kato Pose Estimation
 set(KATO_SOURCES
-    MarkerlessAR/KatoPoseEstimation/KatoPoseEstimator.cpp
-    MarkerlessAR/KatoPoseEstimation/KatoPoseEstimatorUtils.cpp
-    MarkerlessAR/KatoPoseEstimation/PoseEstimator.cpp
+    legacy/MarkerlessAR/KatoPoseEstimation/KatoPoseEstimator.cpp
+    legacy/MarkerlessAR/KatoPoseEstimation/KatoPoseEstimatorUtils.cpp
+    legacy/MarkerlessAR/KatoPoseEstimation/PoseEstimator.cpp
 )
 
 # HandyAR hand tracking
 set(HANDYAR_SOURCES
-    MarkerlessAR/HandyAR/Capture.cpp
-    MarkerlessAR/HandyAR/ColorDistribution.cpp
-    MarkerlessAR/HandyAR/ColorHistogram.cpp
-    MarkerlessAR/HandyAR/FingerTip.cpp
-    MarkerlessAR/HandyAR/FingertipPoseEstimation.cpp
-    MarkerlessAR/HandyAR/FingertipTracker.cpp
-    # MarkerlessAR/HandyAR/FlyCap.cpp  # Excluded — requires PointGrey SDK
-    MarkerlessAR/HandyAR/HandRegion.cpp
-    MarkerlessAR/HandyAR/MixGaussian.cpp
-    MarkerlessAR/HandyAR/PoseEstimation.cpp
+    # legacy/MarkerlessAR/HandyAR/Capture.cpp  # Replaced by the IFrameSource adapters (src/adapters/frame_source)
+    legacy/MarkerlessAR/HandyAR/ColorDistribution.cpp
+    legacy/MarkerlessAR/HandyAR/ColorHistogram.cpp
+    legacy/MarkerlessAR/HandyAR/FingerTip.cpp
+    legacy/MarkerlessAR/HandyAR/FingertipPoseEstimation.cpp
+    legacy/MarkerlessAR/HandyAR/FingertipTracker.cpp
+    # legacy/MarkerlessAR/HandyAR/FlyCap.cpp  # Excluded — requires PointGrey SDK
+    legacy/MarkerlessAR/HandyAR/HandRegion.cpp
+    legacy/MarkerlessAR/HandyAR/MixGaussian.cpp
+    legacy/MarkerlessAR/HandyAR/PoseEstimation.cpp
 )
 
 # First extracted architecture boundary. Both the application and its
 # characterization tests use the same tracking implementation.
 add_library(baekar_tracking STATIC
-    MarkerlessAR/compat/multi_marker_detector.cpp
-    MarkerlessAR/compat/synthetic_marker_source.cpp
+    src/adapters/tracking/multi_marker_detector.cpp
+    src/adapters/frame_source/synthetic_marker_source.cpp
 )
 set_target_properties(baekar_tracking PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 target_include_directories(baekar_tracking PUBLIC
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/compat
+    ${CMAKE_SOURCE_DIR}/src/adapters/tracking
+    ${CMAKE_SOURCE_DIR}/src/adapters/frame_source
     ${OpenCV_INCLUDE_DIRS}
 )
 target_link_libraries(baekar_tracking PUBLIC
@@ -222,12 +222,13 @@ add_library(baekar_legacy STATIC
 baekar_use_legacy_cpp(baekar_legacy)
 
 target_include_directories(baekar_legacy PUBLIC
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/brisk
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/agast
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/calibration
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/KatoPoseEstimation
-    ${CMAKE_SOURCE_DIR}/MarkerlessAR/HandyAR
+    ${CMAKE_SOURCE_DIR}/legacy/bridge
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/brisk
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/agast
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/calibration
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/KatoPoseEstimation
+    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/HandyAR
     ${OpenCV_INCLUDE_DIRS}
     ${OPENGL_INCLUDE_DIR}
     ${GLUT_INCLUDE_DIRS}
@@ -252,11 +253,6 @@ endif()
 if(assimp_FOUND)
     target_link_libraries(baekar_legacy PUBLIC assimp::assimp)
     target_compile_definitions(baekar_legacy PUBLIC BAEKAR_HAVE_ASSIMP=1)
-endif()
-
-if(APPLE)
-    # HandyAR/Capture.cpp (kept for reference) still references AVCap.
-    target_link_libraries(baekar_legacy PUBLIC baekar_platform_macos)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -289,7 +285,6 @@ add_library(baekar_adapters STATIC
     src/adapters/scene/ContentsScene.cpp
 )
 baekar_use_modern_cpp(baekar_adapters)
-target_include_directories(baekar_adapters PRIVATE ${CMAKE_SOURCE_DIR}/MarkerlessAR)
 target_link_libraries(baekar_adapters PUBLIC
     baekar_application
     baekar_legacy
@@ -297,6 +292,10 @@ target_link_libraries(baekar_adapters PUBLIC
     glfw
     ${OPENGL_LIBRARIES}
 )
+if(APPLE)
+    # The macOS camera and window capture reach the app through adapters.
+    target_link_libraries(baekar_adapters PUBLIC baekar_platform_macos)
+endif()
 
 add_executable(BaekAR apps/baekar/main.cpp)
 baekar_use_modern_cpp(BaekAR)
@@ -344,34 +343,26 @@ if(APPLE)
     )
 endif()
 
-# Copy asset directories to build output for runtime access
+# Runtime data next to the binary (the engine opens these cwd-relative).
+set(BAEKAR_ASSETS ${CMAKE_SOURCE_DIR}/assets)
 add_custom_command(TARGET BaekAR POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/image
-        $<TARGET_FILE_DIR:BaekAR>/image
+        ${BAEKAR_ASSETS}/image $<TARGET_FILE_DIR:BaekAR>/image
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/calibration
-        $<TARGET_FILE_DIR:BaekAR>/calibration
+        ${BAEKAR_ASSETS}/calibration $<TARGET_FILE_DIR:BaekAR>/calibration
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/database
-        $<TARGET_FILE_DIR:BaekAR>/database
+        ${BAEKAR_ASSETS}/database $<TARGET_FILE_DIR:BaekAR>/database
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/3dobjects
-        $<TARGET_FILE_DIR:BaekAR>/3dobjects
+        ${BAEKAR_ASSETS}/meshes $<TARGET_FILE_DIR:BaekAR>/Engine
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/Engine
-        $<TARGET_FILE_DIR:BaekAR>/Engine
+        ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/3dobjects $<TARGET_FILE_DIR:BaekAR>/3dobjects
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.dis
-        $<TARGET_FILE_DIR:BaekAR>/skin.dis
+        ${BAEKAR_ASSETS}/handyar/skin.dis $<TARGET_FILE_DIR:BaekAR>/skin.dis
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/skin.mgm
-        $<TARGET_FILE_DIR:BaekAR>/skin.mgm
+        ${BAEKAR_ASSETS}/handyar/skin.mgm $<TARGET_FILE_DIR:BaekAR>/skin.mgm
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.dis
-        $<TARGET_FILE_DIR:BaekAR>/nonskin.dis
+        ${BAEKAR_ASSETS}/handyar/nonskin.dis $<TARGET_FILE_DIR:BaekAR>/nonskin.dis
     COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_SOURCE_DIR}/MarkerlessAR/nonskin.mgm
-        $<TARGET_FILE_DIR:BaekAR>/nonskin.mgm
-    COMMENT "Symlinking asset directories and data files to build output"
+        ${BAEKAR_ASSETS}/handyar/nonskin.mgm $<TARGET_FILE_DIR:BaekAR>/nonskin.mgm
+    COMMENT "Symlinking runtime assets next to the binary"
 )

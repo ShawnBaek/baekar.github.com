@@ -64,14 +64,14 @@ int main(int argc, char* argv[])
     markerPaths.reserve(static_cast<std::size_t>(markerCount));
     for (int markerIndex = 0; markerIndex < markerCount; ++markerIndex) {
         markerPaths.push_back(std::string(BAEKAR_SOURCE_DIR) +
-                              "/MarkerlessAR/image/" + markerNames[markerIndex]);
+                              "/assets/image/" + markerNames[markerIndex]);
     }
 
     {
         MultiMarkerDetector ambiguousDetector;
         const std::vector<std::string> ambiguousMarkerPaths = {
-            std::string(BAEKAR_SOURCE_DIR) + "/MarkerlessAR/image/iu1.jpg",
-            std::string(BAEKAR_SOURCE_DIR) + "/MarkerlessAR/image/iumarker.jpg"
+            std::string(BAEKAR_SOURCE_DIR) + "/assets/image/iu1.jpg",
+            std::string(BAEKAR_SOURCE_DIR) + "/assets/image/iumarker.jpg"
         };
         if (ambiguousDetector.Initialize(ambiguousMarkerPaths)) {
             std::fprintf(stderr, "Visually similar markers were not rejected.\n");

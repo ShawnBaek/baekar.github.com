@@ -42,7 +42,7 @@ bool plausibleQuad(const std::array<cv::Point2f, 4>& q) {
 
 int main() {
     const std::string root = BAEKAR_SOURCE_DIR;
-    const std::string marker = root + "/MarkerlessAR/image/yejin.jpg";
+    const std::string marker = root + "/assets/image/yejin.jpg";
 
     // ---- tracker -------------------------------------------------------
     baekar::SyntheticFrameSource source({marker});
@@ -78,7 +78,7 @@ int main() {
 
     // ---- pose ----------------------------------------------------------
     baekar::LegacyCameraPoseEstimator pose;
-    expect(pose.loadCalibration(root + "/MarkerlessAR/calibration/calibration.txt"), "calibration loads");
+    expect(pose.loadCalibration(root + "/assets/calibration/calibration.txt"), "calibration loads");
 
     // The 2012 projection: (2n/(r-l)) with r-l = 640/fx, fx = 664.006287.
     const baekar::Mat4 projection = pose.projection();

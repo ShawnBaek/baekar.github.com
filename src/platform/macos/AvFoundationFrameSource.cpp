@@ -1,8 +1,8 @@
 #include "platform/macos/AvFoundationFrameSource.h"
 
-#include "compat/macos_av_capture.h"
-#include "compat/macos_camera_auth.h"
-#include "compat/macos_camera_menu.h"
+#include "platform/macos/macos_av_capture.h"
+#include "platform/macos/macos_camera_auth.h"
+#include "platform/macos/macos_camera_menu.h"
 
 #include <chrono>
 #include <cstdio>
