@@ -4,7 +4,7 @@ The foundation refactoring (stages 1–7) is merged. This roadmap covers what co
 
 ## License policy
 
-**Proposed: Apache-2.0 for the project, permissive dependencies only. Needs the owner's confirmation.**
+**Accepted (2026-09-30): Apache-2.0 for the project, permissive dependencies only.** See `LICENSE`, `NOTICE` and `THIRD_PARTY.md`.
 
 The owner wants BaekAR to stay open source, and may also use it in their own app later. A GPL-3.0 project would require that app's source to be released under the GPL too. Non-commercial research licenses would rule out app use entirely. Apache-2.0 keeps the project open source and allows use in closed or commercial apps. It also includes a patent grant.
 
@@ -31,7 +31,7 @@ Step 2 (macOS verification on a real Mac) runs alongside F1. It needs the owner'
 
 | PR | Scope | Verified by |
 |---|---|---|
-| **F1 cleanup** | Add `LICENSE` (Apache-2.0) and `THIRD_PARTY.md`. Drop the bundled BRISK/AGAST from the build. Stop `CCamera` appending to `viewlog.txt` every frame. Decide on OpenCV 5: either migrate the 2012 C-API calls, or keep `opencv@4` and document it. | Linux + macOS CI |
+| **F1 cleanup** (done) | `LICENSE` (Apache-2.0), `NOTICE`, `THIRD_PARTY.md`. The bundled BRISK/AGAST and `SungwookFeature.cpp` leave the build. `CCamera` stops appending to `viewlog.txt`. OpenCV 5: [ADR 0003](architecture/adr/0003-opencv-5.md). The multi-marker test waits per frame instead of sleeping, so it passes on slow machines. | Linux + macOS CI |
 | **F2 evaluation** | A sensor bundle on the frame-source port: RGB, depth, IMU, intrinsics and a reference pose. TUM RGB-D and EuRoC loaders. ATE/RPE, reprojection error and frame time. A report generator that compares one strategy with another. | Public datasets on Linux CI |
 | **F3 capture + Core ML** | iPhone capture app (Swift, ARKit). It records RGB, LiDAR depth, IMU, intrinsics and the ARKit pose into a BaekAR dataset folder that `--replay` plays back. A Core ML inference adapter (macOS/iOS) with an ONNX Runtime CPU fallback (Linux) behind one port. | Recordings replayed on Linux; the app needs an iPhone |
 

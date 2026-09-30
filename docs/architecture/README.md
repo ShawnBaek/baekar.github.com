@@ -84,10 +84,10 @@ Found while extracting, and fixed in the stage that touched them:
 - Picking read the projection, view and viewport from the D3D stub device, which never fills them outside Windows.
 - The projection matrix was rebuilt and appended to `projectionlog.txt` every frame.
 
-Found and left for a decision:
+Resolved in roadmap PR F1:
 
-- The bundled GPL-3.0 BRISK/AGAST are still linked (see `legacy/README.md`).
-- `CCamera::D3DXMakeViewMatrix` still appends to `viewlog.txt` every frame.
-- Homebrew's `opencv` is now OpenCV 5, which removed the C API the 2012 code uses; the build pins `opencv@4`.
+- The bundled GPL-3.0 BRISK/AGAST and `SungwookFeature.cpp` are no longer built; the project is Apache-2.0 (`LICENSE`, `THIRD_PARTY.md`).
+- `CCamera::D3DXMakeViewMatrix` no longer appends to `viewlog.txt` every frame.
+- OpenCV 5: the 2012 C-API code stays on OpenCV 4 and is replaced rather than ported ([ADR 0003](adr/0003-opencv-5.md)).
 
 The yearly markerless AR work starts after this foundation. A yearly experiment enters through a port (frame source, tracker, pose, hand, renderer) and is chosen in the composition root.
