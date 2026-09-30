@@ -1,0 +1,24 @@
+1-marker benchmark (every frame)
+  found 100.0 %
+  display error: RMSE 0.989 px, mean 0.919, median 0.841, p95 1.538, max 3.551 (n=300)
+  source error:  RMSE 0.989 px, mean 0.919, median 0.841, p95 1.538, max 3.551 (n=300)
+  latency: RMSE 31.233 ms, mean 30.728, median 29.273, p95 41.505, max 51.326 (n=330)
+  camera path (300 poses, Sim3): ATE RMSE 0.126 m, mean 0.094, median 0.066, p95 0.251, max 0.765 (n=300)
+1-marker benchmark (real time)
+  found 100.0 %
+  display error: RMSE 3.307 px, mean 2.906, median 2.091, p95 6.109, max 9.330 (n=300)
+  source error:  RMSE 0.990 px, mean 0.920, median 0.838, p95 1.538, max 3.551 (n=300)
+  lag: RMSE 1.581 frames, mean 1.487, median 1.000, p95 2.000, max 3.000 (n=300)
+  camera path (293 poses, Sim3): ATE RMSE 0.127 m, mean 0.095, median 0.067, p95 0.267, max 0.765 (n=293)
+10-marker benchmark (every frame)
+  found 99.8 %
+  display error: RMSE 7.287 px, mean 5.299, median 3.982, p95 13.174, max 49.148 (n=2994)
+  source error:  RMSE 7.287 px, mean 5.299, median 3.982, p95 13.174, max 49.148 (n=2994)
+  latency: RMSE 70.377 ms, mean 33.434, median 6.082, p95 172.917, max 278.870 (n=330)
+  camera path (300 poses, Sim3): ATE RMSE 1.322 m, mean 1.117, median 1.020, p95 3.384, max 3.829 (n=300)
+10-marker benchmark (real time)
+  found 100.0 %
+  display error: RMSE 11.811 px, mean 8.731, median 6.167, p95 27.148, max 79.308 (n=3000)
+  source error:  RMSE 10.448 px, mean 6.768, median 3.988, p95 26.670, max 79.790 (n=3000)
+  lag: RMSE 4.654 frames, mean 3.603, median 2.500, p95 9.000, max 12.000 (n=3000)
+  camera path (153 poses, Sim3): ATE RMSE 0.325 m, mean 0.271, median 0.221, p95 0.543, max 1.237 (n=153)

@@ -255,6 +255,7 @@ target_link_libraries(baekar_application PUBLIC baekar_core)
 add_library(baekar_adapters STATIC
     src/adapters/window/GlfwWindow.cpp
     src/adapters/frame_source/FrameSources.cpp
+    src/adapters/frame_source/DatasetSources.cpp
     src/adapters/tracking/MarkerTrackers.cpp
     src/adapters/pose/LegacyCameraPoseEstimator.cpp
     src/adapters/hand/HandTrackers.cpp
@@ -273,6 +274,22 @@ if(APPLE)
     # The macOS camera and window capture reach the app through adapters.
     target_link_libraries(baekar_adapters PUBLIC baekar_platform_macos)
 endif()
+
+# Evaluation (roadmap F2): trajectory metrics, marker benchmark, reports.
+add_library(baekar_evaluation STATIC
+    src/evaluation/Trajectory.cpp
+    src/evaluation/Metrics.cpp
+    src/evaluation/MarkerBenchmark.cpp
+    src/evaluation/Report.cpp
+)
+baekar_use_modern_cpp(baekar_evaluation)
+target_compile_options(baekar_evaluation PRIVATE -Werror)
+target_link_libraries(baekar_evaluation PUBLIC baekar_application)
+
+# Headless evaluation tool; no window or GL.
+add_executable(baekar_eval apps/baekar_eval/main.cpp)
+baekar_use_modern_cpp(baekar_eval)
+target_link_libraries(baekar_eval PRIVATE baekar_adapters baekar_evaluation)
 
 add_executable(BaekAR apps/baekar/main.cpp)
 baekar_use_modern_cpp(BaekAR)
@@ -298,6 +315,26 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARFrameSourceTests PRIVATE baekar_adapters)
     add_test(NAME frame_source_record_replay COMMAND BaekARFrameSourceTests)
     set_tests_properties(frame_source_record_replay PROPERTIES LABELS "integration")
+
+    add_executable(BaekARTrajectoryMetricsTests tests/unit/trajectory_metrics_test.cpp)
+    baekar_use_modern_cpp(BaekARTrajectoryMetricsTests)
+    target_link_libraries(BaekARTrajectoryMetricsTests PRIVATE baekar_evaluation)
+    add_test(NAME trajectory_metrics COMMAND BaekARTrajectoryMetricsTests)
+    set_tests_properties(trajectory_metrics PROPERTIES LABELS "unit;evaluation")
+
+    add_executable(BaekARDatasetSourcesTests tests/integration/dataset_sources_test.cpp)
+    baekar_use_modern_cpp(BaekARDatasetSourcesTests)
+    target_link_libraries(BaekARDatasetSourcesTests PRIVATE baekar_adapters)
+    add_test(NAME dataset_sources COMMAND BaekARDatasetSourcesTests)
+    set_tests_properties(dataset_sources PROPERTIES LABELS "integration;evaluation")
+
+    add_executable(BaekARMarkerBenchmarkTests tests/integration/marker_benchmark_test.cpp)
+    baekar_use_modern_cpp(BaekARMarkerBenchmarkTests)
+    target_compile_definitions(BaekARMarkerBenchmarkTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(BaekARMarkerBenchmarkTests PRIVATE baekar_adapters baekar_evaluation)
+    add_test(NAME marker_benchmark COMMAND BaekARMarkerBenchmarkTests)
+    set_tests_properties(marker_benchmark PROPERTIES LABELS "integration;evaluation" TIMEOUT 120)
 
     add_executable(BaekARLegacyCharacterizationTests
         tests/characterization/legacy_tracking_pose_test.cpp)

@@ -3,7 +3,11 @@
 
 #include "application/ports/IMarkerTracker.h"
 
+#include <cstdint>
+#include <deque>
 #include <memory>
+#include <mutex>
+#include <utility>
 
 class MultiMarkerDetector;
 namespace legacy_tracking {
@@ -46,8 +50,15 @@ public:
     std::string describe() const override { return "synchronized multi-marker tracker"; }
 
 private:
+    std::uint64_t frameSequenceFor(std::uint64_t detectorSequence) const;
+
     std::unique_ptr<MultiMarkerDetector> detector_;
     std::uint64_t lastSequence_ = 0;
+    // The detector numbers submitted frames 1, 2, 3, ...; this maps those
+    // numbers back to Frame::sequence for recent frames.
+    mutable std::mutex sequenceMutex_;
+    std::deque<std::pair<std::uint64_t, std::uint64_t>> submittedSequences_;
+    std::uint64_t detectorSequence_ = 0;
 };
 
 }  // namespace baekar

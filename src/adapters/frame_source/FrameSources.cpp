@@ -2,6 +2,7 @@
 
 #include "synthetic_marker_source.h"
 
+#include <opencv2/calib3d.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -79,6 +80,37 @@ bool SyntheticFrameSource::read(Frame& frame) {
     frame.sequence = ++sequence_;
     frame.tickCount = cv::getTickCount();
     frame.placeholder = false;
+    // The simulator advances its motion by a fixed step per frame; label it
+    // as a 30 fps stream.
+    frame.timestampSeconds = static_cast<double>(sequence_ - 1) / 30.0;
+
+    const cv::Matx33d k = source_->CameraMatrix();
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = k(0, 0);
+    intrinsics.fy = k(1, 1);
+    intrinsics.cx = k(0, 2);
+    intrinsics.cy = k(1, 2);
+    intrinsics.width = image.cols;
+    intrinsics.height = image.rows;
+    frame.intrinsics = intrinsics;
+
+    // World = the first marker's frame, so the camera path is what a
+    // single-marker tracker should recover.
+    frame.referencePose.reset();
+    if (!source_->LastTruth().empty()) {
+        const SyntheticMarkerTruth& first = source_->LastTruth().front();
+        RigidTransform cameraFromMarker;
+        cv::Rodrigues(first.rvec, cameraFromMarker.R);
+        cameraFromMarker.t = first.tvec;
+        frame.referencePose = cameraFromMarker.inverse();
+    }
+
+    frame.referenceMarkerCorners.clear();
+    for (const SyntheticMarkerTruth& truth : source_->LastTruth()) {
+        std::array<cv::Point2f, 4> corners{};
+        for (std::size_t i = 0; i < 4 && i < truth.corners.size(); ++i) corners[i] = truth.corners[i];
+        frame.referenceMarkerCorners.push_back(corners);
+    }
     return true;
 }
 
@@ -168,21 +200,14 @@ RecordingFrameSource::RecordingFrameSource(std::unique_ptr<IFrameSource> inner, 
     : inner_(std::move(inner)), directory_(std::move(directory)) {}
 
 bool RecordingFrameSource::open() {
-    std::error_code error;
-    fs::create_directories(directory_, error);
-    if (error) {
-        std::fprintf(stderr, "Record: cannot create %s: %s\n", directory_.c_str(), error.message().c_str());
-        return false;
-    }
+    if (!writer_.open(directory_, inner_->describe())) return false;
     return inner_->open();
 }
 
 bool RecordingFrameSource::read(Frame& frame) {
     if (!inner_->read(frame)) return false;
     if (!frame.placeholder && frame.sequence != lastSequence_) {
-        char name[32];
-        std::snprintf(name, sizeof(name), "frame_%06zu.png", written_);
-        if (cv::imwrite((fs::path(directory_) / name).string(), frame.bgr)) ++written_;
+        writer_.write(frame);
         lastSequence_ = frame.sequence;
     }
     return true;
@@ -190,7 +215,10 @@ bool RecordingFrameSource::read(Frame& frame) {
 
 void RecordingFrameSource::close() {
     inner_->close();
-    std::fprintf(stderr, "Record: %zu frame(s) written to %s\n", written_, directory_.c_str());
+    if (closed_) return;
+    closed_ = true;
+    writer_.close();
+    std::fprintf(stderr, "Record: %zu frame(s) written to %s\n", writer_.framesWritten(), directory_.c_str());
 }
 
 std::string RecordingFrameSource::describe() const {

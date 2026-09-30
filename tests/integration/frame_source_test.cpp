@@ -3,6 +3,7 @@
 
 #include "adapters/frame_source/FrameSources.h"
 
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <memory>
@@ -49,18 +50,24 @@ int main() {
         expect(recorder.recordedFrames() == 20, "20 frames written");
     }
 
-    // Replay them: same count, same pixels (PNG is lossless).
+    // Replay them as a BaekAR dataset: same count, same pixels (PNG is
+    // lossless), and the intrinsics and timestamps the source provided.
     {
-        baekar::ImageSequenceFrameSource replay(recordDir.string(), /*loop=*/false);
-        expect(replay.open(), "replay opens");
-        expect(replay.frameCount() == 20, "replay sees 20 frames");
-        for (std::size_t i = 0; i < recorded.size(); ++i) {
-            baekar::Frame frame;
-            expect(replay.read(frame), "replay frame read");
-            expect(cv::norm(frame.bgr, recorded[i], cv::NORM_INF) == 0.0, "replayed pixels match");
+        auto replay = baekar::openDatasetDirectory(recordDir.string(), /*loop=*/false);
+        expect(dynamic_cast<baekar::BaekarDatasetFrameSource*>(replay.get()) != nullptr,
+               "--record writes a BaekAR dataset");
+        expect(replay && replay->open(), "replay opens");
+        std::size_t index = 0;
+        baekar::Frame frame;
+        while (replay && replay->read(frame)) {
+            expect(index < recorded.size() && cv::norm(frame.bgr, recorded[index], cv::NORM_INF) == 0.0,
+                   "replayed pixels match");
+            expect(frame.intrinsics.has_value() && frame.intrinsics->width == baekar::kFrameWidth,
+                   "intrinsics recorded");
+            expect(std::abs(frame.timestampSeconds - index / 30.0) < 1e-6, "timestamps recorded");
+            ++index;
         }
-        baekar::Frame extra;
-        expect(!replay.read(extra), "non-looping replay ends");
+        expect(index == 20, "replay sees 20 frames");
     }
 
     // Placeholder source: never live, never a new sequence.

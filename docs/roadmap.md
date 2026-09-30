@@ -32,7 +32,7 @@ Step 2 (macOS verification on a real Mac) runs alongside F1. It needs the owner'
 | PR | Scope | Verified by |
 |---|---|---|
 | **F1 cleanup** (done) | `LICENSE` (Apache-2.0), `NOTICE`, `THIRD_PARTY.md`. The bundled BRISK/AGAST and `SungwookFeature.cpp` leave the build. `CCamera` stops appending to `viewlog.txt`. OpenCV 5: [ADR 0003](architecture/adr/0003-opencv-5.md). The multi-marker test waits per frame instead of sleeping, so it passes on slow machines. | Linux + macOS CI |
-| **F2 evaluation** | A sensor bundle on the frame-source port: RGB, depth, IMU, intrinsics and a reference pose. TUM RGB-D and EuRoC loaders. ATE/RPE, reprojection error and frame time. A report generator that compares one strategy with another. | Public datasets on Linux CI |
+| **F2 evaluation** (done; public-dataset runs wait for network access) | A sensor bundle on the frame-source port: RGB, depth, IMU, intrinsics and a reference pose. TUM RGB-D, EuRoC and BaekAR dataset readers ([format](dataset-format.md)); `--record` writes the BaekAR format. `baekar_eval`: marker benchmark (corner error, latency, lag, camera path), ATE/RPE with Sim(3)/SE(3) alignment, dataset summary, Markdown + PNG reports. | Generated fixtures and the synthetic camera on Linux CI. TUM/EuRoC hosts are blocked by this environment's network policy. |
 | **F3 capture + Core ML** | iPhone capture app (Swift, ARKit). It records RGB, LiDAR depth, IMU, intrinsics and the ARKit pose into a BaekAR dataset folder that `--replay` plays back. A Core ML inference adapter (macOS/iOS) with an ONNX Runtime CPU fallback (Linux) behind one port. | Recordings replayed on Linux; the app needs an iPhone |
 
 ## Hand tracking (pulled forward)

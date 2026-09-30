@@ -60,6 +60,12 @@ MultiMarkerTracker::MultiMarkerTracker() : detector_(std::make_unique<MultiMarke
 MultiMarkerTracker::~MultiMarkerTracker() { stop(); }
 
 bool MultiMarkerTracker::start(const std::vector<std::string>& markerImages, const Frame& firstFrame) {
+    {
+        std::lock_guard<std::mutex> lock(sequenceMutex_);
+        submittedSequences_.clear();
+        detectorSequence_ = 0;
+    }
+    lastSequence_ = 0;
     if (!detector_->Initialize(markerImages)) {
         std::fprintf(stderr, "BaekAR: multi-marker detector initialization failed.\n");
         return false;
@@ -72,8 +78,20 @@ bool MultiMarkerTracker::start(const std::vector<std::string>& markerImages, con
 
 void MultiMarkerTracker::submit(const Frame& frame) {
     if (frame.placeholder || frame.bgr.empty() || frame.sequence == lastSequence_) return;
+    {
+        std::lock_guard<std::mutex> lock(sequenceMutex_);
+        submittedSequences_.emplace_back(++detectorSequence_, frame.sequence);
+        if (submittedSequences_.size() > 256) submittedSequences_.pop_front();
+    }
     detector_->SubmitFrame(frame.bgr);
     lastSequence_ = frame.sequence;
+}
+
+std::uint64_t MultiMarkerTracker::frameSequenceFor(std::uint64_t detectorSequence) const {
+    std::lock_guard<std::mutex> lock(sequenceMutex_);
+    for (auto it = submittedSequences_.rbegin(); it != submittedSequences_.rend(); ++it)
+        if (it->first == detectorSequence) return it->second;
+    return 0;
 }
 
 std::vector<MarkerObservation> MultiMarkerTracker::latest() const {
@@ -92,7 +110,7 @@ std::vector<MarkerObservation> MultiMarkerTracker::latest() const {
         }
         observation.inliers = detection.inlierCount;
         observation.trackedPoints = detection.trackedPointCount;
-        observation.frameSequence = detection.frameSequence;
+        observation.frameSequence = frameSequenceFor(detection.frameSequence);
         observations.push_back(observation);
     }
     return observations;
