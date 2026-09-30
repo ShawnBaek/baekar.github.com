@@ -141,11 +141,11 @@ Every yearly PR will include:
 
 ## Progress log
 
-Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (headless Xvfb, synthetic camera) with `scripts/record_proof.sh`. The GIF is a short preview; the MP4 and the test/run summary are in the milestone folder under [`docs/progress/`](docs/progress/).
+Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (headless Xvfb, synthetic camera) with `scripts/record_proof.sh`. The preview is the first 10 seconds at full resolution; the full MP4 (every scenario, full quality) and the test/run summary are in the milestone folder under [`docs/progress/`](docs/progress/).
 
 ### Foundation stages 2–7 (2026-09-29, PR #35)
 
-<img src="docs/progress/foundation/proof.gif" width="360" alt="Foundation proof run">
+<img src="docs/progress/foundation/preview.webp" width="640" alt="Foundation proof run">
 
 - Ports-and-adapters layout; `EngineMain.cpp` split into tracker, pose, hand, renderer and scene adapters.
 - 1, 3 and 10 simulated markers and a recorded-frame replay: markers found in 1209/1210, 769/773, 333/356 and 952/953 frames. All four runs quit cleanly.
@@ -153,12 +153,12 @@ Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (h
 
 ### F1 cleanup: license and GPL removal (2026-09-30)
 
-<img src="docs/progress/f1-cleanup/proof.gif" width="360" alt="F1 proof run">
+<img src="docs/progress/f1-cleanup/preview.webp" width="640" alt="F1 proof run">
 
 - Apache-2.0 (`LICENSE`, `NOTICE`, `THIRD_PARTY.md`). The bundled GPL-3.0 BRISK/AGAST and `SungwookFeature.cpp` are out of the build and out of the binary. The three helpers the tracker used were rewritten; they give identical results on all 20 marker images.
 - `viewlog.txt` is no longer appended every frame. OpenCV 5 policy: [ADR 0003](docs/architecture/adr/0003-opencv-5.md).
 - The multi-marker test now waits for each frame instead of sleeping 12 ms, so it passes on slower machines. 8/8 tests pass.
-- Observed: in the real-time 10-marker run on this slower machine, some outlines drift off their markers (for example `cola.jpg`) while frames are skipped. F1 did not change that tracker; F2 will measure it.
+- Observed: in the real-time 10-marker run on this slower machine, some outlines drift off their markers (for example `yejin.jpg`, `cola.jpg`, `hyojoo.jpg`) while frames are skipped. F1 did not change that tracker; F2 will measure it.
 - [Video](docs/progress/f1-cleanup/proof.mp4) · [results](docs/progress/f1-cleanup/results.txt)
 
 ## Master's thesis

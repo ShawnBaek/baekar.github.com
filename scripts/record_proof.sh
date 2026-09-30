@@ -4,8 +4,8 @@
 #   scripts/record_proof.sh <build-dir> <milestone> [extra BaekAR args per scenario...]
 #
 # Writes docs/progress/<milestone>/:
-#   proof.mp4    every scenario, with a caption bar (H.264)
-#   proof.gif    a short, small preview for the README
+#   proof.mp4    every scenario, with a caption bar (H.264, CRF 18, full 640x480)
+#   preview.webp first 10 seconds for the README (640x480, 15 fps, WebP quality 90)
 #   results.txt  CTest summary and per-scenario run summary
 #
 # Needs: Xvfb, ffmpeg (with drawtext), xdotool. Linux only.
@@ -55,7 +55,7 @@ for scenario in "${SCENARIOS[@]}"; do
   ffmpeg -loglevel error -y -f x11grab -draw_mouse 0 -framerate 30 -video_size 640x480 \
     -i "$DISPLAY_NUM.0" -t 8 \
     -vf "drawbox=x=0:y=0:w=640:h=34:color=black@0.65:t=fill,drawtext=fontfile=$FONT:text='$MILESTONE - $title':fontcolor=white:fontsize=15:x=10:y=9" \
-    -c:v libx264 -pix_fmt yuv420p -preset slow -crf 28 "$WORK/$index.mp4"
+    -c:v libx264 -pix_fmt yuv420p -preset slow -crf 18 "$WORK/$index.mp4"
   DISPLAY=$DISPLAY_NUM xdotool key --window "$(DISPLAY=$DISPLAY_NUM xdotool search --name BaekAR | head -1)" Escape || kill "$app"
   code=0; wait "$app" || code=$?
   printf '  %-50s exit=%d  %s\n' "$title" "$code" "$(grep -E 'rendered' "$log" | sed 's/BaekAR: //')" >> "$OUT/results.txt"
@@ -63,8 +63,8 @@ done
 
 (cd "$WORK" && ls [0-9]*.mp4 | sort -n | sed "s/^/file '/; s/$/'/" > list.txt &&
   ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -c copy "$OUT/proof.mp4")
-ffmpeg -loglevel error -y -i "$OUT/proof.mp4" \
-  -vf "fps=6,scale=360:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer" \
-  "$OUT/proof.gif"
+# README preview: the first 10 seconds at full resolution and colour.
+ffmpeg -loglevel error -y -t 10 -i "$OUT/proof.mp4" -vf fps=15 \
+  -c:v libwebp_anim -lossless 0 -quality 90 -compression_level 6 -loop 0 "$OUT/preview.webp"
 ls -la "$OUT"
 cat "$OUT/results.txt"

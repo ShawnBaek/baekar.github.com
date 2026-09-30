@@ -24,7 +24,7 @@ open build/BaekAR.app                                   # macOS camera
 ./build/BaekAR --simulate-marker yejin.jpg --frames 300 --screenshot out.png   # headless check
 ```
 
-Proof videos for roadmap milestones: `scripts/record_proof.sh build <milestone>` writes `docs/progress/<milestone>/` (MP4, README GIF, results). Add an entry to the README progress log for each milestone.
+Proof videos for roadmap milestones: `scripts/record_proof.sh build <milestone>` writes `docs/progress/<milestone>/` (full-quality MP4, 10-second full-resolution WebP preview for the README, results). Keep full quality; do not downscale. Add an entry to the README progress log for each milestone.
 
 First launch triggers macOS camera permission. Reset with `tccutil reset Camera com.baekar.engine`. Run `BaekAR --help` for all flags (`--camera`, `--marker`, `--replay`, `--record`, `--tracker`, `--no-hand`, `--interactive`, `--window-capture`).
 
