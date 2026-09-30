@@ -17,10 +17,7 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
       - name: Test
-        # The multi-marker characterization tests sleep in wall-clock time,
-        # so a slow shared runner can miss the 90% threshold. Retry instead
-        # of loosening the recorded behavior.
-        run: ctest --test-dir build --output-on-failure --repeat until-pass:3
+        run: ctest --test-dir build --output-on-failure
 
   linux:
     runs-on: ubuntu-24.04
@@ -36,4 +33,4 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
       - name: Test
-        run: ctest --test-dir build --output-on-failure --repeat until-pass:3
+        run: ctest --test-dir build --output-on-failure

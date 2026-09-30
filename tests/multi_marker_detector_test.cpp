@@ -47,6 +47,20 @@ int MarkerCountFromArguments(int argc, char* argv[], std::size_t maximumCount)
 
 }  // namespace
 
+// Waits until the detector has published a snapshot for `sequence` (the
+// number of frames submitted so far). The test used to sleep 12 ms per
+// frame, which made the result depend on CPU speed: on a slower machine the
+// detector skipped frames and the 10-marker run failed. Waiting for each
+// frame keeps the pass criteria unchanged and machine-independent.
+void WaitForSnapshot(const MultiMarkerDetector& detector, std::uint64_t sequence) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < deadline) {
+        const std::vector<MultiMarkerDetection> detections = detector.LatestDetections();
+        if (!detections.empty() && detections.front().frameSequence >= sequence) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
 int main(int argc, char* argv[])
 {
     const std::vector<std::string> markerNames = {
@@ -87,6 +101,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    std::uint64_t submittedFrames = 0;
     int observedSnapshots = 0;
     int allFoundSnapshots = 0;
     std::uint64_t lastObservedSequence = 0;
@@ -97,7 +112,7 @@ int main(int argc, char* argv[])
             return 1;
         }
         detector.SubmitFrame(frame);
-        std::this_thread::sleep_for(std::chrono::milliseconds(12));
+        WaitForSnapshot(detector, ++submittedFrames);
 
         const std::vector<MultiMarkerDetection> detections =
             detector.LatestDetections();
@@ -136,7 +151,7 @@ int main(int argc, char* argv[])
     cv::Mat occludedFrame(480, 640, CV_8UC3, cv::Scalar(24, 24, 24));
     for (int frameIndex = 0; frameIndex < 12; ++frameIndex) {
         detector.SubmitFrame(occludedFrame);
-        std::this_thread::sleep_for(std::chrono::milliseconds(12));
+        WaitForSnapshot(detector, ++submittedFrames);
     }
     const std::vector<MultiMarkerDetection> occludedDetections =
         detector.LatestDetections();
@@ -154,7 +169,7 @@ int main(int argc, char* argv[])
         cv::Mat frame;
         source.NextFrame(frame);
         detector.SubmitFrame(frame);
-        std::this_thread::sleep_for(std::chrono::milliseconds(12));
+        WaitForSnapshot(detector, ++submittedFrames);
 
         const std::vector<MultiMarkerDetection> detections =
             detector.LatestDetections();
