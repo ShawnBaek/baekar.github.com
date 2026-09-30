@@ -68,6 +68,8 @@ Use distinct marker images. Visually similar images are rejected because their i
 
 ## Plan
 
+The PR-by-PR plan (groundwork, hand tracking, one PR per year) and the license policy are in [`docs/roadmap.md`](docs/roadmap.md).
+
 ### Step 1 — Foundation and refactoring
 
 Continue from the merged macOS version. Verify the current behavior first, and then refactor it with smaller PRs.
