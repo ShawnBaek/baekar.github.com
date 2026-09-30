@@ -161,6 +161,29 @@ Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (h
 - Observed: in the real-time 10-marker run on this slower machine, some outlines drift off their markers (for example `yejin.jpg`, `cola.jpg`, `hyojoo.jpg`) while frames are skipped. F1 did not change that tracker; F2 will measure it.
 - [Video](docs/progress/f1-cleanup/proof.mp4) · [results](docs/progress/f1-cleanup/results.txt)
 
+### F2 evaluation: datasets, ATE/RPE, benchmark reports (2026-09-30)
+
+<img src="docs/progress/f2-evaluation/preview.webp" width="640" alt="F2 proof run">
+
+- Frames now carry timestamp, depth, intrinsics, IMU and a reference pose. Readers for TUM RGB-D, EuRoC and the BaekAR format ([spec](docs/dataset-format.md)); `--record` writes the BaekAR format and `--replay` detects the layout. The proof's third scenario replays a recorded run: marker found in 690/691 frames.
+- `baekar_eval` scores trackers against the synthetic camera, which knows where every marker and the camera are. Camera pose comes from PnP on the tracked corners, and Sim(3) alignment recovers the unknown marker size. With exact corners, the ATE is 5 µm.
+
+  | Run (300 frames) | Found | Corner error, median | Delay | Camera path ATE (RMSE) |
+  |---|---|---|---|---|
+  | 1 marker, every frame | 100 % | 0.84 px | 29 ms | 0.13 m |
+  | 1 marker, real time (30 fps) | 100 % | 2.1 px on screen, 0.84 px on its frame | 1 frame | 0.13 m |
+  | 10 markers, every frame | 99.8 % | 4.0 px | 6 ms (p95 173 ms) | 1.32 m |
+  | 10 markers, real time | 100 % | 6.2 px on screen, 4.0 px on its frame | 2.5 frames (max 12) | 0.33 m |
+
+  <img src="docs/progress/f2-evaluation/reports/1-marker-every-frame/trajectory/trajectory.png" width="480" alt="Camera path from one marker">
+
+- Findings:
+  - One-marker poses jitter where planar PnP flips between two poses at near-frontal views.
+  - Multi-marker outlines drift when frames are skipped. The ten-marker detector processes about one frame in three on this 4-core container, and its found rate in real time swung from 0.5 % to 100 % between runs with machine load. That is why the tests check real-time runs only for consistency.
+  - The ten-marker camera path is poor because marker 0 is only about 100 px tall. The multi-marker tracker draws outlines only and does not drive the pose.
+- TUM RGB-D / EuRoC runs are pending: this environment's network policy blocks their hosts. The readers are tested on generated fixtures in both layouts.
+- 11/11 tests pass (GCC and Clang). [Video](docs/progress/f2-evaluation/proof.mp4) · [results](docs/progress/f2-evaluation/results.txt) · [reports](docs/progress/f2-evaluation/reports/)
+
 ## Master's thesis
 
 [Master Thesis — Sungwook Baek — BaekAR](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
