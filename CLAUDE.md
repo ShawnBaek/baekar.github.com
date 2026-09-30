@@ -19,10 +19,12 @@ brew install cmake opencv@4 glfw glm freeglut assimp
 sudo apt-get install cmake libopencv-dev libglfw3-dev freeglut3-dev libglm-dev libassimp-dev
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel
-ctest --test-dir build --repeat until-pass:3
+ctest --test-dir build
 open build/BaekAR.app                                   # macOS camera
 ./build/BaekAR --simulate-marker yejin.jpg --frames 300 --screenshot out.png   # headless check
 ```
+
+Proof videos for roadmap milestones: `scripts/record_proof.sh build <milestone>` writes `docs/progress/<milestone>/` (MP4, README GIF, results). Add an entry to the README progress log for each milestone.
 
 First launch triggers macOS camera permission. Reset with `tccutil reset Camera com.baekar.engine`. Run `BaekAR --help` for all flags (`--camera`, `--marker`, `--replay`, `--record`, `--tracker`, `--no-hand`, `--interactive`, `--window-capture`).
 

@@ -1,0 +1,16 @@
+BaekAR proof: f1-cleanup (2660a54, 2026-09-30)
+
+$ ctest
+1/8 Test #1: multi_marker_tracking_1 ..........   Passed    0.88 sec
+2/8 Test #2: multi_marker_tracking_3 ..........   Passed    1.91 sec
+3/8 Test #3: multi_marker_tracking_10 .........   Passed    5.28 sec
+4/8 Test #4: app_config .......................   Passed    0.00 sec
+5/8 Test #5: interaction_controller ...........   Passed    0.00 sec
+6/8 Test #6: frame_source_record_replay .......   Passed    0.30 sec
+7/8 Test #7: legacy_tracking_and_pose .........   Passed    2.90 sec
+8/8 Test #8: marker_geometry ..................   Passed    0.05 sec
+100% tests passed, 0 tests failed out of 8
+
+Scenarios (ESC to quit; exit code 0 means a clean shutdown):
+  1 marker - legacy tracker, CCamera pose, HandyAR   exit=0  rendered 885 frame(s); marker found in 884, hand pose in 0.
+  10 markers - synchronized multi-marker tracker     exit=0  rendered 290 frame(s); marker found in 212, hand pose in 0.

@@ -1,0 +1,21 @@
+BaekAR foundation refactor - verification (Linux Xvfb, 2026-09-29)
+
+$ ctest --repeat until-pass:3
+1/7 Test #1: multi_marker_tracking_1 ..........   Passed    1.79 sec
+2/7 Test #2: multi_marker_tracking_3 ..........   Passed    2.20 sec
+3/7 Test #3: multi_marker_tracking_10 .........   Passed    3.92 sec
+4/7 Test #4: app_config .......................   Passed    0.00 sec
+5/7 Test #5: interaction_controller ...........   Passed    0.00 sec
+6/7 Test #6: frame_source_record_replay .......   Passed    0.25 sec
+7/7 Test #7: legacy_tracking_and_pose .........   Passed    2.77 sec
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =  10.94 sec
+
+$ BaekAR <scenario> ; ESC to quit (clean shutdown, exit 0)
+1_single   rendered 1210 frame(s); marker found in 1209, hand pose in 0.
+2_three    rendered 773 frame(s); marker found in 769, hand pose in 0.
+3_ten      rendered 356 frame(s); marker found in 333, hand pose in 0.
+4_replay   rendered 953 frame(s); marker found in 952, hand pose in 0.
+
+GitHub Actions (macos-14 + ubuntu-24.04, build + CTest):
+  stage 4 success | stage 5 success | stage 6 success
