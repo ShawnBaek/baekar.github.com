@@ -65,6 +65,7 @@ include(CTest)
 # apps/baekar/main.cpp.
 set(ENGINE_SOURCES
     legacy/bridge/legacy_marker_tracker.cpp
+    legacy/bridge/marker_geometry.cpp
     legacy/bridge/legacy_pose.cpp
     legacy/bridge/legacy_hand.cpp
     legacy/bridge/legacy_renderer.cpp
@@ -75,7 +76,7 @@ set(ENGINE_SOURCES
     legacy/MarkerlessAR/BaekAR.cpp
     legacy/MarkerlessAR/Contents.cpp
     legacy/MarkerlessAR/Detector.cpp
-    legacy/MarkerlessAR/SungwookFeature.cpp
+    # legacy/MarkerlessAR/SungwookFeature.cpp  # GPL-3.0 header, pulls in bundled BRISK; replaced by legacy/bridge/marker_geometry.cpp
     legacy/MarkerlessAR/SungwookTransformFunctions.cpp
     legacy/MarkerlessAR/SungwookUtility.cpp
     legacy/MarkerlessAR/stdafx.cpp
@@ -121,24 +122,9 @@ if(APPLE)
 endif()
 
 
-# BRISK feature descriptor
-set(BRISK_SOURCES
-    legacy/MarkerlessAR/brisk/brisk.cpp
-)
-
-# AGAST feature detector
-set(AGAST_SOURCES
-    legacy/MarkerlessAR/agast/agast5_8.cc
-    legacy/MarkerlessAR/agast/agast5_8_nms.cc
-    legacy/MarkerlessAR/agast/agast7_12d.cc
-    legacy/MarkerlessAR/agast/agast7_12d_nms.cc
-    legacy/MarkerlessAR/agast/agast7_12s.cc
-    legacy/MarkerlessAR/agast/agast7_12s_nms.cc
-    legacy/MarkerlessAR/agast/AstDetector.cc
-    legacy/MarkerlessAR/agast/nonMaximumSuppression.cc
-    legacy/MarkerlessAR/agast/oast9_16.cc
-    legacy/MarkerlessAR/agast/oast9_16_nms.cc
-)
+# The bundled BRISK and AGAST (legacy/MarkerlessAR/brisk, agast) are
+# GPL-3.0 and are not built: the engine uses OpenCV's cv::BRISK, and the
+# project is Apache-2.0 (LICENSE, THIRD_PARTY.md).
 
 # Calibration module
 set(CALIBRATION_SOURCES
@@ -208,13 +194,11 @@ if(BUILD_TESTING)
     endforeach()
 endif()
 
-# The 2012 engine, compiled unchanged. It stays at C++14 because BRISK,
-# AGAST and calibration sources use the `register` keyword that C++17
-# removed (ADR 0002). New code links it instead of compiling its sources.
+# The 2012 engine. It stays at C++14 because its calibration sources use the
+# `register` keyword that C++17 removed (ADR 0002). New code links it instead
+# of compiling its sources.
 add_library(baekar_legacy STATIC
     ${ENGINE_SOURCES}
-    ${BRISK_SOURCES}
-    ${AGAST_SOURCES}
     ${CALIBRATION_SOURCES}
     ${KATO_SOURCES}
     ${HANDYAR_SOURCES}
@@ -224,8 +208,6 @@ baekar_use_legacy_cpp(baekar_legacy)
 target_include_directories(baekar_legacy PUBLIC
     ${CMAKE_SOURCE_DIR}/legacy/bridge
     ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR
-    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/brisk
-    ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/agast
     ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/calibration
     ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/KatoPoseEstimation
     ${CMAKE_SOURCE_DIR}/legacy/MarkerlessAR/HandyAR
@@ -244,11 +226,6 @@ target_link_libraries(baekar_legacy PUBLIC
     ${GLUT_LIBRARIES}
 )
 
-# The bundled BRISK Hamming matcher uses SSSE3 intrinsics on x86-64
-# (Intel Macs and Linux CI). Apple Silicon builds do not need this flag.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    target_compile_options(baekar_legacy PUBLIC -mssse3)
-endif()
 
 if(assimp_FOUND)
     target_link_libraries(baekar_legacy PUBLIC assimp::assimp)
@@ -331,6 +308,14 @@ if(BUILD_TESTING)
     add_test(NAME legacy_tracking_and_pose COMMAND BaekARLegacyCharacterizationTests)
     set_tests_properties(legacy_tracking_and_pose PROPERTIES
         LABELS "characterization;tracking" TIMEOUT 60)
+
+    add_executable(BaekARMarkerGeometryTests tests/characterization/marker_geometry_test.cpp)
+    baekar_use_modern_cpp(BaekARMarkerGeometryTests)
+    target_compile_definitions(BaekARMarkerGeometryTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(BaekARMarkerGeometryTests PRIVATE baekar_legacy)
+    add_test(NAME marker_geometry COMMAND BaekARMarkerGeometryTests)
+    set_tests_properties(marker_geometry PROPERTIES LABELS "characterization;tracking")
 endif()
 
 # macOS: build as .app bundle so the system shows camera permission dialog

@@ -14,7 +14,7 @@
 
 #include "legacy_marker_tracker.h"
 
-#include "SungwookFeature.hpp"
+#include "marker_geometry.h"
 
 #include <opencv2/calib3d.hpp>
 #include <opencv2/features2d.hpp>
@@ -93,7 +93,7 @@ bool SingleMarkerTracker::Impl::buildDatabase(const std::string& markerImagePath
     cv::cvtColor(imgRgbDatabase, imgGrayDatabase, cv::COLOR_BGR2GRAY);
 
     // For NCC Patch Tracking Move img_graydatabase1 to img_centerdatabase1
-    imgCenterDatabase = swMoveImage(imgGrayDatabase, &imgCenterDatabase, 0.5);
+    imgCenterDatabase = CenterMarkerImage(imgGrayDatabase, 0.5);
 
     // Extract Image Corners
     std::vector<cv::Point2f> objCorners(4);
@@ -104,7 +104,7 @@ bool SingleMarkerTracker::Impl::buildDatabase(const std::string& markerImagePath
     objCorners[3] = cv::Point2f(0, static_cast<float>(imgRgbDatabase.rows));
 
     // Move obj_corners to center
-    swMoveCorners(imgGrayDatabase, objCorners, objCenterCorners, 0, 1);
+    objCenterCorners = CenterMarkerCorners(imgGrayDatabase.size(), objCorners);
 
     fprintf(stderr, "DBG: Detecting keypoints...\n");
     detector->detect(imgCenterDatabase, kpDatabase);
@@ -205,7 +205,7 @@ void SingleMarkerTracker::Impl::matchingLoop() {
 
         // Compute Homography: train이 1 query가 2
         std::vector<cv::Point2f> mpts_1, mpts_2;
-        matches2points(matches, kpDatabase, kpCamera, mpts_1, mpts_2);
+        MatchesToPoints(matches, kpDatabase, kpCamera, mpts_1, mpts_2);
 
         // need at least 5 matched pairs of points (more are better)
         if (mpts_1.size() > 5) {
