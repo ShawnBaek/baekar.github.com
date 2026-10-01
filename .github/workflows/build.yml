@@ -18,6 +18,21 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Swift dataset writer, read back by the C++ engine
+        run: |
+          (cd ios && BAEKAR_SWIFT_DATASET_OUT="$RUNNER_TEMP/swift_dataset" swift test)
+          ./build/baekar_eval dataset "$RUNNER_TEMP/swift_dataset" --out "$RUNNER_TEMP/swift_report" | tee swift_dataset.txt
+          grep -q "5 frames, 5 with depth, 4 with pose, 50 IMU samples" swift_dataset.txt
+
+  ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the capture app for iOS devices (unsigned)
+        run: |
+          xcodebuild -project ios/App/BaekARCapture.xcodeproj -scheme BaekARCapture \
+            -destination 'generic/platform=iOS' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build
 
   linux:
     runs-on: ubuntu-24.04
@@ -34,3 +49,9 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+      - name: Swift dataset writer on Linux, read back by the C++ engine
+        run: |
+          swift --version
+          (cd ios && BAEKAR_SWIFT_DATASET_OUT="$RUNNER_TEMP/swift_dataset" swift test)
+          ./build/baekar_eval dataset "$RUNNER_TEMP/swift_dataset" --out "$RUNNER_TEMP/swift_report" | tee swift_dataset.txt
+          grep -q "5 frames, 5 with depth, 4 with pose, 50 IMU samples" swift_dataset.txt

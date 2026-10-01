@@ -92,6 +92,7 @@ if(APPLE)
         src/platform/macos/macos_camera_menu.mm
         src/platform/macos/AvFoundationFrameSource.cpp
         src/platform/macos/ScreenCaptureWindowSource.cpp
+        src/platform/macos/CoreMlInferenceEngine.mm
     )
     # These .mm files capture Obj-C objects via __block; without ARC the
     # captures don't auto-retain and the autorelease pool drains them
@@ -100,6 +101,7 @@ if(APPLE)
         src/platform/macos/macos_window_capture.mm
         src/platform/macos/macos_av_capture.mm
         src/platform/macos/macos_camera_menu.mm
+        src/platform/macos/CoreMlInferenceEngine.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
     )
     set_target_properties(baekar_platform_macos PROPERTIES
@@ -117,6 +119,7 @@ if(APPLE)
         "-framework CoreMedia"
         "-framework CoreVideo"
         "-framework CoreGraphics"
+        "-framework CoreML"
         "-lobjc"
     )
 endif()
@@ -275,6 +278,21 @@ if(APPLE)
     target_link_libraries(baekar_adapters PUBLIC baekar_platform_macos)
 endif()
 
+# Inference (roadmap F3): IInferenceEngine on OpenCV DNN (ONNX, every
+# platform) and Core ML (Apple). No GL, so learned trackers and
+# baekar_eval can use it headless.
+add_library(baekar_inference STATIC
+    src/adapters/inference/OnnxModelInfo.cpp
+    src/adapters/inference/OpenCvDnnInferenceEngine.cpp
+    src/adapters/inference/InferenceEngines.cpp
+)
+baekar_use_modern_cpp(baekar_inference)
+target_compile_options(baekar_inference PRIVATE -Werror)
+target_link_libraries(baekar_inference PUBLIC baekar_application)
+if(APPLE)
+    target_link_libraries(baekar_inference PUBLIC baekar_platform_macos)
+endif()
+
 # Evaluation (roadmap F2): trajectory metrics, marker benchmark, reports.
 add_library(baekar_evaluation STATIC
     src/evaluation/Trajectory.cpp
@@ -289,7 +307,7 @@ target_link_libraries(baekar_evaluation PUBLIC baekar_application)
 # Headless evaluation tool; no window or GL.
 add_executable(baekar_eval apps/baekar_eval/main.cpp)
 baekar_use_modern_cpp(baekar_eval)
-target_link_libraries(baekar_eval PRIVATE baekar_adapters baekar_evaluation)
+target_link_libraries(baekar_eval PRIVATE baekar_adapters baekar_evaluation baekar_inference)
 
 add_executable(BaekAR apps/baekar/main.cpp)
 baekar_use_modern_cpp(BaekAR)
@@ -327,6 +345,14 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARDatasetSourcesTests PRIVATE baekar_adapters)
     add_test(NAME dataset_sources COMMAND BaekARDatasetSourcesTests)
     set_tests_properties(dataset_sources PROPERTIES LABELS "integration;evaluation")
+
+    add_executable(BaekARInferenceTests tests/integration/inference_test.cpp)
+    baekar_use_modern_cpp(BaekARInferenceTests)
+    target_compile_definitions(BaekARInferenceTests PRIVATE
+        BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(BaekARInferenceTests PRIVATE baekar_inference)
+    add_test(NAME inference COMMAND BaekARInferenceTests)
+    set_tests_properties(inference PROPERTIES LABELS "integration;inference")
 
     add_executable(BaekARMarkerBenchmarkTests tests/integration/marker_benchmark_test.cpp)
     baekar_use_modern_cpp(BaekARMarkerBenchmarkTests)

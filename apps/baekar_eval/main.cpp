@@ -5,9 +5,11 @@
 //   baekar_eval trajectory --estimate FILE --reference FILE [--sim3]
 //                          [--max-diff S] [--delta N] --out DIR
 //   baekar_eval dataset DIR --out DIR
+//   baekar_eval model MODEL [--runs N]
 
 #include "adapters/frame_source/DatasetSources.h"
 #include "adapters/frame_source/FrameSources.h"
+#include "adapters/inference/InferenceEngines.h"
 #include "adapters/tracking/MarkerTrackers.h"
 #include "evaluation/MarkerBenchmark.h"
 #include "evaluation/Metrics.h"
@@ -16,6 +18,8 @@
 
 #include <opencv2/imgcodecs.hpp>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -36,7 +40,8 @@ int usage() {
                  "                      [--frames N] [--realtime] [--fps F] --out DIR\n"
                  "  baekar_eval trajectory --estimate FILE --reference FILE [--sim3]\n"
                  "                         [--max-diff SECONDS] [--delta N] --out DIR\n"
-                 "  baekar_eval dataset DIR --out DIR\n");
+                 "  baekar_eval dataset DIR --out DIR\n"
+                 "  baekar_eval model MODEL [--runs N]   (.onnx; .mlmodel/.mlpackage/.mlmodelc on Apple)\n");
     return 2;
 }
 
@@ -193,6 +198,56 @@ int runDataset(const std::vector<std::string>& args) {
     return frames > 0 ? 0 : 1;
 }
 
+std::string shapeText(const std::vector<std::int64_t>& shape) {
+    std::string text;
+    for (std::size_t i = 0; i < shape.size(); ++i) text += (i ? "x" : "") + (shape[i] < 0 ? std::string("?") : std::to_string(shape[i]));
+    return text.empty() ? "scalar" : text;
+}
+
+// Prints a model's inputs and outputs and times inference on zero inputs
+// (open dimensions set to 1).
+int runModel(const std::vector<std::string>& args) {
+    std::string path;
+    int runs = 20;
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "--runs" && i + 1 < args.size()) runs = std::atoi(args[++i].c_str());
+        else if (path.empty()) path = args[i];
+        else return usage();
+    }
+    if (path.empty() || runs <= 0) return usage();
+    std::string error;
+    std::unique_ptr<IInferenceEngine> engine = openInferenceModel(path, &error);
+    if (!engine) {
+        std::fprintf(stderr, "baekar_eval: %s\n", error.c_str());
+        return 1;
+    }
+    std::printf("%s\n", engine->describe().c_str());
+    std::vector<Tensor> inputs;
+    for (const TensorInfo& info : engine->inputs()) {
+        std::printf("  input  %-20s %s\n", info.name.c_str(), shapeText(info.shape).c_str());
+        Tensor t;
+        t.name = info.name;
+        for (std::int64_t d : info.shape) t.shape.push_back(d < 0 ? 1 : d);
+        t.data.assign(Tensor::elementCount(t.shape), 0.0f);
+        inputs.push_back(std::move(t));
+    }
+    for (const TensorInfo& info : engine->outputs())
+        std::printf("  output %-20s %s\n", info.name.c_str(), shapeText(info.shape).c_str());
+
+    std::vector<Tensor> outputs;
+    std::vector<double> times;
+    for (int i = 0; i <= runs; ++i) {  // the first run (warm-up) is not timed
+        const auto start = std::chrono::steady_clock::now();
+        if (!engine->run(inputs, outputs, &error)) {
+            std::fprintf(stderr, "baekar_eval: %s\n", error.c_str());
+            return 1;
+        }
+        if (i > 0) times.push_back(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    }
+    std::printf("  %d runs: %s\n", runs, formatStats(summarize(times), "ms").c_str());
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -202,5 +257,6 @@ int main(int argc, char* argv[]) {
     if (command == "markers") return runMarkers(args);
     if (command == "trajectory") return runTrajectory(args);
     if (command == "dataset") return runDataset(args);
+    if (command == "model") return runModel(args);
     return usage();
 }
