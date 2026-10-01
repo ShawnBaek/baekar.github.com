@@ -184,6 +184,21 @@ Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (h
 - TUM RGB-D / EuRoC runs are pending: this environment's network policy blocks their hosts. The readers are tested on generated fixtures in both layouts.
 - 11/11 tests pass (GCC and Clang). [Video](docs/progress/f2-evaluation/proof.mp4) · [results](docs/progress/f2-evaluation/results.txt) · [reports](docs/progress/f2-evaluation/reports/)
 
+### F3 capture and inference: iPhone app, Core ML / ONNX port (2026-10-01)
+
+<img src="docs/progress/f3-capture-inference/preview.webp" width="640" alt="F3 proof run">
+
+- **Inference port** (`IInferenceEngine`): Core ML on macOS/iOS and ONNX through OpenCV DNN everywhere else, with no new dependency. `baekar_eval model M` prints a model's inputs and outputs and times it.
+  - On macOS CI, the Core ML and ONNX versions of the test model both give the expected outputs. On Linux, a Core ML model fails with a clear message.
+  - Learned trackers (H, Y2018+) will plug in here.
+- **iPhone capture app** (`ios/`): records ARKit colour (JPEG), LiDAR depth (16-bit PNG, mm), intrinsics, the ARKit camera pose (converted to OpenCV axes) and 200 Hz IMU into the BaekAR dataset format. Recordings show up in the Files app; copy a folder to a Mac and run `BaekAR --replay <folder>`.
+- **What CI checks:**
+  - The Swift dataset library builds and passes its tests on Linux and macOS.
+  - The C++ engine reads the dataset those tests write ("5 frames, 5 with depth, 4 with pose, 50 IMU samples").
+  - The app compiles for iOS devices without code signing.
+- **Not yet done:** a recording on a real iPhone, which needs the owner's device. The proof video shows the engine scenarios, since the app cannot run here.
+- 12/12 C++ tests, 10/10 Swift tests. [Video](docs/progress/f3-capture-inference/proof.mp4) · [results](docs/progress/f3-capture-inference/results.txt)
+
 ## Master's thesis
 
 [Master Thesis — Sungwook Baek — BaekAR](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
