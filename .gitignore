@@ -35,3 +35,4 @@ xcuserdata/
 
 # Environment
 .env*
+/data/
