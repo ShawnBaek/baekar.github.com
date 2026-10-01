@@ -12,7 +12,14 @@ BaekAR is licensed under Apache-2.0 (`LICENSE`). Every dependency, bundled sourc
 | OpenGL | Legacy renderer | System API |
 | GLM | Header-only math | MIT |
 | Assimp (optional) | Loads the `.X` meshes | BSD-3-Clause |
-| Apple frameworks | AVFoundation, ScreenCaptureKit, Cocoa (macOS only) | System API |
+| Apple frameworks | AVFoundation, ScreenCaptureKit, Cocoa, Core ML (macOS); ARKit, CoreMotion, SwiftUI (iOS capture app) | System API |
+
+## Development tools (not linked or shipped)
+
+| Component | Use | License |
+|---|---|---|
+| onnx (Python) | Writes `tests/data/models/affine.onnx` (`tools/models/make_test_models.py`) | Apache-2.0 |
+| coremltools | Writes `tests/data/models/affine.mlmodel` | BSD-3-Clause |
 
 ## Bundled in `legacy/` and not built
 

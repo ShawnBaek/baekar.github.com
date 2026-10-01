@@ -1,6 +1,6 @@
 # BaekAR dataset format (version 1)
 
-A BaekAR dataset is a folder that the engine replays with `--replay DIR` and that `baekar_eval` scores. `--record DIR` writes it. The iPhone capture app (roadmap F3) writes the same layout. Readers are in `src/adapters/frame_source/DatasetSources.cpp`.
+A BaekAR dataset is a folder that the engine replays with `--replay DIR` and that `baekar_eval` scores. `--record DIR` writes it. The iPhone capture app (`ios/`, roadmap F3) writes the same layout through the Swift `DatasetWriter` (`ios/Sources/BaekARDataset`), with JPEG colour, LiDAR depth, `pose_source: "arkit"` and 200 Hz IMU (specific force: about +9.81 m/s² upward at rest). Readers are in `src/adapters/frame_source/DatasetSources.cpp`.
 
 ```text
 DIR/
