@@ -18,6 +18,15 @@ public struct CaptureStatus: Equatable {
     public var hasDepth = false
     public var tracking = "not started"
     public var directory: URL?
+
+    public init() {}
+
+    init(isRecording: Bool, hasDepth: Bool, tracking: String, directory: URL?) {
+        self.isRecording = isRecording
+        self.hasDepth = hasDepth
+        self.tracking = tracking
+        self.directory = directory
+    }
 }
 
 public final class CaptureRecorder: NSObject, ARSessionDelegate {
