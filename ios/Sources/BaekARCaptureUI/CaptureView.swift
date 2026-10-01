@@ -5,7 +5,7 @@
 
 #if canImport(ARKit) && os(iOS)
 import ARKit
-import BaekARCapture
+import BaekARRecorder
 import SceneKit
 import SwiftUI
 

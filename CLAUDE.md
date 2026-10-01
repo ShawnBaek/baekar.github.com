@@ -44,7 +44,7 @@ Ports and adapters; see `docs/architecture/README.md` and `docs/architecture/des
 | Application | `src/application/` | `Application` facade (frame loop), `AppConfig`, `InteractionController`, ports in `ports/`. C++17, `-Werror`. |
 | Evaluation | `src/evaluation/`, `apps/baekar_eval/` | Trajectory I/O, ATE/RPE (Umeyama), marker benchmark, reports. No GL. `-Werror`. |
 | Inference | `src/adapters/inference/`, `src/platform/macos/CoreMlInferenceEngine.mm` | `IInferenceEngine`: ONNX via OpenCV DNN (all platforms), Core ML (Apple). `openInferenceModel()` picks by extension. Test models: `tools/models/make_test_models.py`. |
-| iPhone capture | `ios/` | Swift package: `BaekARDataset` (Foundation only, builds and tests on Linux), `BaekARCapture` (ARKit), `BaekARCaptureUI`; `ios/App` is the Xcode app. `swift test` in `ios/`. |
+| iPhone capture | `ios/` | Swift package: `BaekARDataset` (Foundation only, builds and tests on Linux), `BaekARRecorder` (ARKit), `BaekARCaptureUI`; `ios/App` is the Xcode app. `swift test` in `ios/`. |
 | Adapters | `src/adapters/` | Frame sources, trackers, pose, hand, renderer, scene, GLFW window. |
 | macOS | `src/platform/macos/` | AVFoundation camera (Continuity Camera), camera menu + permission, ScreenCaptureKit. Only target that links Apple frameworks. |
 | 2012 engine | `legacy/MarkerlessAR/` | C++14 `baekar_legacy`. Reached only through `legacy/bridge/` wrappers. |
