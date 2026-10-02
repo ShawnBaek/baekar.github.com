@@ -19,10 +19,17 @@ brew install cmake opencv@4 glfw glm freeglut assimp
 sudo apt-get install cmake libopencv-dev libglfw3-dev freeglut3-dev libglm-dev libassimp-dev
 
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel
-ctest --test-dir build --repeat until-pass:3
+ctest --test-dir build
 open build/BaekAR.app                                   # macOS camera
 ./build/BaekAR --simulate-marker yejin.jpg --frames 300 --screenshot out.png   # headless check
+./build/baekar_eval markers --marker assets/image/yejin.jpg --frames 300 --out report/   # F2 benchmark
+./build/baekar_eval trajectory --estimate est.txt --reference gt.txt --sim3 --out report/  # ATE/RPE (TUM format)
+./build/baekar_eval model tests/data/models/affine.onnx   # inference port: inputs, outputs, timing
+(cd ios && swift test)                                     # Swift dataset writer (macOS or Linux)
+xcodebuild -project ios/App/BaekARCapture.xcodeproj -scheme BaekARCapture -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
+
+Proof videos for roadmap milestones: `scripts/record_proof.sh build <milestone>` writes `docs/progress/<milestone>/` (full-quality MP4, 10-second full-resolution WebP preview for the README, results). Keep full quality; do not downscale. Add an entry to the README progress log for each milestone.
 
 First launch triggers macOS camera permission. Reset with `tccutil reset Camera com.baekar.engine`. Run `BaekAR --help` for all flags (`--camera`, `--marker`, `--replay`, `--record`, `--tracker`, `--no-hand`, `--interactive`, `--window-capture`).
 
@@ -35,6 +42,9 @@ Ports and adapters; see `docs/architecture/README.md` and `docs/architecture/des
 | Composition root | `apps/baekar/main.cpp` | The only place that names concrete adapters. |
 | Core | `src/core/` | `Frame`, `MarkerObservation`, `Pose`, `Mat4` (2012 D3DX layout), `HandState`. |
 | Application | `src/application/` | `Application` facade (frame loop), `AppConfig`, `InteractionController`, ports in `ports/`. C++17, `-Werror`. |
+| Evaluation | `src/evaluation/`, `apps/baekar_eval/` | Trajectory I/O, ATE/RPE (Umeyama), marker benchmark, reports. No GL. `-Werror`. |
+| Inference | `src/adapters/inference/`, `src/platform/macos/CoreMlInferenceEngine.mm` | `IInferenceEngine`: ONNX via OpenCV DNN (all platforms), Core ML (Apple). `openInferenceModel()` picks by extension. Test models: `tools/models/make_test_models.py`. |
+| iPhone capture | `ios/` | Swift package: `BaekARDataset` (Foundation only, builds and tests on Linux), `BaekARRecorder` (ARKit), `BaekARCaptureUI`; `ios/App` is the Xcode app. `swift test` in `ios/`. |
 | Adapters | `src/adapters/` | Frame sources, trackers, pose, hand, renderer, scene, GLFW window. |
 | macOS | `src/platform/macos/` | AVFoundation camera (Continuity Camera), camera menu + permission, ScreenCaptureKit. Only target that links Apple frameworks. |
 | 2012 engine | `legacy/MarkerlessAR/` | C++14 `baekar_legacy`. Reached only through `legacy/bridge/` wrappers. |
@@ -69,6 +79,8 @@ The 2012 vision pipeline (`legacy/bridge/legacy_marker_tracker.cpp`): `cv::BRISK
 - **Keep the Linux build working.** `__APPLE__` guards only Apple-framework code; portable GL/POSIX code uses `#ifndef _WIN32`.
 - **`using namespace cv;`** causes `utils::` ambiguity vs `cv::utils::` — use `::utils::`.
 - **Korean code comments are intentional** — preserve them across edits.
+- **ARKit camera axes are not OpenCV's.** ARKit: x right, y up, z backward; the dataset stores OpenCV axes (y down, z forward). Convert with `Pose.fromARKit` (flips camera y and z), never by hand.
+- **Swift code outside `#if canImport(ARKit) && os(iOS)` must build on Linux.** No `simd`, ImageIO or UIKit in `BaekARDataset`.
 
 ## Sprint history
 
@@ -83,7 +95,10 @@ The 2012 vision pipeline (`legacy/bridge/legacy_marker_tracker.cpp`): `cv::BRISK
 | PRs #5–#30 | Continuity Camera, camera menu, ScreenCaptureKit window texture, Assimp `.X` meshes, matching tuning | Done |
 | PRs #31–#34 | Merge to master, multi-marker simulation, synchronized tracking, architecture baseline | Done |
 | Foundation 2–7 | C++17 boundary + CI, application facade, frame sources, tracking/pose/hand/render/scene ports, folder layout | Done |
-| Pending | HandyAR detection reliability on current cameras | Open |
+| F1 | Apache-2.0, GPL BRISK/AGAST out of the build, OpenCV 5 ADR | Done |
+| F2 | Sensor bundle, TUM/EuRoC/BaekAR datasets, `baekar_eval`, ATE/RPE | Done (public datasets need network access) |
+| F3 | Inference port (OpenCV DNN / Core ML), Swift dataset writer, ARKit capture app | Done (device recording needs an iPhone) |
+| Pending | HandyAR detection reliability on current cameras | Replaced by roadmap H (learned hand tracking) |
 | Pending | Metal renderer as a second `IRenderer` | Planned |
 | Pending | OpenCV 5 (remove the C API from the 2012 code) | Planned |
 

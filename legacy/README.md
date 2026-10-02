@@ -29,4 +29,4 @@ Checked from the file headers before naming this folder (architecture rule 6). "
 | `MarkerlessAR/3dobjects/bunny/` | Stanford bunny data | Unknown |
 | Other `MarkerlessAR/*` | BaekAR (Sungwook Baek and team, 2012) | Project owner |
 
-**GPL note.** The engine uses OpenCV's `cv::BRISK`, but `SungwookFeature.cpp` still includes the bundled `brisk/brisk.h`, so the bundled BRISK/AGAST objects are linked into the `BaekAR` binary. A binary distributed that way is subject to GPL-3.0. Removing that include (and the two source lists from `CMakeLists.txt`) would drop them; that is a license decision for the project owner and is not done here.
+**GPL note.** The bundled BRISK and AGAST, and `SungwookFeature.cpp` (which carries BRISK's GPL header), are no longer built. The engine uses OpenCV's `cv::BRISK`, and the three helpers the tracker needed are rewritten in `legacy/bridge/marker_geometry.cpp`. The project license and third-party list are in `LICENSE` and `THIRD_PARTY.md`.

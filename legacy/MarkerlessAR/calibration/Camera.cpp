@@ -672,26 +672,8 @@ D3DXMATRIXA16* CCamera::D3DXMakeViewMatrix(D3DXMATRIXA16* pOut)
 	//D3DXMatrixMultiply(pOut,pOut,wonjo_dx::MakeScaleMatrix(-1,-1,1));
 
 	//파일에 로그 찍어!!
-	{
-		FILE* fp;
-		fp = fopen("viewlog.txt","a+t");
-		if(fp)
-		{
-			fprintf(fp,"----------------------------------\nMatrix is \n");
-			for(int i = 0 ; i < 4 ; ++i)
-			{
-				for(int j = 0 ; j < 4 ; ++j)
-				{
-					fprintf(fp,"%f\t",matView[i*4+j]);
-				}
-				fprintf(fp,"\n");
-			}
-			fprintf(fp,"with camera position : %f\t%f\t%f\n", eye.x, eye.y, eye.z );
-			fprintf(fp,"with camera view direction : %f\t%f\t%f\n", LookAt.x, LookAt.y, LookAt.z );
-			fprintf(fp,"with camera up : %f\t%f\t%f\n", up.x, up.y, up.z );
-			fclose(fp);
-		}
-	}
+	// The 2012 code appended this matrix to viewlog.txt every frame (the file
+	// reached 124 MB); logging removed, the matrix is unchanged.
 	return pOut;
 }
 //~120325 cwj

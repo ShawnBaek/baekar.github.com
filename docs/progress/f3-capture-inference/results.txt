@@ -1,0 +1,38 @@
+BaekAR proof: f3-capture-inference (f9b609f, 2026-10-01)
+
+$ ctest
+ 1/12 Test  #1: multi_marker_tracking_1 ..........   Passed    3.44 sec
+ 2/12 Test  #2: multi_marker_tracking_3 ..........   Passed    1.51 sec
+ 3/12 Test  #3: multi_marker_tracking_10 .........   Passed    3.93 sec
+ 4/12 Test  #4: app_config .......................   Passed    0.00 sec
+ 5/12 Test  #5: interaction_controller ...........   Passed    0.00 sec
+ 6/12 Test  #6: frame_source_record_replay .......   Passed    0.26 sec
+ 7/12 Test  #7: trajectory_metrics ...............   Passed    0.01 sec
+ 8/12 Test  #8: dataset_sources ..................   Passed    0.19 sec
+ 9/12 Test  #9: inference ........................   Passed    0.01 sec
+10/12 Test #10: marker_benchmark .................   Passed    9.36 sec
+11/12 Test #11: legacy_tracking_and_pose .........   Passed    2.92 sec
+12/12 Test #12: marker_geometry ..................   Passed    0.05 sec
+100% tests passed, 0 tests failed out of 12
+
+Scenarios (ESC to quit; exit code 0 means a clean shutdown):
+  1 marker - legacy tracker, CCamera pose, HandyAR   exit=0  rendered 1076 frame(s); marker found in 1075, hand pose in 0.
+  10 markers - synchronized multi-marker tracker     exit=0  rendered 361 frame(s); marker found in 313, hand pose in 0.
+  Replay of a recorded BaekAR dataset (--replay)     exit=0  rendered 831 frame(s); marker found in 830, hand pose in 0.
+
+$ baekar_eval model tests/data/models/affine.onnx
+OpenCV DNN 4.6.0 (CPU): tests/data/models/affine.onnx
+  input  image                1x3x4x4
+  output scaled               1x3x4x4
+  output channel_sum          1x1x4x4
+  20 runs: RMSE 0.016 ms, mean 0.010, median 0.005, p95 0.013, max 0.063 (n=20)
+
+$ baekar_eval model tests/data/models/affine.mlmodel   (Linux)
+baekar_eval: Core ML models need macOS or iOS; use the .onnx export on this platform
+
+GitHub Actions (run 20, commit f9b609f):
+  linux   ctest 12/12; swift test (Linux) then baekar_eval reads the Swift-written dataset:
+          "5 frames, 5 with depth, 4 with pose, 50 IMU samples"
+  macos   ctest 12/12 incl. inference (Core ML loads affine.mlmodel and matches 2x+1 and the
+          channel sum within 0.02); swift test 10/10; same dataset read-back line
+  ios     xcodebuild BaekARCapture for generic/platform=iOS (unsigned): BUILD SUCCEEDED

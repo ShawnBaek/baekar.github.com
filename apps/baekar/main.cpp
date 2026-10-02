@@ -1,5 +1,6 @@
 // Composition root: the only place that names concrete adapter types.
 
+#include "adapters/frame_source/DatasetSources.h"
 #include "adapters/frame_source/FrameSources.h"
 #include "adapters/hand/HandTrackers.h"
 #include "adapters/pose/LegacyCameraPoseEstimator.h"
@@ -130,7 +131,14 @@ FrameSourceSetup openFrameSource(const baekar::AppConfig& config) {
             markers.push_back(resolveMarkerPath(marker));
         setup.source = std::make_unique<baekar::SyntheticFrameSource>(markers);
     } else if (!config.replayDirectory.empty()) {
-        setup.source = std::make_unique<baekar::ImageSequenceFrameSource>(config.replayDirectory);
+        // BaekAR, TUM RGB-D, EuRoC or a plain image folder, resized to the
+        // engine's 640x480 with intrinsics scaled to match.
+        auto dataset = baekar::openDatasetDirectory(config.replayDirectory, /*loop=*/true);
+        if (!dataset) {
+            std::fprintf(stderr, "BaekAR: %s is not a dataset folder\n", config.replayDirectory.c_str());
+            return setup;
+        }
+        setup.source = std::make_unique<baekar::EngineSizeFrameSource>(std::move(dataset));
     } else {
         isCamera = true;
 #ifdef __APPLE__
@@ -145,6 +153,7 @@ FrameSourceSetup openFrameSource(const baekar::AppConfig& config) {
 #endif
     }
 
+    if (!setup.source) return setup;
     if (!config.recordDirectory.empty()) {
         setup.source = std::make_unique<baekar::RecordingFrameSource>(std::move(setup.source),
                                                                       config.recordDirectory);

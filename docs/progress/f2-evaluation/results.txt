@@ -1,0 +1,20 @@
+BaekAR proof: f2-evaluation (6cd40fd, 2026-09-30)
+
+$ ctest
+ 1/11 Test  #1: multi_marker_tracking_1 ..........   Passed    0.79 sec
+ 2/11 Test  #2: multi_marker_tracking_3 ..........   Passed    1.72 sec
+ 3/11 Test  #3: multi_marker_tracking_10 .........   Passed    4.96 sec
+ 4/11 Test  #4: app_config .......................   Passed    0.00 sec
+ 5/11 Test  #5: interaction_controller ...........   Passed    0.00 sec
+ 6/11 Test  #6: frame_source_record_replay .......   Passed    0.29 sec
+ 7/11 Test  #7: trajectory_metrics ...............   Passed    0.01 sec
+ 8/11 Test  #8: dataset_sources ..................   Passed    0.27 sec
+ 9/11 Test  #9: marker_benchmark .................   Passed   11.06 sec
+10/11 Test #10: legacy_tracking_and_pose .........   Passed    2.91 sec
+11/11 Test #11: marker_geometry ..................   Passed    0.05 sec
+100% tests passed, 0 tests failed out of 11
+
+Scenarios (ESC to quit; exit code 0 means a clean shutdown):
+  1 marker - legacy tracker, CCamera pose, HandyAR   exit=0  rendered 769 frame(s); marker found in 768, hand pose in 0.
+  10 markers - synchronized multi-marker tracker     exit=0  rendered 284 frame(s); marker found in 262, hand pose in 0.
+  Replay of a recorded BaekAR dataset (--record / --replay) exit=0  rendered 691 frame(s); marker found in 690, hand pose in 0.

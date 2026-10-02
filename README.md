@@ -68,6 +68,8 @@ Use distinct marker images. Visually similar images are rejected because their i
 
 ## Plan
 
+The PR-by-PR plan (groundwork, hand tracking, one PR per year) and the license policy are in [`docs/roadmap.md`](docs/roadmap.md).
+
 ### Step 1 — Foundation and refactoring
 
 Continue from the merged macOS version. Verify the current behavior first, and then refactor it with smaller PRs.
@@ -137,10 +139,70 @@ Every yearly PR will include:
 - Comparison with the previous version on the common evaluation set
 - macOS verification
 
+## Progress log
+
+Each milestone of [the roadmap](docs/roadmap.md) records a proof run on Linux (headless Xvfb, synthetic camera) with `scripts/record_proof.sh`. The preview is the first 10 seconds at full resolution; the full MP4 (every scenario, full quality) and the test/run summary are in the milestone folder under [`docs/progress/`](docs/progress/).
+
+### Foundation stages 2–7 (2026-09-29, PR #35)
+
+<img src="docs/progress/foundation/preview.webp" width="640" alt="Foundation proof run">
+
+- Ports-and-adapters layout; `EngineMain.cpp` split into tracker, pose, hand, renderer and scene adapters.
+- 1, 3 and 10 simulated markers and a recorded-frame replay: markers found in 1209/1210, 769/773, 333/356 and 952/953 frames. All four runs quit cleanly.
+- [Video](docs/progress/foundation/proof.mp4) · [results](docs/progress/foundation/results.txt)
+
+### F1 cleanup: license and GPL removal (2026-09-30)
+
+<img src="docs/progress/f1-cleanup/preview.webp" width="640" alt="F1 proof run">
+
+- Apache-2.0 (`LICENSE`, `NOTICE`, `THIRD_PARTY.md`). The bundled GPL-3.0 BRISK/AGAST and `SungwookFeature.cpp` are out of the build and out of the binary. The three helpers the tracker used were rewritten; they give identical results on all 20 marker images.
+- `viewlog.txt` is no longer appended every frame. OpenCV 5 policy: [ADR 0003](docs/architecture/adr/0003-opencv-5.md).
+- The multi-marker test now waits for each frame instead of sleeping 12 ms, so it passes on slower machines. 8/8 tests pass.
+- Observed: in the real-time 10-marker run on this slower machine, some outlines drift off their markers (for example `yejin.jpg`, `cola.jpg`, `hyojoo.jpg`) while frames are skipped. F1 did not change that tracker; F2 will measure it.
+- [Video](docs/progress/f1-cleanup/proof.mp4) · [results](docs/progress/f1-cleanup/results.txt)
+
+### F2 evaluation: datasets, ATE/RPE, benchmark reports (2026-09-30)
+
+<img src="docs/progress/f2-evaluation/preview.webp" width="640" alt="F2 proof run">
+
+- Frames now carry timestamp, depth, intrinsics, IMU and a reference pose. Readers for TUM RGB-D, EuRoC and the BaekAR format ([spec](docs/dataset-format.md)); `--record` writes the BaekAR format and `--replay` detects the layout. The proof's third scenario replays a recorded run: marker found in 690/691 frames.
+- `baekar_eval` scores trackers against the synthetic camera, which knows where every marker and the camera are. Camera pose comes from PnP on the tracked corners, and Sim(3) alignment recovers the unknown marker size. With exact corners, the ATE is 5 µm.
+
+  | Run (300 frames) | Found | Corner error, median | Delay | Camera path ATE (RMSE) |
+  |---|---|---|---|---|
+  | 1 marker, every frame | 100 % | 0.84 px | 29 ms | 0.13 m |
+  | 1 marker, real time (30 fps) | 100 % | 2.1 px on screen, 0.84 px on its frame | 1 frame | 0.13 m |
+  | 10 markers, every frame | 99.8 % | 4.0 px | 6 ms (p95 173 ms) | 1.32 m |
+  | 10 markers, real time | 100 % | 6.2 px on screen, 4.0 px on its frame | 2.5 frames (max 12) | 0.33 m |
+
+  <img src="docs/progress/f2-evaluation/reports/1-marker-every-frame/trajectory/trajectory.png" width="480" alt="Camera path from one marker">
+
+- Findings:
+  - One-marker poses jitter where planar PnP flips between two poses at near-frontal views.
+  - Multi-marker outlines drift when frames are skipped. The ten-marker detector processes about one frame in three on this 4-core container, and its found rate in real time swung from 0.5 % to 100 % between runs with machine load. That is why the tests check real-time runs only for consistency.
+  - The ten-marker camera path is poor because marker 0 is only about 100 px tall. The multi-marker tracker draws outlines only and does not drive the pose.
+- TUM RGB-D / EuRoC runs are pending: this environment's network policy blocks their hosts. The readers are tested on generated fixtures in both layouts.
+- 11/11 tests pass (GCC and Clang). [Video](docs/progress/f2-evaluation/proof.mp4) · [results](docs/progress/f2-evaluation/results.txt) · [reports](docs/progress/f2-evaluation/reports/)
+
+### F3 capture and inference: iPhone app, Core ML / ONNX port (2026-10-01)
+
+<img src="docs/progress/f3-capture-inference/preview.webp" width="640" alt="F3 proof run">
+
+- **Inference port** (`IInferenceEngine`): Core ML on macOS/iOS and ONNX through OpenCV DNN everywhere else, with no new dependency. `baekar_eval model M` prints a model's inputs and outputs and times it.
+  - On macOS CI, the Core ML and ONNX versions of the test model both give the expected outputs. On Linux, a Core ML model fails with a clear message.
+  - Learned trackers (H, Y2018+) will plug in here.
+- **iPhone capture app** (`ios/`): records ARKit colour (JPEG), LiDAR depth (16-bit PNG, mm), intrinsics, the ARKit camera pose (converted to OpenCV axes) and 200 Hz IMU into the BaekAR dataset format. Recordings show up in the Files app; copy a folder to a Mac and run `BaekAR --replay <folder>`.
+- **What CI checks:**
+  - The Swift dataset library builds and passes its tests on Linux and macOS.
+  - The C++ engine reads the dataset those tests write ("5 frames, 5 with depth, 4 with pose, 50 IMU samples").
+  - The app compiles for iOS devices without code signing.
+- **Not yet done:** a recording on a real iPhone, which needs the owner's device. The proof video shows the engine scenarios, since the app cannot run here.
+- 12/12 C++ tests, 10/10 Swift tests. [Video](docs/progress/f3-capture-inference/proof.mp4) · [results](docs/progress/f3-capture-inference/results.txt)
+
 ## Master's thesis
 
 [Master Thesis — Sungwook Baek — BaekAR](Master_Thesis_Yonsei_University_Computer_Science_Sungwook_Baek_BaekAR.pdf)
 
 ## License
 
-License and asset review will be part of the foundation work. Third-party source and assets will keep their original attribution and license information.
+BaekAR is licensed under [Apache-2.0](LICENSE). Third-party code, data and models keep their own licenses; they are listed in [THIRD_PARTY.md](THIRD_PARTY.md). Only permissive dependencies go into what BaekAR builds (see the license policy in [docs/roadmap.md](docs/roadmap.md#license-policy)).

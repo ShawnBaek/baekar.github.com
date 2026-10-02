@@ -4,6 +4,7 @@
 // Portable IFrameSource strategies. The macOS AVFoundation camera lives in
 // src/platform/macos because it needs Apple frameworks.
 
+#include "adapters/frame_source/DatasetSources.h"
 #include "application/ports/IFrameSource.h"
 
 #include <opencv2/videoio.hpp>
@@ -82,8 +83,8 @@ private:
     std::uint64_t sequence_ = 0;
 };
 
-// Decorator: records every new frame of the wrapped source into a folder
-// that ImageSequenceFrameSource can replay.
+// Decorator: records every new frame of the wrapped source as a BaekAR
+// dataset (docs/dataset-format.md) that --replay can play back.
 class RecordingFrameSource final : public IFrameSource {
 public:
     RecordingFrameSource(std::unique_ptr<IFrameSource> inner, std::string directory);
@@ -92,13 +93,14 @@ public:
     void close() override;
     std::string describe() const override;
     bool isLive() const override { return inner_->isLive(); }
-    std::size_t recordedFrames() const { return written_; }
+    std::size_t recordedFrames() const { return writer_.framesWritten(); }
 
 private:
     std::unique_ptr<IFrameSource> inner_;
     std::string directory_;
+    BaekarDatasetWriter writer_;
     std::uint64_t lastSequence_ = 0;
-    std::size_t written_ = 0;
+    bool closed_ = false;
 };
 
 }  // namespace baekar

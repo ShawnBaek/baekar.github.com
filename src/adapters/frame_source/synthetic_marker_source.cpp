@@ -98,13 +98,9 @@ bool SyntheticMarkerSource::NextFrame(cv::Mat& bgrFrame)
     }
 
     const double time = static_cast<double>(frameIndex_++) * 0.045;
-    const double focalLength = 0.90 * frameWidth_;
-
-    const cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) <<
-        focalLength, 0.0, frameWidth_ * 0.5,
-        0.0, focalLength, frameHeight_ * 0.5,
-        0.0, 0.0, 1.0);
+    const cv::Mat cameraMatrix(CameraMatrix());
     bgrFrame = background_.clone();
+    lastTruth_.assign(markerBgrs_.size(), SyntheticMarkerTruth());
 
     const std::size_t markerCount = markerBgrs_.size();
     const int columnCount = markerCount == 1 ? 1 : static_cast<int>(
@@ -159,6 +155,9 @@ bool SyntheticMarkerSource::NextFrame(cv::Mat& bgrFrame)
         };
         const cv::Mat transform = cv::getPerspectiveTransform(markerCorners,
                                                                projectedCorners);
+        lastTruth_[index].corners = projectedCorners;
+        lastTruth_[index].rvec = cv::Vec3d(rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2));
+        lastTruth_[index].tvec = cv::Vec3d(tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2));
 
         cv::Mat warpedMarker;
         cv::Mat sourceMask(marker.size(), CV_8UC1, cv::Scalar(255));
@@ -170,6 +169,14 @@ bool SyntheticMarkerSource::NextFrame(cv::Mat& bgrFrame)
         warpedMarker.copyTo(bgrFrame, warpedMask);
     }
     return true;
+}
+
+cv::Matx33d SyntheticMarkerSource::CameraMatrix() const
+{
+    const double focalLength = 0.90 * frameWidth_;
+    return cv::Matx33d(focalLength, 0.0, frameWidth_ * 0.5,
+                       0.0, focalLength, frameHeight_ * 0.5,
+                       0.0, 0.0, 1.0);
 }
 
 bool SyntheticMarkerSource::IsInitialized() const

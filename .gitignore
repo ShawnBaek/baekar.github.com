@@ -21,6 +21,8 @@ Makefile
 .vscode/
 .idea/
 *.xcodeproj/
+# The iPhone capture app project is source, not CMake output.
+!ios/App/BaekARCapture.xcodeproj/
 *.xcworkspace/
 DerivedData/
 xcuserdata/
@@ -35,3 +37,4 @@ xcuserdata/
 
 # Environment
 .env*
+/data/
