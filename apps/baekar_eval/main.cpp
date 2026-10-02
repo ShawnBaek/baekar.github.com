@@ -6,15 +6,21 @@
 //                          [--max-diff S] [--delta N] --out DIR
 //   baekar_eval dataset DIR --out DIR
 //   baekar_eval model MODEL [--runs N]
+//   baekar_eval hands IMAGE|DIR [--frames N] --out DIR
 
 #include "adapters/frame_source/DatasetSources.h"
 #include "adapters/frame_source/FrameSources.h"
+#include "adapters/hand/LandmarkHandTracker.h"
 #include "adapters/inference/InferenceEngines.h"
 #include "adapters/tracking/MarkerTrackers.h"
 #include "evaluation/MarkerBenchmark.h"
 #include "evaluation/Metrics.h"
 #include "evaluation/Report.h"
 #include "evaluation/Trajectory.h"
+
+#ifdef __APPLE__
+#include "platform/macos/VisionHandLandmarkDetector.h"
+#endif
 
 #include <opencv2/imgcodecs.hpp>
 
@@ -41,7 +47,8 @@ int usage() {
                  "  baekar_eval trajectory --estimate FILE --reference FILE [--sim3]\n"
                  "                         [--max-diff SECONDS] [--delta N] --out DIR\n"
                  "  baekar_eval dataset DIR --out DIR\n"
-                 "  baekar_eval model MODEL [--runs N]   (.onnx; .mlmodel/.mlpackage/.mlmodelc on Apple)\n");
+                 "  baekar_eval model MODEL [--runs N]   (.onnx; .mlmodel/.mlpackage/.mlmodelc on Apple)\n"
+                 "  baekar_eval hands IMAGE|DIR [--frames N] --out DIR   (Apple Vision hand pose)\n");
     return 2;
 }
 
@@ -248,6 +255,95 @@ int runModel(const std::vector<std::string>& args) {
     return 0;
 }
 
+
+// Hand detection and pinch rate, with per-frame latency, over a still
+// image (repeated) or a recorded dataset. Frames are resized to the engine
+// size first, as in the app.
+int runHands(const std::vector<std::string>& args) {
+    std::string input, out;
+    int maxFrames = 0;
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "--frames" && i + 1 < args.size()) maxFrames = std::atoi(args[++i].c_str());
+        else if (args[i] == "--out" && i + 1 < args.size()) out = args[++i];
+        else if (input.empty()) input = args[i];
+        else return usage();
+    }
+    if (input.empty() || out.empty() || maxFrames < 0) return usage();
+#ifndef __APPLE__
+    std::fprintf(stderr, "baekar_eval: hands needs Apple Vision (macOS)\n");
+    return 1;
+#else
+    LandmarkHandTracker tracker(std::make_unique<VisionHandLandmarkDetector>());
+    std::unique_ptr<IFrameSource> source;
+    cv::Mat still;
+    if (fs::is_directory(input)) {
+        source = openDatasetDirectory(input, /*loop=*/false);
+        if (!source || !source->open()) {
+            std::fprintf(stderr, "baekar_eval: cannot open dataset %s\n", input.c_str());
+            return 1;
+        }
+    } else {
+        still = cv::imread(input);
+        if (still.empty()) {
+            std::fprintf(stderr, "baekar_eval: cannot read %s\n", input.c_str());
+            return 1;
+        }
+        if (maxFrames == 0) maxFrames = 30;
+    }
+
+    fs::create_directories(out);
+    std::ofstream csv(fs::path(out) / "hands.csv");
+    csv << "frame,timestamp,found,confidence,pinch,pinch_ratio,index_x,index_y,ms\n";
+    PinchGesture ratioOnly;  // for the ratio column; the tracker owns the real hysteresis
+    std::vector<double> times;
+    std::size_t frames = 0, found = 0, pinched = 0;
+    cv::Mat firstHand;
+    Frame frame;
+    while (maxFrames == 0 || static_cast<int>(frames) < maxFrames) {
+        if (source) {
+            if (!source->read(frame)) break;
+        } else {
+            frame.bgr = still;
+            ++frame.sequence;
+        }
+        frame.bgr = toEngineFrameSize(frame.bgr);
+        const auto start = std::chrono::steady_clock::now();
+        const HandState state = tracker.process(frame);
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+        if (frames > 0) times.push_back(ms);  // the first run loads the model
+        const HandLandmarks& hand = tracker.lastLandmarks();
+        found += state.handFound;
+        pinched += state.validPose;
+        if (state.handFound && firstHand.empty()) firstHand = tracker.backgroundImage(frame).clone();
+        csv << frames << "," << frame.timestampSeconds << "," << state.handFound << "," << hand.confidence << ","
+            << state.validPose << "," << ratioOnly.ratio(hand) << "," << state.indexFingertip.x << ","
+            << state.indexFingertip.y << "," << ms << "\n";
+        ++frames;
+    }
+    if (source) source->close();
+
+    const std::string name = source ? source->describe() : baseName(input);
+    const double foundRate = frames ? 100.0 * found / frames : 0.0;
+    const double pinchRate = frames ? 100.0 * pinched / frames : 0.0;
+    std::ofstream md(fs::path(out) / "report.md");
+    md << "# Hands: " << name << "\n\n";
+    md << "- Detector: " << tracker.detector().describe() << "; gesture: pinch\n";
+    md << "- Frames: " << frames << "\n";
+    md << "- Hand found: " << found << " (" << foundRate << " %)\n";
+    md << "- Pinch held: " << pinched << " (" << pinchRate << " %)\n";
+    md << "- Latency: " << formatStats(summarize(times), "ms") << "\n";
+    md << "- Per frame: [hands.csv](hands.csv)\n";
+    if (!firstHand.empty()) {
+        cv::imwrite((fs::path(out) / "first_hand.png").string(), firstHand);
+        md << "\n![first frame with a hand](first_hand.png)\n";
+    }
+    std::printf("%s: %zu frames, hand found in %zu (%.1f %%), pinch in %zu (%.1f %%)\n  latency: %s\n",
+                name.c_str(), frames, found, foundRate, pinched, pinchRate,
+                formatStats(summarize(times), "ms").c_str());
+    return frames > 0 ? 0 : 1;
+#endif
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -258,5 +354,6 @@ int main(int argc, char* argv[]) {
     if (command == "trajectory") return runTrajectory(args);
     if (command == "dataset") return runDataset(args);
     if (command == "model") return runModel(args);
+    if (command == "hands") return runHands(args);
     return usage();
 }

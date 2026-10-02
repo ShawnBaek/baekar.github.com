@@ -47,7 +47,8 @@ public:
 
     long renderedFrames() const { return renderedFrames_; }
     long framesWithMarker() const { return framesWithMarker_; }
-    long framesWithHandPose() const { return framesWithHandPose_; }
+    long framesWithHandPose() const { return framesWithHandPose_; }  // gesture held
+    long framesWithHand() const { return framesWithHand_; }          // hand visible
 
 private:
     bool startUp();
@@ -64,6 +65,7 @@ private:
     long renderedFrames_ = 0;
     long framesWithMarker_ = 0;
     long framesWithHandPose_ = 0;
+    long framesWithHand_ = 0;
 };
 
 }  // namespace baekar

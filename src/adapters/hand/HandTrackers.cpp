@@ -21,6 +21,8 @@ HandState HandyArHandTracker::process(const Frame& frame) {
     const legacy_hand::State state = tracker_->Process(frame.bgr, frame.tickCount);
     HandState hand;
     hand.validPose = state.validPose;
+    hand.handFound = state.validPose;  // HandyAR only reports a hand with all five fingertips
+    hand.hasPose3d = true;             // drawn every frame, as in 2012
     hand.indexFingertip = state.indexFingertip;
     hand.projection.m = state.projection;
     hand.view.m = state.view;

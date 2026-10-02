@@ -25,13 +25,14 @@ open build/BaekAR.app                                   # macOS camera
 ./build/baekar_eval markers --marker assets/image/yejin.jpg --frames 300 --out report/   # F2 benchmark
 ./build/baekar_eval trajectory --estimate est.txt --reference gt.txt --sim3 --out report/  # ATE/RPE (TUM format)
 ./build/baekar_eval model tests/data/models/affine.onnx   # inference port: inputs, outputs, timing
+./build/baekar_eval hands assets/image/hand.JPG --out report/   # hand found / pinch rate, latency (IMAGE or dataset DIR; macOS)
 (cd ios && swift test)                                     # Swift dataset writer (macOS or Linux)
 xcodebuild -project ios/App/BaekARCapture.xcodeproj -scheme BaekARCapture -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
 Proof videos for roadmap milestones: `scripts/record_proof.sh build <milestone>` writes `docs/progress/<milestone>/` (full-quality MP4, 10-second full-resolution WebP preview for the README, results). Keep full quality; do not downscale. Add an entry to the README progress log for each milestone.
 
-First launch triggers macOS camera permission. Reset with `tccutil reset Camera com.baekar.engine`. Run `BaekAR --help` for all flags (`--camera`, `--marker`, `--replay`, `--record`, `--tracker`, `--no-hand`, `--interactive`, `--window-capture`).
+First launch triggers macOS camera permission. Reset with `tccutil reset Camera com.baekar.engine`. Run `BaekAR --help` for all flags (`--camera`, `--marker`, `--replay`, `--record`, `--tracker`, `--hand auto|vision|handyar|off`, `--interactive`, `--window-capture`).
 
 ## Architecture
 
@@ -45,8 +46,9 @@ Ports and adapters; see `docs/architecture/README.md` and `docs/architecture/des
 | Evaluation | `src/evaluation/`, `apps/baekar_eval/` | Trajectory I/O, ATE/RPE (Umeyama), marker benchmark, reports. No GL. `-Werror`. |
 | Inference | `src/adapters/inference/`, `src/platform/macos/CoreMlInferenceEngine.mm` | `IInferenceEngine`: ONNX via OpenCV DNN (all platforms), Core ML (Apple). `openInferenceModel()` picks by extension. Test models: `tools/models/make_test_models.py`. |
 | iPhone capture | `ios/` | Swift package: `BaekARDataset` (Foundation only, builds and tests on Linux), `BaekARRecorder` (ARKit), `BaekARCaptureUI`; `ios/App` is the Xcode app. `swift test` in `ios/`. |
+| Hand | `src/adapters/hand/`, `src/platform/macos/VisionHandLandmarkDetector.mm` | `LandmarkHandTracker`: 21 joints from an `IHandLandmarkDetector` → pinch (hysteresis) = pick/drag, index tip = pointer. Apple Vision on macOS is the default; `HandyArHandTracker` is the 2012 baseline (`--hand handyar`). |
 | Adapters | `src/adapters/` | Frame sources, trackers, pose, hand, renderer, scene, GLFW window. |
-| macOS | `src/platform/macos/` | AVFoundation camera (Continuity Camera), camera menu + permission, ScreenCaptureKit. Only target that links Apple frameworks. |
+| macOS | `src/platform/macos/` | AVFoundation camera (Continuity Camera), camera menu + permission, ScreenCaptureKit, Core ML, Vision hand pose. Only target that links Apple frameworks. |
 | 2012 engine | `legacy/MarkerlessAR/` | C++14 `baekar_legacy`. Reached only through `legacy/bridge/` wrappers. |
 | Data | `assets/` | Symlinked next to the binary at build time. |
 
@@ -98,7 +100,7 @@ The 2012 vision pipeline (`legacy/bridge/legacy_marker_tracker.cpp`): `cv::BRISK
 | F1 | Apache-2.0, GPL BRISK/AGAST out of the build, OpenCV 5 ADR | Done |
 | F2 | Sensor bundle, TUM/EuRoC/BaekAR datasets, `baekar_eval`, ATE/RPE | Done (public datasets need network access) |
 | F3 | Inference port (OpenCV DNN / Core ML), Swift dataset writer, ARKit capture app | Done (device recording needs an iPhone) |
-| Pending | HandyAR detection reliability on current cameras | Replaced by roadmap H (learned hand tracking) |
+| H | Learned hand tracking: Apple Vision hand pose + pinch gesture (`--hand`) | In progress (live pick-and-drag check and MediaPipe on Linux remain) |
 | Pending | Metal renderer as a second `IRenderer` | Planned |
 | Pending | OpenCV 5 (remove the C API from the 2012 code) | Planned |
 

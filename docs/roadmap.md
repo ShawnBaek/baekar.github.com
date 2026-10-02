@@ -45,7 +45,7 @@ HandyAR's skin-color method finds no hand pose even on a clear, spread-hand phot
 
 | PR | Scope | Verified by |
 |---|---|---|
-| **H hand** | New `IHandTracker` implementations: Apple Vision hand pose (macOS/iOS, on-device), and MediaPipe Hands (Apache-2.0) through the F3 inference port on Linux. `InteractionController` keeps working unchanged. HandyAR stays as the comparison baseline. | Recorded hand sessions (F3), fingertip detection rate, pick-and-drag on the window plane |
+| **H hand** (Apple Vision done; MediaPipe in a follow-up PR) | `LandmarkHandTracker` turns 21 hand joints from an `IHandLandmarkDetector` into the pinch gesture: pinch to pick, hold to drag, with the index fingertip as the pointer. Apple Vision hand pose is the macOS detector and the default (`--hand auto`); `--hand handyar` keeps the 2012 baseline. `InteractionController` is unchanged. Follow-up: MediaPipe Hands (Apache-2.0) through the F3 inference port on Linux. | Thesis hand photo: Vision finds the hand in 100 of 100 frames (21 of 21 joints, 17 ms mean), HandyAR in 0. Pinch hysteresis unit tests. Still to do: recorded hand sessions and pick-and-drag on the window plane with a live camera. |
 
 ## Yearly PRs
 

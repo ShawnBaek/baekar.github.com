@@ -12,7 +12,7 @@ BaekAR is licensed under Apache-2.0 (`LICENSE`). Every dependency, bundled sourc
 | OpenGL | Legacy renderer | System API |
 | GLM | Header-only math | MIT |
 | Assimp (optional) | Loads the `.X` meshes | BSD-3-Clause |
-| Apple frameworks | AVFoundation, ScreenCaptureKit, Cocoa, Core ML (macOS); ARKit, CoreMotion, SwiftUI (iOS capture app) | System API |
+| Apple frameworks | AVFoundation, ScreenCaptureKit, Cocoa, Core ML, Vision hand pose (macOS); ARKit, CoreMotion, SwiftUI (iOS capture app) | System API |
 
 ## Development tools (not linked or shipped)
 

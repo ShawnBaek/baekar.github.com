@@ -20,7 +20,7 @@ apps/baekar/             executable and composition root
 src/core/                geometry, scene, and tracking value types
 src/application/         use cases, lifecycle, and ports
 src/adapters/            frame sources, trackers, pose, hand, renderer, scene, window
-src/platform/macos/      AVFoundation, ScreenCaptureKit, camera menu and permission
+src/platform/macos/      AVFoundation, ScreenCaptureKit, Vision, camera menu and permission
 legacy/MarkerlessAR/     the 2012 engine (C++14), layout unchanged
 legacy/bridge/           C++14 wrappers that expose 2012 classes through plain headers
 assets/                  runtime images, calibration, meshes and skin models
@@ -48,7 +48,8 @@ The patterns behind this layout are in [design.md](design.md). Provenance and li
 | `IFrameSource` | `AvFoundationFrameSource` (macOS), `OpenCvCameraFrameSource`, `SyntheticFrameSource`, `ImageSequenceFrameSource` (replay), `DummyFrameSource`, `RecordingFrameSource` (decorator) |
 | `IMarkerTracker` | `LegacySingleMarkerTracker` (2012 BRISK + NCC threads), `MultiMarkerTracker` |
 | `IPoseEstimator` | `LegacyCameraPoseEstimator` (2012 `CCamera`) |
-| `IHandTracker` | `HandyArHandTracker`, `DisabledHandTracker` |
+| `IHandTracker` | `LandmarkHandTracker` (pinch gesture over `IHandLandmarkDetector`), `HandyArHandTracker` (2012 baseline), `DisabledHandTracker` |
+| `IHandLandmarkDetector` | `VisionHandLandmarkDetector` (macOS, Apple Vision) |
 | `IRenderer` | `LegacyGlRenderer` (2012 `wonjo_dx` over OpenGL) |
 | `IScene` / `IWindowTextureSource` | `ContentsScene`; `ScreenCaptureWindowSource` (macOS) |
 | `IWindow` | `GlfwWindow` |
