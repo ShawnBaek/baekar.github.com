@@ -30,7 +30,10 @@ std::string usageText() {
         "  --tracker auto|legacy|multi\n"
         "                           marker tracker (auto: legacy for one marker,\n"
         "                           multi for several)\n"
-        "  --no-hand                disable HandyAR fingertip tracking\n"
+        "  --hand auto|vision|handyar|off\n"
+        "                           hand tracker (auto: Apple Vision pinch on macOS,\n"
+        "                           HandyAR fingertips elsewhere)\n"
+        "  --no-hand                same as --hand off\n"
         "  --interactive            ask for camera, marker and window on stdin\n"
         "  --window-capture         render a captured window on the marker (macOS)\n"
         "  --frames N               quit after N rendered frames\n"
@@ -88,8 +91,15 @@ ParseResult parseCommandLine(int argc, const char* const argv[]) {
             else if (value == "legacy") config.tracker = TrackerKind::Legacy;
             else if (value == "multi") config.tracker = TrackerKind::Multi;
             else return fail("--tracker needs auto, legacy or multi");
+        } else if (arg == "--hand") {
+            if (!needValue(value)) return fail("--hand needs auto, vision, handyar or off");
+            if (value == "auto") config.hand = HandKind::Auto;
+            else if (value == "vision") config.hand = HandKind::Vision;
+            else if (value == "handyar") config.hand = HandKind::HandyAr;
+            else if (value == "off") config.hand = HandKind::Off;
+            else return fail("--hand needs auto, vision, handyar or off");
         } else if (arg == "--no-hand") {
-            config.handTracking = false;
+            config.hand = HandKind::Off;
         } else if (arg == "--interactive") {
             config.interactive = true;
         } else if (arg == "--window-capture") {

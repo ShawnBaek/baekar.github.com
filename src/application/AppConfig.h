@@ -7,6 +7,8 @@
 namespace baekar {
 
 enum class TrackerKind { Auto, Legacy, Multi };
+// Auto: Apple Vision on macOS, HandyAR elsewhere.
+enum class HandKind { Auto, Vision, HandyAr, Off };
 
 // Every startup choice BaekAR makes. Replaces the stdin pickers and the
 // g_markerSimulation* / Filename[] globals that main() used to fill in.
@@ -17,7 +19,7 @@ struct AppConfig {
     std::string replayDirectory;                // non-empty: replay recorded frames
     std::string recordDirectory;                // non-empty: record every new frame
     TrackerKind tracker = TrackerKind::Auto;
-    bool handTracking = true;
+    HandKind hand = HandKind::Auto;
     bool interactive = false;    // run the stdin camera/marker/window pickers
     bool windowCapture = false;  // macOS ScreenCaptureKit window-as-texture
     long maxFrames = 0;          // 0: run until the window closes

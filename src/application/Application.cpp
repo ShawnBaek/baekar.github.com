@@ -61,7 +61,7 @@ void Application::renderFrame(const TrackingResult& tracking, const HandState& h
         renderer.drawMarkerAnchor(tracking.markers.front(), tracking.projection, tracking.pose);
         deps_.scene.render(tracking.projection, tracking.pose.view);
     }
-    if (deps_.handTracker.enabled()) renderer.drawHand(hand);
+    if (deps_.handTracker.enabled() && hand.hasPose3d) renderer.drawHand(hand);
     deps_.handTracker.finishFrame();
     renderer.endFrame();
 }
@@ -91,6 +91,7 @@ int Application::run() {
         bool anyFound = false;
         for (const MarkerObservation& marker : tracking.markers) anyFound = anyFound || marker.found;
         if (anyFound) ++framesWithMarker_;
+        if (hand.handFound) ++framesWithHand_;
         if (hand.validPose) ++framesWithHandPose_;
         ++renderedFrames_;
 
@@ -104,8 +105,8 @@ int Application::run() {
 
     shutDown();
     std::fprintf(stderr,
-                 "BaekAR: rendered %ld frame(s); marker found in %ld, hand pose in %ld.\n",
-                 renderedFrames_, framesWithMarker_, framesWithHandPose_);
+                 "BaekAR: rendered %ld frame(s); marker found in %ld, hand pose in %ld, hand seen in %ld.\n",
+                 renderedFrames_, framesWithMarker_, framesWithHandPose_, framesWithHand_);
     return exitCode;
 }
 

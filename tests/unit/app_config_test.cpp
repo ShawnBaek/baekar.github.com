@@ -31,7 +31,7 @@ int main() {
         const auto r = parse({});
         expect(r.ok && !r.showHelp, "no arguments are valid");
         expect(r.config.cameraIndex == -1, "default camera is platform default");
-        expect(r.config.handTracking, "hand tracking is on by default");
+        expect(r.config.hand == baekar::HandKind::Auto, "hand tracker defaults to auto");
         expect(!r.config.interactive, "pickers are off by default");
         expect(r.config.maxFrames == 0, "runs until closed by default");
         expect(r.config.tracker == baekar::TrackerKind::Auto, "tracker defaults to auto");
@@ -44,7 +44,7 @@ int main() {
         expect(r.config.usesSimulation(), "simulation detected");
         expect(r.config.maxFrames == 120, "frames parsed");
         expect(r.config.screenshotPath == "out.png", "screenshot parsed");
-        expect(!r.config.handTracking, "no-hand parsed");
+        expect(r.config.hand == baekar::HandKind::Off, "no-hand parsed");
     }
     {
         const auto r = parse({"--camera", "1", "--marker", "image/fish.jpg", "--tracker", "multi",
@@ -68,6 +68,11 @@ int main() {
     expect(!parse({"--frames", "12x"}).ok, "non-numeric frames rejected");
     expect(!parse({"--camera", "-2"}).ok, "negative camera rejected");
     expect(!parse({"--tracker", "fast"}).ok, "unknown tracker rejected");
+    expect(parse({"--hand", "vision"}).config.hand == baekar::HandKind::Vision, "vision hand tracker parsed");
+    expect(parse({"--hand", "handyar"}).config.hand == baekar::HandKind::HandyAr, "handyar hand tracker parsed");
+    expect(parse({"--hand", "off"}).config.hand == baekar::HandKind::Off, "hand off parsed");
+    expect(!parse({"--hand", "mediapipe"}).ok, "unknown hand tracker rejected");
+    expect(!parse({"--hand"}).ok, "hand without a value rejected");
     expect(!parse({"--bogus"}).ok, "unknown option rejected");
     expect(!parse({"--tracker", "legacy", "--simulate-marker", "a.jpg",
                    "--simulate-marker", "b.jpg"}).ok,

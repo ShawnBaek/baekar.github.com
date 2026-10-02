@@ -83,7 +83,7 @@ set(ENGINE_SOURCES
 )
 
 # macOS platform layer: AVFoundation capture, camera permission and menu,
-# ScreenCaptureKit window capture. Only this target links Apple frameworks.
+# ScreenCaptureKit window capture, Core ML, Vision hand pose. Only this target links Apple frameworks.
 if(APPLE)
     add_library(baekar_platform_macos STATIC
         src/platform/macos/macos_camera_auth.mm
@@ -93,6 +93,7 @@ if(APPLE)
         src/platform/macos/AvFoundationFrameSource.cpp
         src/platform/macos/ScreenCaptureWindowSource.cpp
         src/platform/macos/CoreMlInferenceEngine.mm
+        src/platform/macos/VisionHandLandmarkDetector.mm
     )
     # These .mm files capture Obj-C objects via __block; without ARC the
     # captures don't auto-retain and the autorelease pool drains them
@@ -102,6 +103,7 @@ if(APPLE)
         src/platform/macos/macos_av_capture.mm
         src/platform/macos/macos_camera_menu.mm
         src/platform/macos/CoreMlInferenceEngine.mm
+        src/platform/macos/VisionHandLandmarkDetector.mm
         PROPERTIES COMPILE_FLAGS "-fobjc-arc"
     )
     set_target_properties(baekar_platform_macos PROPERTIES
@@ -120,6 +122,7 @@ if(APPLE)
         "-framework CoreVideo"
         "-framework CoreGraphics"
         "-framework CoreML"
+        "-framework Vision"
         "-lobjc"
     )
 endif()
@@ -262,6 +265,7 @@ add_library(baekar_adapters STATIC
     src/adapters/tracking/MarkerTrackers.cpp
     src/adapters/pose/LegacyCameraPoseEstimator.cpp
     src/adapters/hand/HandTrackers.cpp
+    src/adapters/hand/LandmarkHandTracker.cpp
     src/adapters/render/LegacyGlRenderer.cpp
     src/adapters/scene/ContentsScene.cpp
 )
@@ -325,6 +329,22 @@ if(BUILD_TESTING)
     target_link_libraries(BaekARInteractionTests PRIVATE baekar_application)
     add_test(NAME interaction_controller COMMAND BaekARInteractionTests)
     set_tests_properties(interaction_controller PROPERTIES LABELS "unit")
+
+    add_executable(BaekARLandmarkHandTrackerTests tests/unit/landmark_hand_tracker_test.cpp)
+    baekar_use_modern_cpp(BaekARLandmarkHandTrackerTests)
+    target_link_libraries(BaekARLandmarkHandTrackerTests PRIVATE baekar_adapters)
+    add_test(NAME landmark_hand_tracker COMMAND BaekARLandmarkHandTrackerTests)
+    set_tests_properties(landmark_hand_tracker PROPERTIES LABELS "unit;hand")
+
+    if(APPLE)
+        add_executable(BaekARVisionHandTests tests/integration/vision_hand_test.cpp)
+        baekar_use_modern_cpp(BaekARVisionHandTests)
+        target_compile_definitions(BaekARVisionHandTests PRIVATE
+            BAEKAR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+        target_link_libraries(BaekARVisionHandTests PRIVATE baekar_adapters)
+        add_test(NAME vision_hand COMMAND BaekARVisionHandTests)
+        set_tests_properties(vision_hand PROPERTIES LABELS "integration;hand")
+    endif()
 
     add_executable(BaekARFrameSourceTests tests/integration/frame_source_test.cpp)
     baekar_use_modern_cpp(BaekARFrameSourceTests)

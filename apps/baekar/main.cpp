@@ -3,6 +3,7 @@
 #include "adapters/frame_source/DatasetSources.h"
 #include "adapters/frame_source/FrameSources.h"
 #include "adapters/hand/HandTrackers.h"
+#include "adapters/hand/LandmarkHandTracker.h"
 #include "adapters/pose/LegacyCameraPoseEstimator.h"
 #include "adapters/render/LegacyGlRenderer.h"
 #include "adapters/scene/ContentsScene.h"
@@ -14,6 +15,7 @@
 #ifdef __APPLE__
 #include "platform/macos/AvFoundationFrameSource.h"
 #include "platform/macos/ScreenCaptureWindowSource.h"
+#include "platform/macos/VisionHandLandmarkDetector.h"
 #endif
 
 #include <algorithm>
@@ -175,6 +177,32 @@ FrameSourceSetup openFrameSource(const baekar::AppConfig& config) {
     return setup;
 }
 
+// Learned hand pose (pinch) where the platform has it; HandyAR stays
+// selectable as the 2012 baseline.
+std::unique_ptr<baekar::IHandTracker> makeHandTracker(baekar::HandKind kind) {
+#ifdef __APPLE__
+    if (kind == baekar::HandKind::Auto) kind = baekar::HandKind::Vision;
+#else
+    if (kind == baekar::HandKind::Auto) kind = baekar::HandKind::HandyAr;
+#endif
+    switch (kind) {
+    case baekar::HandKind::Vision:
+#ifdef __APPLE__
+        return std::make_unique<baekar::LandmarkHandTracker>(std::make_unique<baekar::VisionHandLandmarkDetector>());
+#else
+        std::fprintf(stderr, "BaekAR: --hand vision needs macOS (Apple Vision).\n");
+        return nullptr;
+#endif
+    case baekar::HandKind::HandyAr:
+        return std::make_unique<baekar::HandyArHandTracker>("calibration/calibration.txt",
+                                                            "calibration/fingertip_320x240.dat");
+    case baekar::HandKind::Off:
+    case baekar::HandKind::Auto:
+        break;
+    }
+    return std::make_unique<baekar::DisabledHandTracker>();
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -207,12 +235,8 @@ int main(int argc, char* argv[]) {
     }
     std::unique_ptr<baekar::IMarkerTracker> tracker = makeMarkerTracker(parsed.config.tracker, markers.size());
     baekar::LegacyCameraPoseEstimator poseEstimator;
-    std::unique_ptr<baekar::IHandTracker> handTracker;
-    if (parsed.config.handTracking)
-        handTracker = std::make_unique<baekar::HandyArHandTracker>("calibration/calibration.txt",
-                                                                   "calibration/fingertip_320x240.dat");
-    else
-        handTracker = std::make_unique<baekar::DisabledHandTracker>();
+    std::unique_ptr<baekar::IHandTracker> handTracker = makeHandTracker(parsed.config.hand);
+    if (!handTracker) return 2;
     baekar::LegacyGlRenderer renderer(argc, argv);
     baekar::ContentsScene scene;
 
